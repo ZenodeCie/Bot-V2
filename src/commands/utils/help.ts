@@ -1,22 +1,14 @@
-import type { Client, Message } from "discord.js"
+import type { Client, Interaction, Message, User } from "discord.js"
 import {
   ActionRowBuilder,
-  ComponentType,
   EmbedBuilder,
   StringSelectMenuBuilder,
-  type StringSelectMenuInteraction,
 } from "discord.js"
-import { colors } from "../../config.js"
 import type { Command } from "../../types.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
 
 const HOME_VALUE = "__home__"
 const SELECT_ID = "help-category"
-const COLLECT_TIME = 120_000
-
-function accentColor(): `#${string}` {
-  return colors.prime ?? "#5865F2"
-}
 
 function formatPermission(permission: unknown): string {
   return typeof permission === "string" ? permission : String(permission)
@@ -26,7 +18,7 @@ function formatUsage(client: Client, command: Command): string {
   return `\`${client.prefix}${command.name}${command.usage ? ` ${command.usage}` : ""}\``
 }
 
-function buildHomeEmbed(client: Client, message: Message): EmbedBuilder {
+function buildHomeEmbed(client: Client, author: User): EmbedBuilder {
   const commands = [...client.commands.values()]
   const categories = [...new Set(commands.map((c) => c.category))]
 
@@ -44,7 +36,7 @@ function buildHomeEmbed(client: Client, message: Message): EmbedBuilder {
         `> *Sélectionnez une catégorie dans le menu ci-dessous,*\n` +
         `> *ou tapez \`${client.prefix}help <commande>\` pour voir le détail d'une commande.*\n\n`
     )
-    .setFooter({ text: message.author.tag, iconURL: message.author.displayAvatarURL() })
+    .setFooter({ text: author.tag, iconURL: author.displayAvatarURL() })
 }
 
 function buildCategoryEmbed(client: Client, category: string): EmbedBuilder {
@@ -108,14 +100,23 @@ function buildCategorySelect(client: Client): ActionRowBuilder<StringSelectMenuB
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)
 }
 
-async function handleCategorySelect(
-  client: Client,
-  message: Message,
-  interaction: StringSelectMenuInteraction
-): Promise<void> {
-  const value = interaction.values[0]
-  const embed = value === HOME_VALUE ? buildHomeEmbed(client, message) : buildCategoryEmbed(client, value)
-  await interaction.update({ embeds: [embed] })
+export async function handleInteraction(_client: Client, _interaction: Interaction): Promise<boolean> {
+  if (!_interaction.isStringSelectMenu()) return false
+  if (_interaction.customId !== SELECT_ID) return false
+
+  const author = _interaction.message?.interaction?.user
+  if (author && _interaction.user.id !== author.id) {
+    await _interaction.reply({
+      content: "> *Cette aide est réservée à son auteur.*",
+      ephemeral: true,
+    })
+    return true
+  }
+
+  const value = _interaction.values[0]
+  const embed = value === HOME_VALUE ? buildHomeEmbed(_client, _interaction.user) : buildCategoryEmbed(_client, value)
+  await _interaction.update({ embeds: [embed] })
+  return true
 }
 
 export default {
@@ -143,30 +144,6 @@ export default {
     }
 
     const row = buildCategorySelect(_client)
-    const reply = await _message.reply({ embeds: [buildHomeEmbed(_client, _message)], components: [row] })
-
-    const collector = reply.createMessageComponentCollector({
-      componentType: ComponentType.StringSelect,
-      time: COLLECT_TIME,
-    })
-
-    collector.on("collect", async (interaction) => {
-      if (interaction.customId !== SELECT_ID) return
-      if (interaction.user.id !== _message.author.id) {
-        return interaction.reply({
-          content: "> *Cette aide est réservée à son auteur.*",
-          ephemeral: true,
-        })
-      }
-      try {
-        await handleCategorySelect(_client, _message, interaction)
-      } catch (error) {
-        console.error("Erreur lors de la navigation dans l'aide :", error)
-      }
-    })
-
-    collector.on("end", () => {
-      void reply.edit({ components: [] }).catch(() => undefined)
-    })
+    await _message.reply({ embeds: [buildHomeEmbed(_client, _message.author)], components: [row] })
   },
 }

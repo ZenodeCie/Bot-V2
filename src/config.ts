@@ -13,15 +13,17 @@ if (!mongodbUri) {
   process.exit(1)
 }
 
-export default {
-  token,
-  mongodbUri,
-  prefix: ".",
-}
-
 export const colors: Record<string, `#${string}` | null> = {
   red: "#E82C20",
   yel: "#F4E00B",
   orng: "#F47C0B",
   prime: null,
 };
+
+
+export default {
+  token,
+  mongodbUri,
+  prefix: ".",
+  colors: colors
+}

@@ -2,6 +2,7 @@ import { Client, Collection, GatewayIntentBits, Partials } from "discord.js"
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import config from "./config.js"
+import initData from "./utils/initData.js"
 import mongoClient, { connectMongo } from "./utils/mongoClient.js"
 
 const client = new Client({
@@ -15,6 +16,7 @@ const client = new Client({
 
 client.prefix = config.prefix
 client.commands = new Collection()
+client.interactions = new Collection()
 client.db = mongoClient
 
 client.once("ready", async () => {
@@ -33,7 +35,16 @@ async function loadCommands(dir = join(import.meta.dirname, "commands")) {
 
     if (!entry.endsWith(".js")) continue
     const command = await import(fullPath)
-    client.commands.set(command.default.name, command.default)
+    if (!command.default) continue
+    try {
+      client.commands.set(command.default.name, command.default)
+      console.log(`Command ${command.default.name} loaded`)
+      if (typeof command.handleInteraction === "function") {
+        client.interactions.set(command.default.name, command.handleInteraction)
+      }
+    } catch (err) {
+      console.log(`Failed to load command ${command.default.name}: ${err}`)
+    }
   }
 }
 
@@ -42,13 +53,20 @@ async function loadEvents() {
   for (const file of files) {
     if (!file.endsWith(".js")) continue
     const { default: event } = await import(`./events/${file}`)
-    client.on(event.name, event.execute.bind(null, client))
+    if (!event) continue
+    try {
+      client.on(event.name, event.execute.bind(null, client))
+      console.log(`Event ${event.name} loaded`)
+    } catch (err) {
+      console.log(`Failed to load event ${event.name}: ${err}`)
+    }
   }
 }
 
 async function start() {
   await connectMongo()
   console.log("Connected to MongoDB.")
+  await initData()
   await loadCommands()
   await loadEvents()
   await client.login(config.token)

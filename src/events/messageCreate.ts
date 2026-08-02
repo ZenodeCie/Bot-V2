@@ -1,13 +1,20 @@
 import type { Client, Message } from "discord.js"
+import config from "../config.js"
 import buildErrorEmbed from "../utils/errorEmbed.js"
+import { Guild } from "../utils/initData.js"
 
 export default {
   name: "messageCreate",
   async execute(client: Client, message: Message) {
     if (message.author.bot) return
-    if (!message.content.startsWith(client.prefix)) return
 
-    const args = message.content.slice(client.prefix.length).trim().split(/ +/)
+    const prefix = message.guild
+      ? (await Guild.findOne({ guildId: message.guild.id }).select("prefix").lean())?.prefix ?? config.prefix
+      : config.prefix
+
+    if (!message.content.startsWith(prefix)) return
+
+    const args = message.content.slice(prefix.length).trim().split(/ +/)
     const commandName = args.shift()?.toLowerCase()
     if (!commandName) return
 
