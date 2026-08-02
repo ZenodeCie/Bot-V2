@@ -1,13 +1,21 @@
 import "dotenv/config"
 
 const token = process.env.BOT_TOKEN
+const mongodbUri = process.env.MONGODB_URI
+
 if (!token) {
   console.error("BOT_TOKEN missing from environment variables.")
   process.exit(1)
 }
 
+if (!mongodbUri) {
+  console.error("MONGODB_URI missing from environment variables.")
+  process.exit(1)
+}
+
 export default {
   token,
+  mongodbUri,
   prefix: ".",
 }
 

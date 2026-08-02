@@ -1,6 +1,6 @@
 {
-  "name": "djsjkj-fodjs",
-  "version": "1.0.0",
+  "name": "zenodebot-v2",
+  "version": "0.1.1",
   "description": "",
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "discord.js": "^14.27.0",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "mongoose": "^9.9.1"
   }
 }

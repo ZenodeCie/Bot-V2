@@ -1,4 +1,5 @@
 import { Client, Collection, GatewayIntentBits, Partials } from "discord.js"
+import mongoose from "mongoose"
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import config from "./config.js"
@@ -45,6 +46,8 @@ async function loadEvents() {
 }
 
 async function start() {
+  await mongoose.connect(config.mongodbUri)
+  console.log("Connected to MongoDB.")
   await loadCommands()
   await loadEvents()
   await client.login(config.token)
