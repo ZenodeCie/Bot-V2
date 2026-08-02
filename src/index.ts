@@ -1,8 +1,8 @@
 import { Client, Collection, GatewayIntentBits, Partials } from "discord.js"
-import mongoose from "mongoose"
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import config from "./config.js"
+import mongoClient, { connectMongo } from "./utils/mongoClient.js"
 
 const client = new Client({
   intents: [
@@ -15,6 +15,7 @@ const client = new Client({
 
 client.prefix = config.prefix
 client.commands = new Collection()
+client.db = mongoClient
 
 client.once("ready", async () => {
   console.log(`Logged as ${client.user?.tag} & prefix for commands : ${config.prefix}`)
@@ -46,7 +47,7 @@ async function loadEvents() {
 }
 
 async function start() {
-  await mongoose.connect(config.mongodbUri)
+  await connectMongo()
   console.log("Connected to MongoDB.")
   await loadCommands()
   await loadEvents()

@@ -1,4 +1,5 @@
 import type { Collection, Client, Message, PermissionResolvable } from "discord.js"
+import type { Connection } from "mongoose"
 
 export interface Command {
   name: string
@@ -14,5 +15,6 @@ declare module "discord.js" {
   interface Client {
     prefix: string
     commands: Collection<string, Command>
+    db: Connection
   }
 }
