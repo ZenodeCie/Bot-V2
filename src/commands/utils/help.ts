@@ -126,6 +126,7 @@ export default {
   aliases: ["h", "aide"],
   permissions: [],
   usage: "[commande|alias]",
+  handleInteraction,
   async execute(_client: Client, _message: Message, _args: string[]) {
     console.log(`Command help used by ${_message.author.tag} (${_message.author.id}) in the guild ${_message.guild?.name} (${_message.guild?.id}${_message.guild?.vanityURLCode ? ` / .gg/${_message.guild?.vanityURLCode}` : ""})`)
 
