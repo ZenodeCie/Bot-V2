@@ -130,12 +130,14 @@ const EMOJI_IDS = {
 
 const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
 
+const CONTAINER_ACCENT = 0x36373e
+
 function moduleState(module: { enabled: boolean }): string {
   return module.enabled ? "✅ Activé" : "❌ Désactivé"
 }
 
 function buildBackButton(): ButtonBuilder {
-  return new ButtonBuilder().setCustomId(CUSTOM_ID.hub).setLabel("◀ Retour").setStyle(ButtonStyle.Secondary)
+  return new ButtonBuilder().setCustomId(CUSTOM_ID.hub).setEmoji(emoji("leave")).setStyle(ButtonStyle.Secondary)
 }
 
 export function buildHubContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
@@ -143,7 +145,7 @@ export function buildHubContainer(client: Client, guild: Guild, config: AntiRaid
   const raidActive = config.raidMode && Date.now() < config.raidEndsAt
   const panicActive = config.panic.active && Date.now() < config.panic.until
 
-  const main = new ContainerBuilder().setAccentColor(enabled ? 0x22c55e : 0xef4444)
+  const main = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
 
   main.addTextDisplayComponents((t) => t.setContent(`# \`🛡️\` 〃 Antiraid\n> *Protection configurable par serveur.*`))
   main.addSeparatorComponents((s) => s.setSpacing(1))
@@ -156,7 +158,6 @@ export function buildHubContainer(client: Client, guild: Guild, config: AntiRaid
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(CUSTOM_ID.toggle)
-          .setLabel(" ")
           .setEmoji({ id: enabled ? EMOJI_IDS.enable : EMOJI_IDS.disable })
           .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Danger)
       )
@@ -166,56 +167,56 @@ export function buildHubContainer(client: Client, guild: Guild, config: AntiRaid
   main.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Statut détaillé**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.status).setLabel("Statut").setEmoji(emoji("eye")).setStyle(ButtonStyle.Primary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.status).setEmoji(emoji("eye")).setStyle(ButtonStyle.Primary))
   )
   main.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Configuration des modules**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.config).setLabel("Config").setEmoji(emoji("cog")).setStyle(ButtonStyle.Primary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.config).setEmoji(emoji("cog")).setStyle(ButtonStyle.Primary))
   )
   main.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Mode automatique**\n> Actuel : \`${MODE_LABELS[config.mode]}\``))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.mode).setLabel("Mode").setEmoji(emoji("electricStar")).setStyle(ButtonStyle.Primary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.mode).setEmoji(emoji("electricStar")).setStyle(ButtonStyle.Primary))
   )
   main.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Verrouillage du serveur**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdown).setLabel("Lockdown").setEmoji(emoji("pause")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdown).setEmoji(emoji("pause")).setStyle(ButtonStyle.Danger))
   )
   main.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Mode urgence critique**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panic).setLabel("Panic").setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panic).setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
   )
 
-  const second = new ContainerBuilder().setAccentColor(enabled ? 0x22c55e : 0xef4444)
+  const second = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   second.addTextDisplayComponents((t) => t.setContent("### \`🧰\` Outils"))
   second.addSeparatorComponents((s) => s.setDivider(true))
   second.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Journalisation**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.logs).setLabel("Logs").setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.logs).setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
   )
   second.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Liste blanche (users / rôles / bots / salons)**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.whitelist).setLabel("Whitelist").setEmoji(emoji("people")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.whitelist).setEmoji(emoji("people")).setStyle(ButtonStyle.Secondary))
   )
   second.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Système piège**\n> ${config.honeypot.enabled ? "Activé ✅" : "Désactivé ❌"}`))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.honeypot).setLabel("Honeypot").setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.honeypot).setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary))
   )
   second.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Simulation du système**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.test).setLabel("Test").setEmoji(emoji("plane")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.test).setEmoji(emoji("plane")).setStyle(ButtonStyle.Secondary))
   )
   second.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Réinitialisation complète**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.reset).setLabel("Reset").setEmoji(emoji("loop")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.reset).setEmoji(emoji("loop")).setStyle(ButtonStyle.Danger))
   )
 
   return [main, second]
@@ -228,7 +229,7 @@ export function buildStatusContainer(client: Client, guild: Guild, config: AntiR
   const quarantineActive = config.quarantine.enabled
   const modulesEnabled = Object.values(config.modules).filter((m) => m.enabled).length
 
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`📊\` 〃 Statut anti-raid`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
 
@@ -276,7 +277,7 @@ export function buildStatusContainer(client: Client, guild: Guild, config: AntiR
 }
 
 export function buildConfigContainer(client: Client, guild: Guild, config: AntiRaidConfig, selected?: ModuleName): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`⚙️\` 〃 Configuration`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
 
@@ -332,7 +333,6 @@ export function buildConfigContainer(client: Client, guild: Guild, config: AntiR
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(`ar_mod_toggle_${selected}`)
-          .setLabel(" ")
           .setEmoji(module.enabled ? emoji("disable") : emoji("enable"))
           .setStyle(module.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
@@ -355,7 +355,7 @@ export function buildConfigContainer(client: Client, guild: Guild, config: AntiR
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  const container2 = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container2 = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container2.addTextDisplayComponents((t) => t.setContent("### \`🔢\` Réglages du seuil"))
   container2.addSeparatorComponents((s) => s.setDivider(true))
 
@@ -411,14 +411,14 @@ export function buildConfigContainer(client: Client, guild: Guild, config: AntiR
   container2.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("Choisir un autre module"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.config).setLabel("◀ Modules").setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.config).setEmoji(emoji("leave")).setStyle(ButtonStyle.Secondary))
   )
 
   return [container, container2]
 }
 
 export function buildModeContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🧠\` 〃 Mode automatique`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -449,7 +449,7 @@ export function buildModeContainer(client: Client, guild: Guild, config: AntiRai
 
 export function buildLockdownContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const raidActive = config.raidMode && Date.now() < config.raidEndsAt
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🚨\` 〃 Lockdown`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -465,12 +465,12 @@ export function buildLockdownContainer(client: Client, guild: Guild, config: Ant
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Activer le verrouillage**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOn).setLabel("ON").setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOn).setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Désactiver le verrouillage**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setLabel("OFF").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addTextDisplayComponents((t) => t.setContent("**Durée du verrouillage**"))
@@ -493,7 +493,7 @@ export function buildLockdownContainer(client: Client, guild: Guild, config: Ant
 
 export function buildPanicContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const panicActive = config.panic.active && Date.now() < config.panic.until
-  const container = new ContainerBuilder().setAccentColor(panicActive ? 0xef4444 : 0x22c55e)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`💣\` 〃 Mode Panic`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -507,12 +507,12 @@ export function buildPanicContainer(client: Client, guild: Guild, config: AntiRa
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Déclencher le mode urgence**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOn).setLabel("PANIC ON").setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOn).setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Restaurer l'état précédent**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOff).setLabel("RESTORE").setEmoji(emoji("loop")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOff).setEmoji(emoji("loop")).setStyle(ButtonStyle.Secondary))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
@@ -524,7 +524,7 @@ export function buildPanicContainer(client: Client, guild: Guild, config: AntiRa
 }
 
 export function buildWhitelistContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🧍\` 〃 Liste blanche`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -571,7 +571,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
     )
   )
 
-  const container2 = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container2 = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container2.addTextDisplayComponents((t) => t.setContent("**Retirer**"))
 
   const rmUserOptions = config.whitelistedUsers.slice(0, 25).map((id) => ({ label: `Utilisateur ${id}`, value: id }))
@@ -638,7 +638,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
 }
 
 export function buildHoneypotContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(config.honeypot.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🕳️\` 〃 Honeypot`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -657,7 +657,6 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(CUSTOM_ID.hpToggle)
-          .setLabel(" ")
           .setEmoji(config.honeypot.enabled ? emoji("disable") : emoji("enable"))
           .setStyle(config.honeypot.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
@@ -677,7 +676,7 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
     )
   )
 
-  const container2 = new ContainerBuilder().setAccentColor(config.honeypot.enabled ? 0x22c55e : 0xef4444)
+  const container2 = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container2.addTextDisplayComponents((t) => t.setContent("**Punition appliquée aux intrus**"))
   container2.addActionRowComponents((row) =>
     row.setComponents(
@@ -736,7 +735,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
   const safePage = Math.min(Math.max(page, 0), totalPages - 1)
   const slice = filtered.slice(safePage * perPage, (safePage + 1) * perPage)
 
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🧾\` 〃 Journal des événements`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -798,7 +797,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
 }
 
 export function buildTestContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(config.enabled ? 0x22c55e : 0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🧪\` 〃 Test & Simulation`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -811,7 +810,7 @@ export function buildTestContainer(client: Client, guild: Guild, config: AntiRai
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Envoyer un message de test dans le journal**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.testRun).setLabel("Lancer").setEmoji(emoji("party")).setStyle(ButtonStyle.Success))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.testRun).setEmoji(emoji("party")).setStyle(ButtonStyle.Success))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
@@ -823,7 +822,7 @@ export function buildTestContainer(client: Client, guild: Guild, config: AntiRai
 }
 
 export function buildResetContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(0xef4444)
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   container.addTextDisplayComponents((t) => t.setContent(`# \`🔄\` 〃 Réinitialisation`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
@@ -835,12 +834,12 @@ export function buildResetContainer(client: Client, guild: Guild, config: AntiRa
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Confirmer la réinitialisation**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.resetConfirm).setLabel("OUI, RÉINITIALISER").setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.resetConfirm).setEmoji(emoji("check")).setStyle(ButtonStyle.Danger))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Annuler**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.resetCancel).setLabel("NON").setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.resetCancel).setEmoji(emoji("cancel")).setStyle(ButtonStyle.Secondary))
   )
   return [container]
 }
