@@ -14,6 +14,7 @@ export const MODULES = [
   "selfbots",
   "alts",
   "verify",
+  "badword",
 ] as const
 export type ModuleName = (typeof MODULES)[number]
 
@@ -30,6 +31,7 @@ export const MODULE_LABELS: Record<ModuleName, string> = {
   selfbots: "Anti-Selfbot",
   alts: "Anti-Alts",
   verify: "Vérification",
+  badword: "Anti-Mot Interdit",
 }
 
 export const PUNISHMENT_LABELS: Record<Punishment, string> = {
@@ -67,6 +69,7 @@ export interface ModuleSettings {
   blockDiscordInvites: boolean
   allowedDomains: string[]
   blockedDomains: string[]
+  bannedWords: string[]
   channelThreshold: number
   roleThreshold: number
   webhookThreshold: number
@@ -119,6 +122,7 @@ function moduleBase(
     blockDiscordInvites: true,
     allowedDomains: [],
     blockedDomains: [],
+    bannedWords: [],
     channelThreshold: 3,
     roleThreshold: 3,
     webhookThreshold: 3,
@@ -138,6 +142,7 @@ export const MODULE_DEFAULTS: Record<ModuleName, ModuleSettings> = {
   selfbots: moduleBase({ limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0 }),
   alts: moduleBase({ limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY }),
   verify: moduleBase({ limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN }),
+  badword: moduleBase({ limit: 1, interval: 0, punishment: "timeout", duration: 10 * MIN, bannedWords: [] }),
 }
 
 type ModePreset = Partial<ModuleSettings> & { punishment?: Punishment }
@@ -154,6 +159,7 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     selfbots: { limit: 8, interval: 10 * 1000, punishment: "kick", duration: 0 },
     alts: { limit: 1, interval: 0, punishment: "warn", duration: 0, maxAge: 3 * DAY },
     verify: { limit: 1, interval: 0, punishment: "timeout", duration: 30 * MIN },
+    badword: { limit: 1, interval: 0, punishment: "warn", duration: 0 },
   },
   low: {
     spam: { limit: 8, interval: 7 * 1000, punishment: "warn", duration: 0 },
@@ -166,6 +172,7 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     selfbots: { limit: 5, interval: 8 * 1000, punishment: "kick", duration: 0 },
     alts: { limit: 1, interval: 0, punishment: "warn", duration: 0, maxAge: 5 * DAY },
     verify: { limit: 1, interval: 0, punishment: "timeout", duration: 30 * MIN },
+    badword: { limit: 1, interval: 0, punishment: "warn", duration: 0 },
   },
   balanced: {
     spam: { limit: 5, interval: 5 * 1000, punishment: "timeout", duration: 10 * MIN },
@@ -178,6 +185,7 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     selfbots: { limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0 },
     alts: { limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY },
     verify: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
+    badword: { limit: 1, interval: 0, punishment: "timeout", duration: 10 * MIN },
   },
   high: {
     spam: { limit: 4, interval: 4 * 1000, punishment: "timeout", duration: 15 * MIN },
@@ -190,6 +198,7 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     selfbots: { limit: 2, interval: 5 * 1000, punishment: "ban", duration: 0 },
     alts: { limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 14 * DAY },
     verify: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
+    badword: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
   },
   maximum: {
     spam: { limit: 3, interval: 3 * 1000, punishment: "kick", duration: 0 },
@@ -202,6 +211,7 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     selfbots: { limit: 1, interval: 3 * 1000, punishment: "ban", duration: 0 },
     alts: { limit: 1, interval: 0, punishment: "ban", duration: 0, maxAge: 30 * DAY },
     verify: { limit: 1, interval: 0, punishment: "kick", duration: 0 },
+    badword: { limit: 1, interval: 0, punishment: "kick", duration: 0 },
   },
 }
 
@@ -240,6 +250,7 @@ const moduleSchema = new Schema(
     blockDiscordInvites: { type: Boolean, default: true },
     allowedDomains: { type: [String], default: [] },
     blockedDomains: { type: [String], default: [] },
+    bannedWords: { type: [String], default: [] },
     channelThreshold: { type: Number, default: 3 },
     roleThreshold: { type: Number, default: 3 },
     webhookThreshold: { type: Number, default: 3 },
@@ -260,6 +271,7 @@ const modulesSchema = new Schema(
     selfbots: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.selfbots }) },
     alts: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.alts }) },
     verify: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.verify }) },
+    badword: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.badword }) },
   },
   { _id: false }
 )
@@ -384,6 +396,7 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
       blockDiscordInvites: asBoolean(value.blockDiscordInvites, base.blockDiscordInvites),
       allowedDomains: asStringArray(value.allowedDomains, base.allowedDomains),
       blockedDomains: asStringArray(value.blockedDomains, base.blockedDomains),
+      bannedWords: asStringArray(value.bannedWords, base.bannedWords),
       channelThreshold: asNumber(value.channelThreshold, base.channelThreshold),
       roleThreshold: asNumber(value.roleThreshold, base.roleThreshold),
       webhookThreshold: asNumber(value.webhookThreshold, base.webhookThreshold),

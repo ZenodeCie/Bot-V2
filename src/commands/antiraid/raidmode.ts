@@ -1,10 +1,12 @@
-import type { Client, Message } from "discord.js"
+import type { Client, Guild, Message } from "discord.js"
+import { MessageFlags } from "discord.js"
 import { colors } from "../../config.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
 import formatTime from "../../utils/formatTime.js"
 import parseTime from "../../utils/parseTime.js"
 import { getConfig } from "../../utils/antiraid/schema.js"
 import { buildAntiRaidEmbed } from "../../utils/antiraid/logs.js"
+import { buildLockdownContainer, handleLockdownInteraction } from "../../utils/antiraid/dashboard.js"
 
 export default {
   name: "raidmode",
@@ -52,17 +54,9 @@ export default {
       })
     }
 
-    const active = config.raidMode && Date.now() < config.raidEndsAt
-    return message.reply({
-      embeds: [
-        buildAntiRaidEmbed(
-          "🔒",
-          "Mode raid",
-          active
-            ? `> ***État:** Actif (jusqu'à <t:${Math.floor(config.raidEndsAt / 1000)}:T>)*\n> *Utilisez \`raidmode off\` pour lever le verrouillage.*`
-            : "> ***État:** Inactif*\n> *Utilisez \`raidmode on [durée]\` pour verrouiller le serveur.*"
-        ),
-      ],
-    })
+    return message.reply({ components: buildLockdownContainer(client, message.guild as Guild, config), flags: MessageFlags.IsComponentsV2 })
+  },
+  async handleInteraction(client: Client, interaction: import("discord.js").Interaction): Promise<boolean> {
+    return handleLockdownInteraction(client, interaction)
   },
 }

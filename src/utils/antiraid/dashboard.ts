@@ -20,12 +20,10 @@ import { colors } from "../../config.js"
 import formatTime from "../formatTime.js"
 import parseTime from "../parseTime.js"
 import { buildAntiRaidEmbed, sendLog } from "./logs.js"
-import { punishMember } from "./punish.js"
 import {
   AntiRaid,
   MODE_LABELS,
   MODES,
-  MODULE_DEFAULTS,
   MODULE_LABELS,
   MODULES,
   PREMIUM_MODULES,
@@ -37,23 +35,6 @@ import {
 } from "./schema.js"
 
 export const CUSTOM_ID = {
-  hub: "ar_hub",
-  toggle: "ar_toggle",
-  status: "ar_status",
-  config: "ar_config",
-  mode: "ar_mode",
-  lockdown: "ar_lockdown",
-  panic: "ar_panic",
-  logs: "ar_logs",
-  whitelist: "ar_whitelist",
-  honeypot: "ar_honeypot",
-  test: "ar_test",
-  reset: "ar_reset",
-  resetConfirm: "ar_reset_confirm",
-  resetCancel: "ar_reset_cancel",
-  modeSel: "ar_mode_sel",
-  configSel: "ar_config_sel",
-  configBack: "ar_config_back",
   wlUserAdd: "ar_wl_user_add",
   wlRoleAdd: "ar_wl_role_add",
   wlBotAdd: "ar_wl_bot_add",
@@ -68,15 +49,19 @@ export const CUSTOM_ID = {
   hpRoleAdd: "ar_hp_role_add",
   hpRoleRm: "ar_hp_role_rm",
   hpPunish: "ar_hp_punish",
-  lockdownOn: "ar_lockdown_on",
-  lockdownOff: "ar_lockdown_off",
-  lockdownDur: "ar_lockdown_dur",
+  modeSel: "ar_mode_sel",
   panicOn: "ar_panic_on",
   panicOff: "ar_panic_off",
-  testRun: "ar_test_run",
   logsPrev: "ar_logs_prev",
   logsNext: "ar_logs_next",
   logsFilter: "ar_logs_filter",
+  logsChannel: "ar_logs_channel",
+  qAdd: "ar_q_add",
+  qRm: "ar_q_rm",
+  qClear: "ar_q_clear",
+  lockdownOn: "ar_lockdown_on",
+  lockdownOff: "ar_lockdown_off",
+  lockdownDur: "ar_lockdown_dur",
 } as const
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
@@ -132,180 +117,47 @@ const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[
 
 const CONTAINER_ACCENT = 0x36373e
 
+const MODULE_EMOJIS: Record<ModuleName, string> = {
+  spam: "💬",
+  mentions: "📣",
+  links: "🔗",
+  emojis: "😀",
+  joins: "👥",
+  bots: "🤖",
+  nuke: "💥",
+  selfbots: "🔄",
+  alts: "👶",
+  verify: "✅",
+  badword: "🚫",
+}
+
 function moduleState(module: { enabled: boolean }): string {
   return module.enabled ? "✅ Activé" : "❌ Désactivé"
 }
 
-function buildBackButton(): ButtonBuilder {
-  return new ButtonBuilder().setCustomId(CUSTOM_ID.hub).setEmoji(emoji("leave")).setStyle(ButtonStyle.Secondary)
+async function updatePanel(interaction: MessageComponentInteraction, containers: ContainerBuilder[]) {
+  return interaction.update({ components: containers, flags: COMPONENTS_V2_FLAGS })
 }
 
-export function buildHubContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const enabled = config.enabled
-  const raidActive = config.raidMode && Date.now() < config.raidEndsAt
-  const panicActive = config.panic.active && Date.now() < config.panic.until
-
-  const main = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-
-  main.addTextDisplayComponents((t) => t.setContent(`# \`🛡️\` 〃 Antiraid\n> *Protection configurable par serveur.*`))
-  main.addSeparatorComponents((s) => s.setSpacing(1))
-
-  main.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) =>
-        t.setContent(`### État global\n> **Anti-Raid:** \`${enabled ? "Activé ✅" : "Désactivé ❌"}\`\n> **Mode:** \`${MODE_LABELS[config.mode]}\`\n> **Lockdown:** \`${raidActive ? "Actif 🔒" : "Inactif"}\`\n> **Panic:** \`${panicActive ? "Actif 💣" : "Inactif"}\``)
-      )
-      .setButtonAccessory((btn) =>
-        btn
-          .setCustomId(CUSTOM_ID.toggle)
-          .setEmoji({ id: enabled ? EMOJI_IDS.enable : EMOJI_IDS.disable })
-          .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Danger)
-      )
-  )
-
-  main.addSeparatorComponents((s) => s.setDivider(true))
-  main.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Statut détaillé**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.status).setEmoji(emoji("eye")).setStyle(ButtonStyle.Primary))
-  )
-  main.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Configuration des modules**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.config).setEmoji(emoji("cog")).setStyle(ButtonStyle.Primary))
-  )
-  main.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent(`**Mode automatique**\n> Actuel : \`${MODE_LABELS[config.mode]}\``))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.mode).setEmoji(emoji("electricStar")).setStyle(ButtonStyle.Primary))
-  )
-  main.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Verrouillage du serveur**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdown).setEmoji(emoji("pause")).setStyle(ButtonStyle.Danger))
-  )
-  main.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Mode urgence critique**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panic).setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
-  )
-
-  const second = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  second.addTextDisplayComponents((t) => t.setContent("### \`🧰\` Outils"))
-  second.addSeparatorComponents((s) => s.setDivider(true))
-  second.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Journalisation**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.logs).setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
-  )
-  second.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Liste blanche (users / rôles / bots / salons)**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.whitelist).setEmoji(emoji("people")).setStyle(ButtonStyle.Secondary))
-  )
-  second.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent(`**Système piège**\n> ${config.honeypot.enabled ? "Activé ✅" : "Désactivé ❌"}`))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.honeypot).setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary))
-  )
-  second.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Simulation du système**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.test).setEmoji(emoji("plane")).setStyle(ButtonStyle.Secondary))
-  )
-  second.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Réinitialisation complète**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.reset).setEmoji(emoji("loop")).setStyle(ButtonStyle.Danger))
-  )
-
-  return [main, second]
-}
-
-export function buildStatusContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const raidActive = config.raidMode && Date.now() < config.raidEndsAt
-  const panicActive = config.panic.active && Date.now() < config.panic.until
-  const threat = client.antiraid.getThreatLevel(guild.id)
-  const quarantineActive = config.quarantine.enabled
-  const modulesEnabled = Object.values(config.modules).filter((m) => m.enabled).length
-
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`📊\` 〃 Statut anti-raid`))
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-
-  const level =
-    threat <= 20
-      ? "🟢 Faible"
-      : threat <= 50
-        ? "🟡 Modéré"
-        : threat <= 75
-          ? "🟠 Élevé"
-          : "🔴 Critique"
-
-  container.addTextDisplayComponents((t) =>
-    t.setContent(
-      `### \`🌡️\` Niveau de menace\n> ***Score global:** \`${threat}/100\` (${level})*\n\n` +
-        `### \`⚙️\` État des systèmes\n` +
-        `> ***Anti-Raid:** ${config.enabled ? "✅ Activé" : "❌ Désactivé"}*\n` +
-        `> ***Mode:** ${MODE_LABELS[config.mode]}*\n` +
-        `> ***Anti-Spam:** ${moduleState(config.modules.spam)}*\n` +
-        `> ***Anti-Raid joins:** ${moduleState(config.modules.joins)}*\n` +
-        `> ***Anti-Nuke:** ${moduleState(config.modules.nuke)}*\n` +
-        `> ***Lockdown:** ${raidActive ? "Actif 🔒" : "Inactif"}*\n` +
-        `> ***Honeypot:** ${config.honeypot.enabled ? "Activé ✅" : "Désactivé ❌"}*\n` +
-        `> ***Quarantaine:** ${quarantineActive ? "Activée ✅" : "Désactivée ❌"}*\n` +
-        `> ***Panic:** ${panicActive ? "Actif 💣" : "Inactif"}*\n` +
-        `> ***Modules actifs:** ${modulesEnabled}/${MODULES.length}*\n\n` +
-        `### \`👥\` Liste blanche\n` +
-        `> ***Utilisateurs:** ${config.whitelistedUsers.length}*\n` +
-        `> ***Rôles:** ${config.whitelistedRoles.length}*\n` +
-        `> ***Bots:** ${config.whitelistedBots.length}*\n` +
-        `> ***Salons:** ${config.whitelistedChannels.length}*\n\n` +
-        `### \`🛂\` Quarantaine\n` +
-        `> ***Utilisateurs en quarantaine:** ${config.quarantine.users.length}*`
-    )
-  )
-
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
-  )
-
-  return [container]
-}
-
-export function buildConfigContainer(client: Client, guild: Guild, config: AntiRaidConfig, selected?: ModuleName): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`⚙️\` 〃 Configuration`))
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-
-  if (!selected) {
-    container.addTextDisplayComponents((t) => t.setContent("### Choisissez un module à configurer :"))
-    container.addSeparatorComponents((s) => s.setDivider(true))
-    const options = MODULES.map((name) => ({
-      label: MODULE_LABELS[name],
-      value: `mod_${name}`,
-      description: `${moduleState(config.modules[name])} — ${PUNISHMENT_LABELS[config.modules[name].punishment]}`,
-    }))
-    container.addActionRowComponents((row) =>
-      row.setComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId(CUSTOM_ID.configSel)
-          .setPlaceholder("Sélectionner un module...")
-          .addOptions(options)
-      )
-    )
-    container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addSectionComponents((sectionBuilder) =>
-      sectionBuilder
-        .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-        .setButtonAccessory(() => buildBackButton())
-    )
-    return [container]
+async function requireAdmin(interaction: Interaction): Promise<boolean> {
+  const member = interaction.member
+  const memberPermissions =
+    member && typeof member.permissions === "object" && member.permissions !== null
+      ? member.permissions
+      : null
+  if (!member || !memberPermissions || !memberPermissions.has("Administrator")) {
+    if (interaction.isRepliable()) {
+      await interaction.reply({
+        content: "> *Cette action nécessite la permission **Administrator**.*",
+        flags: MessageFlags.Ephemeral,
+      })
+    }
+    return false
   }
+  return true
+}
 
+export function buildModuleContainer(client: Client, guild: Guild, config: AntiRaidConfig, selected: ModuleName): ContainerBuilder[] {
   const module = config.modules[selected]
   const premium = PREMIUM_MODULES.includes(selected)
   const threshold =
@@ -313,10 +165,12 @@ export function buildConfigContainer(client: Client, guild: Guild, config: AntiR
       ? `\`${module.limit}\` actions / \`${formatTime(module.interval)}\``
       : "`comportement` (sans seuil)"
 
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  container.addTextDisplayComponents((t) => t.setContent(`# \`${MODULE_EMOJIS[selected]}\` 〃 ${MODULE_LABELS[selected]}`))
+  container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `### \`${MODULE_LABELS[selected]}\`\n` +
-        `> ${premium ? "🔒 **Module premium**" : ""}\n` +
+      `> ${premium ? "🔒 **Module premium**\n" : ""}` +
         `> ***État:** ${moduleState(module)}*\n` +
         `> ***Seuil:** ${threshold}*\n` +
         `> ***Punition:** ${PUNISHMENT_LABELS[module.punishment]}*\n` +
@@ -359,35 +213,37 @@ export function buildConfigContainer(client: Client, guild: Guild, config: AntiR
   container2.addTextDisplayComponents((t) => t.setContent("### \`🔢\` Réglages du seuil"))
   container2.addSeparatorComponents((s) => s.setDivider(true))
 
-  const durations = [
-    { label: "Seuil doux (×2)", value: "limit2" },
-    { label: "Seuil actuel", value: "limitCurrent" },
-    { label: "Seuil strict (÷2)", value: "limitHalf" },
-  ]
-  const intervals = [
-    { label: "5 secondes", value: "5s" },
-    { label: "10 secondes", value: "10s" },
-    { label: "30 secondes", value: "30s" },
-    { label: "1 minute", value: "1m" },
-    { label: "5 minutes", value: "5m" },
-  ]
-  container2.addTextDisplayComponents((t) => t.setContent("**Ajuster le seuil** (limite / intervalle)"))
-  container2.addActionRowComponents((row) =>
-    row.setComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(`ar_mod_limit_${selected}`)
-        .setPlaceholder("Modifier la limite...")
-        .addOptions(durations)
+  if (module.interval > 0) {
+    const durations = [
+      { label: "Seuil doux (×2)", value: "limit2" },
+      { label: "Seuil actuel", value: "limitCurrent" },
+      { label: "Seuil strict (÷2)", value: "limitHalf" },
+    ]
+    const intervals = [
+      { label: "5 secondes", value: "5s" },
+      { label: "10 secondes", value: "10s" },
+      { label: "30 secondes", value: "30s" },
+      { label: "1 minute", value: "1m" },
+      { label: "5 minutes", value: "5m" },
+    ]
+    container2.addTextDisplayComponents((t) => t.setContent("**Ajuster le seuil** (limite / intervalle)"))
+    container2.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`ar_mod_limit_${selected}`)
+          .setPlaceholder("Modifier la limite...")
+          .addOptions(durations)
+      )
     )
-  )
-  container2.addActionRowComponents((row) =>
-    row.setComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(`ar_mod_interval_${selected}`)
-        .setPlaceholder("Modifier l'intervalle...")
-        .addOptions(intervals)
+    container2.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`ar_mod_interval_${selected}`)
+          .setPlaceholder("Modifier l'intervalle...")
+          .addOptions(intervals)
+      )
     )
-  )
+  }
 
   if (module.duration > 0 || module.punishment === "timeout" || module.punishment === "lockdown") {
     container2.addSeparatorComponents((s) => s.setDivider(true))
@@ -407,120 +263,164 @@ export function buildConfigContainer(client: Client, guild: Guild, config: AntiR
     )
   }
 
-  container2.addSeparatorComponents((s) => s.setDivider(true))
-  container2.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Choisir un autre module"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.config).setEmoji(emoji("leave")).setStyle(ButtonStyle.Secondary))
-  )
+  addModuleSpecific(container2, config, selected)
 
   return [container, container2]
 }
 
-export function buildModeContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🧠\` 〃 Mode automatique`))
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-  container.addTextDisplayComponents((t) =>
-    t.setContent(
-      `> *Le mode ajuste automatiquement les seuils, la sensibilité et l'agressivité des actions.*\n> *Les réglages personnalisés (\`custom\`) ne sont pas écrasés.*\n\n> ***Mode actuel:** ${MODE_LABELS[config.mode]}*`
-    )
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  const options = MODES.map((mode) => ({
-    label: MODE_LABELS[mode],
-    value: mode,
-    description: mode === config.mode ? "Mode actuel" : undefined,
-    default: mode === config.mode,
-  }))
-  container.addActionRowComponents((row) =>
-    row.setComponents(
-      new StringSelectMenuBuilder().setCustomId(CUSTOM_ID.modeSel).setPlaceholder("Choisir un mode...").addOptions(options)
-    )
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
-  )
-  return [container]
-}
+function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, selected: ModuleName) {
+  const module = config.modules[selected]
 
-export function buildLockdownContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const raidActive = config.raidMode && Date.now() < config.raidEndsAt
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🚨\` 〃 Lockdown`))
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-  container.addTextDisplayComponents((t) =>
-    t.setContent(
-      `### État\n> ***Lockdown:** ${raidActive ? "Actif 🔒" : "Inactif"}*\n` +
-        (raidActive ? `> ***Jusqu'à:** <t:${Math.floor(config.raidEndsAt / 1000)}:T>*\n` : "") +
-        `> ***Slowmode global:** ${config.lockdown.slowmode > 0 ? formatTime(config.lockdown.slowmode) : "Désactivé"}*\n` +
-        `> ***Blocage des messages:** ${config.lockdown.blockMessages ? "Activé ✅" : "Désactivé ❌"}*\n` +
-        `> ***Blocage des arrivées:** ${config.lockdown.blockJoins ? "Activé ✅" : "Désactivé ❌"}*`
+  if (selected === "mentions") {
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent("### \`📣\` Options de mention"))
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ar_mentions_maxuser")
+          .setPlaceholder("Max mentions utilisateurs / message...")
+          .addOptions([2, 3, 5, 10, 15, 20].map((n) => ({ label: `${n} mentions`, value: String(n), default: module.maxUserMentions === n })))
+      )
     )
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Activer le verrouillage**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOn).setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
-  )
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Désactiver le verrouillage**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent("**Durée du verrouillage**"))
-  container.addActionRowComponents((row) =>
-    row.setComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(CUSTOM_ID.lockdownDur)
-        .setPlaceholder("Choisir la durée...")
-        .addOptions(["10m", "30m", "1h", "6h", "12h", "24h"].map((value) => ({ label: value, value })))
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ar_mentions_maxrole")
+          .setPlaceholder("Max mentions rôles / message...")
+          .addOptions([1, 2, 3, 5, 8, 10].map((n) => ({ label: `${n} mentions`, value: String(n), default: module.maxRoleMentions === n })))
+      )
     )
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
-  )
-  return [container]
-}
+    container.addSectionComponents((sectionBuilder) =>
+      sectionBuilder
+        .addTextDisplayComponents((t) => t.setContent(`**Autoriser @everyone / @here**\n> ${module.allowEveryone ? "Autorisé ✅" : "Bloqué ❌"}`))
+        .setButtonAccessory((btn) =>
+          btn
+            .setCustomId("ar_mentions_everyone")
+            .setEmoji(module.allowEveryone ? emoji("enable") : emoji("disable"))
+            .setStyle(module.allowEveryone ? ButtonStyle.Success : ButtonStyle.Danger)
+        )
+    )
+  }
 
-export function buildPanicContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const panicActive = config.panic.active && Date.now() < config.panic.until
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`💣\` 〃 Mode Panic`))
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-  container.addTextDisplayComponents((t) =>
-    t.setContent(
-      `> *Le mode panic est le **niveau d'urgence critique** : il verrouille le serveur, bloque les arrivées et gèle les salons critiques.*\n\n` +
-        `> ***Panic:** ${panicActive ? "Actif 💣" : "Inactif"}*` +
-        (panicActive ? `\n> ***Jusqu'à:** <t:${Math.floor(config.panic.until / 1000)}:T>*` : "")
+  if (selected === "links") {
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent("### \`🔗\` Options des liens"))
+    container.addSectionComponents((sectionBuilder) =>
+      sectionBuilder
+        .addTextDisplayComponents((t) => t.setContent(`**Bloquer les invitations Discord**\n> ${module.blockDiscordInvites ? "Activé ✅" : "Désactivé ❌"}`))
+        .setButtonAccessory((btn) =>
+          btn
+            .setCustomId("ar_links_invites")
+            .setEmoji(module.blockDiscordInvites ? emoji("enable") : emoji("disable"))
+            .setStyle(module.blockDiscordInvites ? ButtonStyle.Success : ButtonStyle.Danger)
+        )
     )
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Déclencher le mode urgence**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOn).setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
-  )
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Restaurer l'état précédent**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOff).setEmoji(emoji("loop")).setStyle(ButtonStyle.Secondary))
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
-  )
-  return [container]
+    if (module.allowedDomains.length > 0) {
+      container.addTextDisplayComponents((t) => t.setContent(`**Domaines autorisés (${module.allowedDomains.length})**`))
+      container.addActionRowComponents((row) =>
+        row.setComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("ar_links_allowrm")
+            .setPlaceholder("Retirer des domaines autorisés...")
+            .addOptions(module.allowedDomains.slice(0, 25).map((d) => ({ label: d, value: d })))
+            .setMinValues(1)
+            .setMaxValues(Math.min(module.allowedDomains.length, 25))
+        )
+      )
+    }
+    if (module.blockedDomains.length > 0) {
+      container.addTextDisplayComponents((t) => t.setContent(`**Domaines bloqués (${module.blockedDomains.length})**`))
+      container.addActionRowComponents((row) =>
+        row.setComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("ar_links_blockrm")
+            .setPlaceholder("Retirer des domaines bloqués...")
+            .addOptions(module.blockedDomains.slice(0, 25).map((d) => ({ label: d, value: d })))
+            .setMinValues(1)
+            .setMaxValues(Math.min(module.blockedDomains.length, 25))
+        )
+      )
+    }
+    container.addTextDisplayComponents((t) =>
+      t.setContent("> *Ajoutez des domaines avec : \`antilinks allow <domaine>\` ou \`antilinks block <domaine>\`.*")
+    )
+  }
+
+  if (selected === "nuke") {
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent("### \`💥\` Seuils destructifs"))
+    const thresholdOptions = (current: number) =>
+      [1, 2, 3, 4, 5, 6, 8, 10].map((n) => ({ label: `${n} action${n > 1 ? "s" : ""}`, value: String(n), default: current === n }))
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ar_nuke_chan")
+          .setPlaceholder("Suppressions de salons...")
+          .addOptions(thresholdOptions(module.channelThreshold))
+      )
+    )
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ar_nuke_role")
+          .setPlaceholder("Suppressions de rôles...")
+          .addOptions(thresholdOptions(module.roleThreshold))
+      )
+    )
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ar_nuke_web")
+          .setPlaceholder("Créations de webhooks...")
+          .addOptions(thresholdOptions(module.webhookThreshold))
+      )
+    )
+  }
+
+  if (selected === "alts") {
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent("### \`👶\` Âge du compte"))
+    const ageOptions = [1, 3, 7, 14, 30, 90, 180, 365].map((d) => ({
+      label: `${d} jour${d > 1 ? "s" : ""}`,
+      value: String(d),
+      default: module.maxAge === d * 86400000,
+    }))
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder().setCustomId("ar_alts_maxage").setPlaceholder("Âge maximum du compte...").addOptions(ageOptions)
+      )
+    )
+  }
+
+  if (selected === "verify") {
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent("### \`✅\` Rôle de vérification"))
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new RoleSelectMenuBuilder().setCustomId("ar_verify_role").setPlaceholder("Rôle attribué après vérification...").setMaxValues(1)
+      )
+    )
+  }
+
+  if (selected === "badword") {
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent(`### \`🚫\` Mots interdits (${module.bannedWords.length})`))
+    if (module.bannedWords.length > 0) {
+      container.addActionRowComponents((row) =>
+        row.setComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("ar_badword_rm")
+            .setPlaceholder("Retirer des mots...")
+            .addOptions(module.bannedWords.slice(0, 25).map((w) => ({ label: w, value: w })))
+            .setMinValues(1)
+            .setMaxValues(Math.min(module.bannedWords.length, 25))
+        )
+      )
+    }
+    container.addTextDisplayComponents((t) =>
+      t.setContent("> *Ajoutez des mots avec : \`antibadword add <mot>\` ou \`antibadword remove <mot>\`.*")
+    )
+  }
 }
 
 export function buildWhitelistContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
@@ -627,13 +527,6 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
     )
   }
 
-  container2.addSeparatorComponents((s) => s.setDivider(true))
-  container2.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
-  )
-
   return [container, container2]
 }
 
@@ -717,12 +610,6 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
       )
     )
   }
-  container2.addSeparatorComponents((s) => s.setDivider(true))
-  container2.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
-  )
 
   return [container, container2]
 }
@@ -752,7 +639,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  const filterOptions = ["spam", "mentions", "links", "emojis", "joins", "bots", "nuke", "selfbots", "honeypot", "lockdown", "panic", "verify", "other"].map(
+  const filterOptions = ["spam", "mentions", "links", "emojis", "joins", "bots", "nuke", "selfbots", "badword", "honeypot", "lockdown", "panic", "verify", "other"].map(
     (type) => ({
       label: type,
       value: type,
@@ -788,468 +675,697 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
+  container.addTextDisplayComponents((t) => t.setContent("**Salon de journalisation**"))
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId(CUSTOM_ID.logsChannel)
+        .setPlaceholder("Choisir le salon de logs...")
+        .setMaxValues(1)
+    )
   )
   return [container]
 }
 
-export function buildTestContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
+export function buildModeContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🧪\` 〃 Test & Simulation`))
+  container.addTextDisplayComponents((t) => t.setContent(`# \`🧠\` 〃 Mode automatique`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `> *Simule les attaques sans appliquer la moindre action réelle. Le bot affiche ce qu'il aurait fait :* \`WOULD BAN\`, \`WOULD TIMEOUT\`, \`WOULD DELETE\`.\n\n` +
-        `> ***Envoie un test dans le journal** : bouton ci-dessous.*`
+      `> *Le mode ajuste automatiquement les seuils, la sensibilité et l'agressivité des actions.*\n> *Les réglages personnalisés (\`custom\`) ne sont pas écrasés.*\n\n> ***Mode actuel:** ${MODE_LABELS[config.mode]}*`
+    )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  const options = MODES.map((mode) => ({
+    label: MODE_LABELS[mode],
+    value: mode,
+    description: mode === config.mode ? "Mode actuel" : undefined,
+    default: mode === config.mode,
+  }))
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new StringSelectMenuBuilder().setCustomId(CUSTOM_ID.modeSel).setPlaceholder("Choisir un mode...").addOptions(options)
+    )
+  )
+  return [container]
+}
+
+export function buildPanicContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
+  const panicActive = config.panic.active && Date.now() < config.panic.until
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  container.addTextDisplayComponents((t) => t.setContent(`# \`💣\` 〃 Mode Panic`))
+  container.addSeparatorComponents((s) => s.setSpacing(1))
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `> *Le mode panic est le **niveau d'urgence critique** : il verrouille le serveur, bloque les arrivées et gèle les salons critiques.*\n\n` +
+        `> ***Panic:** ${panicActive ? "Actif 💣" : "Inactif"}*` +
+        (panicActive ? `\n> ***Jusqu'à:** <t:${Math.floor(config.panic.until / 1000)}:T>*` : "")
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Envoyer un message de test dans le journal**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.testRun).setEmoji(emoji("party")).setStyle(ButtonStyle.Success))
+      .addTextDisplayComponents((t) => t.setContent("**Déclencher le mode urgence**"))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOn).setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
   )
-  container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("Retour au panneau principal"))
-      .setButtonAccessory(() => buildBackButton())
+      .addTextDisplayComponents((t) => t.setContent("**Restaurer l'état précédent**"))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOff).setEmoji(emoji("loop")).setStyle(ButtonStyle.Secondary))
   )
   return [container]
 }
 
-export function buildResetContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
+export function buildQuarantineContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🔄\` 〃 Réinitialisation`))
+  container.addTextDisplayComponents((t) => t.setContent(`# \`🛂\` 〃 Quarantaine`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `> *⚠️ **Action irréversible.*** *Toute la configuration anti-raid de ce serveur sera réinitialisée aux valeurs par défaut (modules, mode, lockdown, honeypot, quarantaine, whitelist, journal).*`
+      `> *Les utilisateurs placés en quarantaine perdent leurs rôles et permissions.*\n\n` +
+        `> ***État:** ${config.quarantine.enabled ? "Activée ✅" : "Désactivée ❌"}*\n` +
+        `> ***Rôle:** ${config.quarantine.role ? `<@&${config.quarantine.role}>` : "*Auto-créé à la première utilisation*"}*\n` +
+        `> ***Utilisateurs:** ${config.quarantine.users.length}*`
+    )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addTextDisplayComponents((t) => t.setContent("**Ajouter un utilisateur en quarantaine**"))
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new UserSelectMenuBuilder().setCustomId(CUSTOM_ID.qAdd).setPlaceholder("Choisir des utilisateurs...").setMaxValues(5)
+    )
+  )
+  const rmOptions = config.quarantine.users.slice(0, 25).map((id) => ({ label: `Utilisateur ${id}`, value: id }))
+  if (rmOptions.length > 0) {
+    container.addTextDisplayComponents((t) => t.setContent("**Retirer de la quarantaine**"))
+    container.addActionRowComponents((row) =>
+      row.setComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(CUSTOM_ID.qRm)
+          .setPlaceholder("Retirer des utilisateurs...")
+          .addOptions(rmOptions)
+          .setMinValues(1)
+          .setMaxValues(Math.min(rmOptions.length, 25))
+      )
+    )
+  }
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) => t.setContent("**Vider la quarantaine**"))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.qClear).setEmoji(emoji("loop")).setStyle(ButtonStyle.Danger))
+  )
+  return [container]
+}
+
+export function buildLockdownContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
+  const raidActive = config.raidMode && Date.now() < config.raidEndsAt
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  container.addTextDisplayComponents((t) => t.setContent(`# \`🚨\` 〃 Lockdown`))
+  container.addSeparatorComponents((s) => s.setSpacing(1))
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `### État\n> ***Lockdown:** ${raidActive ? "Actif 🔒" : "Inactif"}*\n` +
+        (raidActive ? `> ***Jusqu'à:** <t:${Math.floor(config.raidEndsAt / 1000)}:T>*\n` : "") +
+        `> ***Slowmode global:** ${config.lockdown.slowmode > 0 ? formatTime(config.lockdown.slowmode) : "Désactivé"}*\n` +
+        `> ***Blocage des messages:** ${config.lockdown.blockMessages ? "Activé ✅" : "Désactivé ❌"}*\n` +
+        `> ***Blocage des arrivées:** ${config.lockdown.blockJoins ? "Activé ✅" : "Désactivé ❌"}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Confirmer la réinitialisation**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.resetConfirm).setEmoji(emoji("check")).setStyle(ButtonStyle.Danger))
+      .addTextDisplayComponents((t) => t.setContent("**Activer le verrouillage**"))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOn).setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Annuler**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.resetCancel).setEmoji(emoji("cancel")).setStyle(ButtonStyle.Secondary))
+      .addTextDisplayComponents((t) => t.setContent("**Désactiver le verrouillage**"))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addTextDisplayComponents((t) => t.setContent("**Durée du verrouillage**"))
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(CUSTOM_ID.lockdownDur)
+        .setPlaceholder("Choisir la durée...")
+        .addOptions(["10m", "30m", "1h", "6h", "12h", "24h"].map((value) => ({ label: value, value })))
+    )
   )
   return [container]
 }
 
-export async function showDashboard(client: Client, message: { guild: Guild; channel: { id: string }; reply: (options: object) => Promise<unknown> }, config: AntiRaidConfig) {
-  return message.reply({ components: buildHubContainer(client, message.guild, config), flags: COMPONENTS_V2_FLAGS })
-}
-
-async function updatePanel(interaction: MessageComponentInteraction, containers: ContainerBuilder[]) {
-  return interaction.update({ components: containers, flags: COMPONENTS_V2_FLAGS })
-}
-
-export async function handleDashboardInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+export async function handleModuleInteraction(client: Client, interaction: Interaction, moduleName: ModuleName): Promise<boolean> {
   if (!interaction.isMessageComponent()) return false
   if (!interaction.inGuild()) return false
   const customId = interaction.customId
   if (!customId.startsWith("ar_")) return false
 
+  const moduleSuffix = `_${moduleName}`
+  const genericMatch = /^ar_mod_(toggle|punish|limit|interval|duration)_/.exec(customId)
+  if (genericMatch && !customId.endsWith(moduleSuffix)) return false
+
+  const specificPrefixes: Record<string, string> = {
+    mentions: "ar_mentions_",
+    links: "ar_links_",
+    nuke: "ar_nuke_",
+    alts: "ar_alts_",
+    verify: "ar_verify_",
+    badword: "ar_badword_",
+  }
+  const prefix = specificPrefixes[moduleName]
+  if (prefix && !customId.startsWith(prefix)) return false
+  if (!genericMatch && !prefix) return false
+
+  if (!(await requireAdmin(interaction))) return true
+
   const guild = interaction.guild
   if (!guild) return false
-  const config = await client.antiraid.getConfig(guild.id)
-
-  const member = interaction.member
-  const memberPermissions =
-    member && typeof member.permissions === "object" && member.permissions !== null
-      ? member.permissions
-      : null
-  if (!member || !memberPermissions || !memberPermissions.has("Administrator")) {
-    if (interaction.isRepliable()) {
-      await interaction.reply({
-        content: "> *Cette action nécessite la permission **Administrator**.*",
-        flags: MessageFlags.Ephemeral,
-      })
-    }
-    return true
+  const get = async () => client.antiraid.getConfig(guild.id)
+  const refresh = async () => {
+    const fresh = await get()
+    await updatePanel(interaction, buildModuleContainer(client, guild, fresh, moduleName))
   }
 
-  const get = async () => client.antiraid.getConfig(guild.id)
-
-  switch (customId) {
-    case CUSTOM_ID.hub:
-      await updatePanel(interaction, buildHubContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.toggle: {
+  if (genericMatch) {
+    const action = genericMatch[1]
+    if (action === "toggle") {
       const current = await get()
-      const enabled = !current.enabled
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $set: { enabled } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      await updatePanel(interaction, buildHubContainer(client, guild, { ...current, enabled }))
-      await sendLog(
-        client,
-        guild.id,
-        buildAntiRaidEmbed(
-          "✅",
-          enabled ? "Anti-Raid activé" : "Anti-Raid désactivé",
-          `> ***Par:** <@${interaction.user.id}>*\n> *État : ${enabled ? "Activé" : "Désactivé"}.*`,
-          enabled ? colors.red : colors.yel
-        )
-      )
-      return true
-    }
-
-    case CUSTOM_ID.status:
-      await updatePanel(interaction, buildStatusContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.config:
-      await updatePanel(interaction, buildConfigContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.configBack:
-    case "ar_config_back":
-      await updatePanel(interaction, buildConfigContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.mode:
-      await updatePanel(interaction, buildModeContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.lockdown:
-      await updatePanel(interaction, buildLockdownContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.panic:
-      await updatePanel(interaction, buildPanicContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.whitelist:
-      await updatePanel(interaction, buildWhitelistContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.honeypot:
-      await updatePanel(interaction, buildHoneypotContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.logs:
-      await updatePanel(interaction, buildLogsContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.test:
-      await updatePanel(interaction, buildTestContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.reset:
-      await updatePanel(interaction, buildResetContainer(client, guild, config))
-      return true
-
-    case CUSTOM_ID.resetConfirm: {
-      const resetModules = {} as AntiRaidConfig["modules"]
-      for (const name of MODULES) resetModules[name] = { ...MODULE_DEFAULTS[name] }
+      const enabled = !current.modules[moduleName].enabled
       await AntiRaid.findOneAndUpdate(
         { guildId: guild.id },
-        {
-          $set: {
-            enabled: false,
-            mode: "balanced",
-            raidMode: false,
-            raidEndsAt: 0,
-            logChannel: null,
-            whitelistedUsers: [],
-            whitelistedRoles: [],
-            whitelistedBots: [],
-            whitelistedChannels: [],
-            honeypot: { enabled: false, channels: [], roles: [], punishment: "ban", duration: 0 },
-            quarantine: { enabled: false, role: null, users: [] },
-            panic: { active: false, until: 0 },
-            lockdown: { slowmode: 0, blockJoins: false, blockMessages: true },
-            modules: resetModules,
-          },
-        },
+        { $set: { [`modules.${moduleName}.enabled`]: enabled, mode: "custom" } },
         { upsert: true }
       )
       client.antiraid.invalidateConfig(guild.id)
-      client.antiraid.clearEventLog(guild.id)
-      const fresh = await client.antiraid.getConfig(guild.id)
-      await updatePanel(interaction, buildHubContainer(client, guild, fresh))
-      await sendLog(client, guild.id, buildAntiRaidEmbed("🔄", "Configuration réinitialisée", `> ***Par:** <@${interaction.user.id}>*`, colors.yel))
+      await refresh()
       return true
     }
 
-    case CUSTOM_ID.resetCancel: {
-      const fresh = await get()
-      await updatePanel(interaction, buildHubContainer(client, guild, fresh))
-      return true
-    }
-
-    case CUSTOM_ID.testRun: {
-      await sendLog(client, guild.id, buildAntiRaidEmbed("🧪", "Test anti-raid", `> *Test demandé par <@${interaction.user.id}>. Le système fonctionne.*`, colors.yel))
-      await updatePanel(interaction, buildTestContainer(client, guild, config))
-      return true
-    }
-
-    case CUSTOM_ID.lockdownOn: {
-      await client.antiraid.activateRaidMode(client, config, config.raidDuration)
-      const fresh = await get()
-      await updatePanel(interaction, buildLockdownContainer(client, guild, fresh))
-      return true
-    }
-
-    case CUSTOM_ID.lockdownOff: {
-      await client.antiraid.deactivateRaidMode(client, config)
-      const fresh = await get()
-      await updatePanel(interaction, buildLockdownContainer(client, guild, fresh))
-      return true
-    }
-
-    case CUSTOM_ID.panicOn: {
-      await client.antiraid.activatePanic(client, config)
-      const fresh = await get()
-      await updatePanel(interaction, buildPanicContainer(client, guild, fresh))
-      return true
-    }
-
-    case CUSTOM_ID.panicOff: {
-      await client.antiraid.deactivatePanic(client, config)
-      const fresh = await get()
-      await updatePanel(interaction, buildPanicContainer(client, guild, fresh))
-      return true
-    }
-
-    default:
-      break
-  }
-
-  if (interaction.isStringSelectMenu()) {
-    const value = interaction.values[0]
-
-    if (customId === CUSTOM_ID.modeSel) {
-      if (MODES.includes(value as (typeof MODES)[number])) {
-        await client.antiraid.applyMode(client, guild.id, value as (typeof MODES)[number])
-        const fresh = await get()
-        await updatePanel(interaction, buildModeContainer(client, guild, fresh))
-      }
-      return true
-    }
-
-    if (customId === CUSTOM_ID.configSel) {
-      const name = value.replace(/^mod_/, "") as ModuleName
-      if (MODULES.includes(name)) {
-        await updatePanel(interaction, buildConfigContainer(client, guild, config, name))
-      }
-      return true
-    }
-
-    if (customId === CUSTOM_ID.logsFilter) {
-      await updatePanel(interaction, buildLogsContainer(client, guild, config, 0, value))
-      return true
-    }
-
-    if (customId === CUSTOM_ID.lockdownDur) {
-      const duration = parseTime(value)
-      if (duration !== null) {
-        await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $set: { raidDuration: duration } }, { upsert: true })
-        client.antiraid.invalidateConfig(guild.id)
-        const fresh = await get()
-        await updatePanel(interaction, buildLockdownContainer(client, guild, fresh))
-      }
-      return true
-    }
-
-    if (customId === CUSTOM_ID.hpPunish) {
-      if (PUNISHMENTS.includes(value as Punishment)) {
-        await AntiRaid.findOneAndUpdate(
-          { guildId: guild.id },
-          { $set: { "honeypot.punishment": value } },
-          { upsert: true }
-        )
-        client.antiraid.invalidateConfig(guild.id)
-        const fresh = await get()
-        await updatePanel(interaction, buildHoneypotContainer(client, guild, fresh))
-      }
-      return true
-    }
-
-    const wlRm = customId.match(/^ar_wl_(user|role|bot|channel)_rm$/)
-    if (wlRm) {
-      const type = wlRm[1]
-      const field =
-        type === "user" ? "whitelistedUsers" : type === "role" ? "whitelistedRoles" : type === "bot" ? "whitelistedBots" : "whitelistedChannels"
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $pullAll: { [field]: interaction.values } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildWhitelistContainer(client, guild, fresh))
-      return true
-    }
-
-    const hpRm = customId.match(/^ar_hp_(channel|role)_rm$/)
-    if (hpRm) {
-      const field = hpRm[1] === "channel" ? "honeypot.channels" : "honeypot.roles"
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $pullAll: { [field]: interaction.values } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildHoneypotContainer(client, guild, fresh))
-      return true
-    }
-
-    const modToggle = customId.match(/^ar_mod_toggle_(\w+)$/)
-    if (modToggle) {
-      const name = modToggle[1] as ModuleName
-      if (MODULES.includes(name)) {
-        const current = await get()
-        const enabled = !current.modules[name].enabled
-        await AntiRaid.findOneAndUpdate(
-          { guildId: guild.id },
-          { $set: { [`modules.${name}.enabled`]: enabled, mode: "custom" } },
-          { upsert: true }
-        )
-        client.antiraid.invalidateConfig(guild.id)
-        const fresh = await get()
-        await updatePanel(interaction, buildConfigContainer(client, guild, fresh, name))
-      }
-      return true
-    }
-
-    const modPunish = customId.match(/^ar_mod_punish_(\w+)$/)
-    if (modPunish) {
-      const name = modPunish[1] as ModuleName
-      if (MODULES.includes(name) && PUNISHMENTS.includes(value as Punishment)) {
-        let duration = (await get()).modules[name].duration
+    if (action === "punish" && interaction.isStringSelectMenu()) {
+      const value = interaction.values[0] as Punishment
+      if (PUNISHMENTS.includes(value)) {
+        let duration = (await get()).modules[moduleName].duration
         if ((value === "timeout" || value === "lockdown") && duration <= 0) duration = 600000
         if (value !== "timeout" && value !== "lockdown") duration = 0
         await AntiRaid.findOneAndUpdate(
           { guildId: guild.id },
           {
             $set: {
-              [`modules.${name}.punishment`]: value,
-              [`modules.${name}.duration`]: duration,
+              [`modules.${moduleName}.punishment`]: value,
+              [`modules.${moduleName}.duration`]: duration,
               mode: "custom",
             },
           },
           { upsert: true }
         )
         client.antiraid.invalidateConfig(guild.id)
-        const fresh = await get()
-        await updatePanel(interaction, buildConfigContainer(client, guild, fresh, name))
+        await refresh()
       }
       return true
     }
 
-    const modLimit = customId.match(/^ar_mod_limit_(\w+)$/)
-    if (modLimit) {
-      const name = modLimit[1] as ModuleName
-      if (MODULES.includes(name)) {
-        const current = await get()
-        const base = current.modules[name].limit
-        const next =
-          value === "limit2" ? Math.max(1, Math.round(base * 2)) : value === "limitHalf" ? Math.max(1, Math.round(base / 2)) : base
+    if (action === "limit" && interaction.isStringSelectMenu()) {
+      const value = interaction.values[0]
+      const current = await get()
+      const base = current.modules[moduleName].limit
+      const next =
+        value === "limit2" ? Math.max(1, Math.round(base * 2)) : value === "limitHalf" ? Math.max(1, Math.round(base / 2)) : base
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { [`modules.${moduleName}.limit`]: next, mode: "custom" } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+
+    if (action === "interval" && interaction.isStringSelectMenu()) {
+      const parsed = parseTime(interaction.values[0])
+      if (parsed !== null) {
         await AntiRaid.findOneAndUpdate(
           { guildId: guild.id },
-          { $set: { [`modules.${name}.limit`]: next, mode: "custom" } },
+          { $set: { [`modules.${moduleName}.interval`]: parsed, mode: "custom" } },
           { upsert: true }
         )
         client.antiraid.invalidateConfig(guild.id)
-        const fresh = await get()
-        await updatePanel(interaction, buildConfigContainer(client, guild, fresh, name))
+        await refresh()
       }
       return true
     }
 
-    const modInterval = customId.match(/^ar_mod_interval_(\w+)$/)
-    if (modInterval) {
-      const name = modInterval[1] as ModuleName
-      if (MODULES.includes(name)) {
-        const parsed = parseTime(value)
-        if (parsed !== null) {
-          await AntiRaid.findOneAndUpdate(
-            { guildId: guild.id },
-            { $set: { [`modules.${name}.interval`]: parsed, mode: "custom" } },
-            { upsert: true }
-          )
-          client.antiraid.invalidateConfig(guild.id)
-          const fresh = await get()
-          await updatePanel(interaction, buildConfigContainer(client, guild, fresh, name))
-        }
+    if (action === "duration" && interaction.isStringSelectMenu()) {
+      const parsed = parseTime(interaction.values[0])
+      if (parsed !== null) {
+        await AntiRaid.findOneAndUpdate(
+          { guildId: guild.id },
+          { $set: { [`modules.${moduleName}.duration`]: parsed, mode: "custom" } },
+          { upsert: true }
+        )
+        client.antiraid.invalidateConfig(guild.id)
+        await refresh()
       }
       return true
     }
+  }
 
-    const modDuration = customId.match(/^ar_mod_duration_(\w+)$/)
-    if (modDuration) {
-      const name = modDuration[1] as ModuleName
-      if (MODULES.includes(name)) {
-        const parsed = parseTime(value)
-        if (parsed !== null) {
-          await AntiRaid.findOneAndUpdate(
-            { guildId: guild.id },
-            { $set: { [`modules.${name}.duration`]: parsed, mode: "custom" } },
-            { upsert: true }
-          )
-          client.antiraid.invalidateConfig(guild.id)
-          const fresh = await get()
-          await updatePanel(interaction, buildConfigContainer(client, guild, fresh, name))
-        }
-      }
+  if (moduleName === "mentions") {
+    if (customId === "ar_mentions_maxuser" && interaction.isStringSelectMenu()) {
+      const value = Number(interaction.values[0])
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { "modules.mentions.maxUserMentions": value, mode: "custom" } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
       return true
     }
+    if (customId === "ar_mentions_maxrole" && interaction.isStringSelectMenu()) {
+      const value = Number(interaction.values[0])
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { "modules.mentions.maxRoleMentions": value, mode: "custom" } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+    if (customId === "ar_mentions_everyone") {
+      const current = await get()
+      const allow = !current.modules.mentions.allowEveryone
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { "modules.mentions.allowEveryone": allow, mode: "custom" } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+  }
 
+  if (moduleName === "links") {
+    if (customId === "ar_links_invites") {
+      const current = await get()
+      const block = !current.modules.links.blockDiscordInvites
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { "modules.links.blockDiscordInvites": block, mode: "custom" } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+    if ((customId === "ar_links_allowrm" || customId === "ar_links_blockrm") && interaction.isStringSelectMenu()) {
+      const field = customId === "ar_links_allowrm" ? "modules.links.allowedDomains" : "modules.links.blockedDomains"
+      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $pullAll: { [field]: interaction.values } }, { upsert: true })
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+  }
+
+  if (moduleName === "nuke" && interaction.isStringSelectMenu()) {
+    const map: Record<string, string> = {
+      ar_nuke_chan: "channelThreshold",
+      ar_nuke_role: "roleThreshold",
+      ar_nuke_web: "webhookThreshold",
+    }
+    const key = map[customId]
+    if (key) {
+      const value = Number(interaction.values[0])
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { [`modules.nuke.${key}`]: value, mode: "custom" } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+  }
+
+  if (moduleName === "alts" && interaction.isStringSelectMenu() && customId === "ar_alts_maxage") {
+    const value = Number(interaction.values[0])
+    await AntiRaid.findOneAndUpdate(
+      { guildId: guild.id },
+      { $set: { "modules.alts.maxAge": value * 86400000, mode: "custom" } },
+      { upsert: true }
+    )
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
     return true
   }
 
-  if (interaction.isUserSelectMenu()) {
-    if (customId === CUSTOM_ID.wlUserAdd || customId === CUSTOM_ID.wlBotAdd) {
-      const field = customId === CUSTOM_ID.wlUserAdd ? "whitelistedUsers" : "whitelistedBots"
-      const ids = interaction.values.filter((id) => id !== client.user?.id)
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { [field]: { $each: ids } } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildWhitelistContainer(client, guild, fresh))
-      return true
-    }
+  if (moduleName === "verify" && interaction.isRoleSelectMenu() && customId === "ar_verify_role") {
+    const roleId = interaction.values[0]
+    await AntiRaid.findOneAndUpdate(
+      { guildId: guild.id },
+      { $set: { "modules.verify.role": roleId, mode: "custom" } },
+      { upsert: true }
+    )
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
   }
 
-  if (interaction.isRoleSelectMenu()) {
-    if (customId === CUSTOM_ID.wlRoleAdd) {
-      const ids = interaction.values
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { whitelistedRoles: { $each: ids } } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildWhitelistContainer(client, guild, fresh))
-      return true
-    }
-    if (customId === CUSTOM_ID.hpRoleAdd) {
-      const ids = interaction.values
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { "honeypot.roles": { $each: ids } } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildHoneypotContainer(client, guild, fresh))
-      return true
-    }
-  }
-
-  if (interaction.isChannelSelectMenu()) {
-    if (customId === CUSTOM_ID.wlChannelAdd) {
-      const ids = interaction.values
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { whitelistedChannels: { $each: ids } } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildWhitelistContainer(client, guild, fresh))
-      return true
-    }
-    if (customId === CUSTOM_ID.hpChannelAdd) {
-      const ids = interaction.values
-      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { "honeypot.channels": { $each: ids } } }, { upsert: true })
-      client.antiraid.invalidateConfig(guild.id)
-      const fresh = await get()
-      await updatePanel(interaction, buildHoneypotContainer(client, guild, fresh))
-      return true
-    }
+  if (moduleName === "badword" && interaction.isStringSelectMenu() && customId === "ar_badword_rm") {
+    await AntiRaid.findOneAndUpdate(
+      { guildId: guild.id },
+      { $pullAll: { "modules.badword.bannedWords": interaction.values } },
+      { upsert: true }
+    )
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
   }
 
   return true
+}
+
+export async function handleWhitelistInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ar_wl_")) return false
+  if (!(await requireAdmin(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const get = async () => client.antiraid.getConfig(guild.id)
+  const refresh = async () => {
+    const fresh = await get()
+    await updatePanel(interaction, buildWhitelistContainer(client, guild, fresh))
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    const rm = customId.match(/^ar_wl_(user|role|bot|channel)_rm$/)
+    if (rm) {
+      const type = rm[1]
+      const field =
+        type === "user" ? "whitelistedUsers" : type === "role" ? "whitelistedRoles" : type === "bot" ? "whitelistedBots" : "whitelistedChannels"
+      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $pullAll: { [field]: interaction.values } }, { upsert: true })
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+  }
+
+  if (interaction.isUserSelectMenu() && (customId === CUSTOM_ID.wlUserAdd || customId === CUSTOM_ID.wlBotAdd)) {
+    const field = customId === CUSTOM_ID.wlUserAdd ? "whitelistedUsers" : "whitelistedBots"
+    const ids = interaction.values.filter((id) => id !== client.user?.id)
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { [field]: { $each: ids } } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  if (interaction.isRoleSelectMenu() && customId === CUSTOM_ID.wlRoleAdd) {
+    const ids = interaction.values
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { whitelistedRoles: { $each: ids } } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  if (interaction.isChannelSelectMenu() && customId === CUSTOM_ID.wlChannelAdd) {
+    const ids = interaction.values
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { whitelistedChannels: { $each: ids } } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  return true
+}
+
+export async function handleHoneypotInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ar_hp_")) return false
+  if (!(await requireAdmin(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const get = async () => client.antiraid.getConfig(guild.id)
+  const refresh = async () => {
+    const fresh = await get()
+    await updatePanel(interaction, buildHoneypotContainer(client, guild, fresh))
+  }
+
+  if (customId === CUSTOM_ID.hpToggle) {
+    const current = await get()
+    const enabled = !current.honeypot.enabled
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $set: { "honeypot.enabled": enabled } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  if (customId === CUSTOM_ID.hpPunish && interaction.isStringSelectMenu()) {
+    const value = interaction.values[0] as Punishment
+    if (PUNISHMENTS.includes(value)) {
+      await AntiRaid.findOneAndUpdate(
+        { guildId: guild.id },
+        { $set: { "honeypot.punishment": value } },
+        { upsert: true }
+      )
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+    }
+    return true
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    const rm = customId.match(/^ar_hp_(channel|role)_rm$/)
+    if (rm) {
+      const field = rm[1] === "channel" ? "honeypot.channels" : "honeypot.roles"
+      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $pullAll: { [field]: interaction.values } }, { upsert: true })
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+      return true
+    }
+  }
+
+  if (interaction.isChannelSelectMenu() && customId === CUSTOM_ID.hpChannelAdd) {
+    const ids = interaction.values
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { "honeypot.channels": { $each: ids } } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  if (interaction.isRoleSelectMenu() && customId === CUSTOM_ID.hpRoleAdd) {
+    const ids = interaction.values
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $addToSet: { "honeypot.roles": { $each: ids } } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  return true
+}
+
+export async function handleLogsInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ar_logs_")) return false
+  if (!(await requireAdmin(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const get = async () => client.antiraid.getConfig(guild.id)
+  const refresh = async (page = 0, filter?: string) => {
+    const fresh = await get()
+    await updatePanel(interaction, buildLogsContainer(client, guild, fresh, page, filter))
+  }
+
+  if (customId === CUSTOM_ID.logsPrev) {
+    const config = await get()
+    const events = client.antiraid.getEventLog(guild.id)
+    const totalPages = Math.max(1, Math.ceil(events.length / 8))
+    const next = Math.max(0, Math.min(totalPages - 1, 0))
+    await refresh(next)
+    return true
+  }
+  if (customId === CUSTOM_ID.logsNext) {
+    await refresh(1)
+    return true
+  }
+
+  if (customId === CUSTOM_ID.logsFilter && interaction.isStringSelectMenu()) {
+    await refresh(0, interaction.values[0])
+    return true
+  }
+
+  if (customId === CUSTOM_ID.logsChannel && interaction.isChannelSelectMenu()) {
+    const channelId = interaction.values[0]
+    await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $set: { logChannel: channelId } }, { upsert: true })
+    client.antiraid.invalidateConfig(guild.id)
+    await refresh()
+    return true
+  }
+
+  return true
+}
+
+export async function handleModeInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  if (interaction.customId !== CUSTOM_ID.modeSel) return false
+  if (!(await requireAdmin(interaction))) return true
+  if (!interaction.isStringSelectMenu()) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const value = interaction.values[0]
+  if (MODES.includes(value as (typeof MODES)[number])) {
+    await client.antiraid.applyMode(client, guild.id, value as (typeof MODES)[number])
+    const fresh = await client.antiraid.getConfig(guild.id)
+    await updatePanel(interaction, buildModeContainer(client, guild, fresh))
+  }
+  return true
+}
+
+export async function handlePanicInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (customId !== CUSTOM_ID.panicOn && customId !== CUSTOM_ID.panicOff) return false
+  if (!(await requireAdmin(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const config = await client.antiraid.getConfig(guild.id)
+
+  if (customId === CUSTOM_ID.panicOn) {
+    await client.antiraid.activatePanic(client, config)
+  } else {
+    await client.antiraid.deactivatePanic(client, config)
+  }
+  const fresh = await client.antiraid.getConfig(guild.id)
+  await updatePanel(interaction, buildPanicContainer(client, guild, fresh))
+  return true
+}
+
+export async function handleQuarantineInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ar_q_")) return false
+  if (!(await requireAdmin(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const get = async () => client.antiraid.getConfig(guild.id)
+  const refresh = async () => {
+    const fresh = await get()
+    await updatePanel(interaction, buildQuarantineContainer(client, guild, fresh))
+  }
+
+  if (customId === CUSTOM_ID.qAdd && interaction.isUserSelectMenu()) {
+    for (const id of interaction.values) {
+      await client.antiraid.quarantineUser(client, guild, id)
+    }
+    await refresh()
+    return true
+  }
+
+  if (customId === CUSTOM_ID.qRm && interaction.isStringSelectMenu()) {
+    for (const id of interaction.values) {
+      await client.antiraid.unquarantineUser(client, guild, id)
+    }
+    await refresh()
+    return true
+  }
+
+  if (customId === CUSTOM_ID.qClear) {
+    for (const id of (await get()).quarantine.users) {
+      await client.antiraid.unquarantineUser(client, guild, id)
+    }
+    await refresh()
+    return true
+  }
+
+  return true
+}
+
+export async function handleLockdownInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ar_lockdown_")) return false
+  if (!(await requireAdmin(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+  const config = await client.antiraid.getConfig(guild.id)
+  const refresh = async () => {
+    const fresh = await client.antiraid.getConfig(guild.id)
+    await updatePanel(interaction, buildLockdownContainer(client, guild, fresh))
+  }
+
+  if (customId === CUSTOM_ID.lockdownOn) {
+    await client.antiraid.activateRaidMode(client, config, config.raidDuration)
+    await refresh()
+    return true
+  }
+  if (customId === CUSTOM_ID.lockdownOff) {
+    await client.antiraid.deactivateRaidMode(client, config)
+    await refresh()
+    return true
+  }
+  if (customId === CUSTOM_ID.lockdownDur && interaction.isStringSelectMenu()) {
+    const duration = parseTime(interaction.values[0])
+    if (duration !== null) {
+      await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $set: { raidDuration: duration } }, { upsert: true })
+      client.antiraid.invalidateConfig(guild.id)
+      await refresh()
+    }
+    return true
+  }
+
+  return true
+}
+
+export async function handlePanelInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent()) return false
+  if (!interaction.inGuild()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ar_")) return false
+
+  const moduleMatches = MODULES.filter((name) => {
+    const suffix = `_${name}`
+    if (new RegExp(`^ar_mod_(toggle|punish|limit|interval|duration)_${name}$`).test(customId)) return true
+    const prefixes: Record<string, string> = {
+      mentions: "ar_mentions_",
+      links: "ar_links_",
+      nuke: "ar_nuke_",
+      alts: "ar_alts_",
+      verify: "ar_verify_",
+      badword: "ar_badword_",
+    }
+    return prefixes[name] !== undefined && customId.startsWith(prefixes[name])
+  })
+
+  for (const name of moduleMatches) {
+    if (await handleModuleInteraction(client, interaction, name)) return true
+  }
+
+  if (customId.startsWith("ar_wl_")) return handleWhitelistInteraction(client, interaction)
+  if (customId.startsWith("ar_hp_")) return handleHoneypotInteraction(client, interaction)
+  if (customId.startsWith("ar_logs_")) return handleLogsInteraction(client, interaction)
+  if (customId === CUSTOM_ID.modeSel) return handleModeInteraction(client, interaction)
+  if (customId === CUSTOM_ID.panicOn || customId === CUSTOM_ID.panicOff) return handlePanicInteraction(client, interaction)
+  if (customId.startsWith("ar_q_")) return handleQuarantineInteraction(client, interaction)
+  if (customId.startsWith("ar_lockdown_")) return handleLockdownInteraction(client, interaction)
+
+  return false
 }

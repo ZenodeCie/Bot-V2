@@ -29,6 +29,10 @@ const LINK_REGEX = /https?:\/\/[^\s<>]+/gi
 const INVITE_REGEX = /(?:discord\.gg|discord\.com\/invite|discordapp\.com\/invite)\/[a-zA-Z0-9_-]+/gi
 const EMOJI_REGEX = /<a?:[a-zA-Z0-9_]+:[0-9]+>/gi
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 const CONFIG_CACHE_TTL = 5_000
 const PUNISH_COOLDOWN = 60_000
 const RAID_COOLDOWN = 120_000
@@ -407,6 +411,40 @@ export class AntiRaidEngine {
           "Anti-Selfbot",
           `${count} messages avec embeds personnalisés en ${formatTime(selfbots.interval)}`
         )
+      }
+    }
+
+    const badword = config.modules.badword
+    if (badword.enabled && badword.bannedWords.length > 0) {
+      const normalized = message.content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      const hit = badword.bannedWords.find((word) => {
+        const clean = word.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        if (!clean) return false
+        return new RegExp(`(^|[^a-z0-9])${escapeRegExp(clean)}([^a-z0-9]|$)`).test(normalized)
+      })
+      if (hit) {
+        if (this.isCooldown(guild.id, member.id)) {
+          try {
+            await message.delete()
+          } catch {}
+          return
+        }
+        const reason = `Anti-Raid (Anti-Mot Interdit) : mot interdit "${hit}" sur ${guild.name}`
+        const result = await punishMember(client, member, badword.punishment, badword.duration, reason)
+        this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
+        this.addSuspect(guild.id, member.id, 25)
+        this.logEvent(guild.id, "badword", `Anti-Mot Interdit : <@${member.id}> (${hit})`)
+        await sendLog(
+          client,
+          guild.id,
+          buildAntiRaidEmbed(
+            "🚨",
+            "Anti-Mot Interdit",
+            `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Mot interdit:** \`${hit}\`*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
+            colors.red
+          )
+        )
+        return
       }
     }
   }
