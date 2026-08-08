@@ -1,10 +1,13 @@
 import {
   AuditLogEvent,
+  ChannelType,
   PermissionFlagsBits,
+  type Channel,
   type Client,
   type Guild,
   type GuildMember,
   type Message,
+  type Role,
   type User,
 } from "discord.js"
 import { colors } from "../../config.js"
@@ -13,9 +16,12 @@ import { banUsers, dmUser, kickMembers, punishMember, timeoutMembers } from "./p
 import { buildAntiRaidEmbed, sendLog } from "./logs.js"
 import {
   AntiRaid,
+  MODE_PRESETS,
   PUNISHMENT_LABELS,
   getConfig,
   type AntiRaidConfig,
+  type AntiRaidMode,
+  type ModuleName,
   type ModuleSettings,
 } from "./schema.js"
 
@@ -62,6 +68,38 @@ interface PendingVerification {
   expires: number
 }
 
+interface EventEntry {
+  guildId: string
+  type: string
+  detail?: string
+  ts: number
+}
+
+interface SuspectEntry {
+  userId: string
+  score: number
+  ts: number
+}
+
+interface ChannelSnapshot {
+  id: string
+  name: string
+  type: ChannelType
+  parentId: string | null
+  topic: string | null
+  nsfw: boolean
+}
+
+interface RoleSnapshot {
+  id: string
+  name: string
+  color: number
+  hoist: boolean
+  mentionable: boolean
+  permissions: string
+  position: number
+}
+
 class ListTracker<T extends { ts: number }> {
   private entries = new Map<string, T[]>()
 
@@ -103,6 +141,10 @@ class RateTracker {
     return list.length
   }
 
+  keys(): string[] {
+    return [...this.entries.keys()]
+  }
+
   cleanup(now: number) {
     for (const [key, list] of this.entries) {
       const filtered = list.filter((ts) => now - ts <= 60_000)
@@ -127,6 +169,11 @@ export class AntiRaidEngine {
   private rates = new RateTracker()
 
   private pendingVerify = new Map<string, PendingVerification>()
+
+  private eventLog = new Map<string, EventEntry[]>()
+  private suspects = new Map<string, SuspectEntry[]>()
+  private channelSnapshots = new Map<string, ChannelSnapshot>()
+  private roleSnapshots = new Map<string, RoleSnapshot>()
 
   constructor(client: Client) {
     this.client = client
@@ -229,6 +276,35 @@ export class AntiRaidEngine {
       channelId: message.channel.id,
       ts: Date.now(),
     })
+
+    if (config.honeypot.enabled) {
+      const inHoneypotChannel = config.honeypot.channels.includes(message.channel.id)
+      const hasHoneypotRole = config.honeypot.roles.some((roleId) => member.roles.cache.has(roleId))
+      if (inHoneypotChannel || hasHoneypotRole) {
+        if (this.isCooldown(guild.id, member.id)) {
+          try {
+            await message.delete()
+          } catch {}
+          return
+        }
+        const reason = `Honeypot : interaction avec un ${inHoneypotChannel ? "salon piège" : "rôle piège"} sur ${guild.name}`
+        const result = await punishMember(client, member, config.honeypot.punishment, config.honeypot.duration, reason)
+        this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
+        await sendLog(
+          client,
+          guild.id,
+          buildAntiRaidEmbed(
+            "🕳️",
+            "Honeypot",
+            `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** message dans un ${inHoneypotChannel ? "salon piège" : "rôle piège"}*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
+            colors.red
+          )
+        )
+        this.logEvent(guild.id, "honeypot", `Honeypot : <@${member.id}>`)
+        this.addSuspect(guild.id, member.id, 50)
+        return
+      }
+    }
 
     const spam = config.modules.spam
     if (spam.enabled) {
@@ -364,6 +440,8 @@ export class AntiRaidEngine {
     if (settings.punishment === "lockdown") {
       await this.activateRaidMode(client, config, settings.duration)
       this.setCooldown(guild.id, member.id, RAID_COOLDOWN)
+      this.addSuspect(guild.id, member.id, 30)
+      this.logEvent(guild.id, "lockdown", `${moduleLabel} : verrouillage`)
       await sendLog(
         client,
         guild.id,
@@ -379,6 +457,8 @@ export class AntiRaidEngine {
 
     const result = await punishMember(client, member, settings.punishment, settings.duration, reason)
     this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
+    this.addSuspect(guild.id, member.id, 20)
+    this.logEvent(guild.id, moduleLabel.toLowerCase(), `${moduleLabel} : <@${member.id}>`)
     await sendLog(
       client,
       guild.id,
@@ -420,7 +500,30 @@ export class AntiRaidEngine {
     const guild = member.guild
     const config = await this.getConfig(guild.id)
     if (!config.enabled) return
-    if (this.anyModuleEnabled(config) === false) return
+    if (this.anyModuleEnabled(config) === false && !config.raidMode && !config.panic.active) return
+
+    if (config.panic.active && Date.now() < config.panic.until) {
+      if (this.isWhitelisted(config, member)) return
+      if (member.moderatable) {
+        try {
+          await member.kick("Serveur en mode panic : arrivées bloquées.")
+        } catch {}
+      }
+      this.logEvent(guild.id, "panic", `Arrivée bloquée : <@${member.id}>`)
+      return
+    }
+
+    if (config.quarantine.enabled && config.quarantine.users.includes(member.id)) {
+      const roleId = config.quarantine.role
+      if (roleId) {
+        const role = guild.roles.cache.get(roleId)
+        if (role) {
+          try {
+            await member.roles.add(role, "Membre en quarantaine")
+          } catch {}
+        }
+      }
+    }
 
     const joins = config.modules.joins
     if (joins.enabled) {
@@ -449,6 +552,8 @@ export class AntiRaidEngine {
         const reason = `Anti-Alts : compte créé il y a ${formatTime(Date.now() - createdAt)}`
         const result = await punishMember(client, member, alts.punishment, alts.duration, reason)
         this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
+        this.addSuspect(guild.id, member.id, 20)
+        this.logEvent(guild.id, "alts", `Anti-Alts : <@${member.id}>`)
         await sendLog(
           client,
           guild.id,
@@ -523,6 +628,8 @@ export class AntiRaidEngine {
         colors.red
       )
     )
+    for (const user of users) this.addSuspect(guild.id, user.id, 25)
+    this.logEvent(guild.id, "joins", `Raid de ${targets.length} membres`)
   }
 
   private async handleBotRaid(
@@ -551,6 +658,8 @@ export class AntiRaidEngine {
         colors.red
       )
     )
+    for (const user of users) this.addSuspect(guild.id, user.id, 25)
+    this.logEvent(guild.id, "bots", `Raid de ${targets.length} bots`)
   }
 
   async handleDestructive(
@@ -586,7 +695,16 @@ export class AntiRaidEngine {
     const key = `${guild.id}:${resolvedActor ?? "guild"}`
     this.destructive.push(key, { type, target: targetId, ts: Date.now() })
     const recent = this.destructive.recent(key, settings.interval)
-    if (recent.length < settings.limit) return
+
+    const threshold =
+      type === "channelDelete"
+        ? settings.channelThreshold
+        : type === "roleDelete"
+          ? settings.roleThreshold
+          : type === "ban"
+            ? settings.channelThreshold
+            : settings.webhookThreshold
+    if (recent.length < threshold) return
 
     const reason = `Anti-Nuke : ${recent.length} actions destructrices en ${formatTime(settings.interval)}`
     const actorUser = actor?.user ?? (resolvedActor ? await this.resolveUser(guild, resolvedActor) : null)
@@ -619,6 +737,8 @@ export class AntiRaidEngine {
     }
 
     this.setRaidCooldown(guild.id, "nuke", RAID_COOLDOWN)
+    if (actorUser) this.addSuspect(guild.id, actorUser.id, 40)
+    this.logEvent(guild.id, "nuke", `Anti-Nuke : ${recent.length} actions en ${formatTime(settings.interval)}`)
     await sendLog(
       client,
       guild.id,
@@ -641,6 +761,310 @@ export class AntiRaidEngine {
     } catch {
       return null
     }
+  }
+
+  logEvent(guildId: string, type: string, detail?: string) {
+    const list = this.eventLog.get(guildId) ?? []
+    list.push({ guildId, type, detail, ts: Date.now() })
+    this.eventLog.set(guildId, list.slice(-200))
+  }
+
+  getEventLog(guildId: string): EventEntry[] {
+    return (this.eventLog.get(guildId) ?? []).filter((entry) => Date.now() - entry.ts <= 24 * 60 * 60 * 1000)
+  }
+
+  clearEventLog(guildId: string) {
+    this.eventLog.delete(guildId)
+  }
+
+  private addSuspect(guildId: string, userId: string, points: number) {
+    const list = this.suspects.get(guildId) ?? []
+    list.push({ userId, score: points, ts: Date.now() })
+    this.suspects.set(guildId, list.slice(-100))
+  }
+
+  getTopSuspects(guildId: string, limit = 5): SuspectEntry[] {
+    const recent = (this.suspects.get(guildId) ?? []).filter((entry) => Date.now() - entry.ts <= 24 * 60 * 60 * 1000)
+    const totals = new Map<string, number>()
+    for (const entry of recent) {
+      totals.set(entry.userId, (totals.get(entry.userId) ?? 0) + entry.score)
+    }
+    return [...totals.entries()]
+      .map(([userId, score]) => ({ userId, score: Math.min(100, score), ts: Date.now() }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+  }
+
+  getThreatLevel(guildId: string): number {
+    const now = Date.now()
+    let level = 0
+
+    const joins = this.joins.recent(guildId, 60_000).length
+    const bots = this.botJoins.recent(guildId, 60_000).length
+    const destructive = this.destructive.recent(guildId, 60_000).length
+
+    if (joins >= 10) level += 35
+    else if (joins >= 5) level += 20
+    else if (joins >= 3) level += 10
+
+    if (bots >= 3) level += 25
+    else if (bots >= 2) level += 15
+
+    if (destructive >= 3) level += 30
+    else if (destructive >= 2) level += 15
+
+    for (const key of this.rates.keys()) {
+      if (key.startsWith("mentions:") || key.startsWith("spam:")) {
+        const count = this.rates.count(key, 60_000)
+        if (count >= 10) level += 10
+        break
+      }
+    }
+
+    const config = this.configCache.get(guildId)?.config
+    if (config?.raidMode && Date.now() < config.raidEndsAt) level = Math.max(level, 60)
+    if (config?.panic.active && Date.now() < config.panic.until) level = Math.max(level, 90)
+
+    return Math.min(100, level)
+  }
+
+  snapshotChannel(channel: Channel) {
+    if (!("guild" in channel) || !channel.guild) return
+    const type = channel.type
+    if (
+      type !== ChannelType.GuildText &&
+      type !== ChannelType.GuildVoice &&
+      type !== ChannelType.GuildCategory &&
+      type !== ChannelType.GuildAnnouncement &&
+      type !== ChannelType.GuildForum &&
+      type !== ChannelType.GuildMedia &&
+      type !== ChannelType.GuildStageVoice
+    ) {
+      return
+    }
+    const guildId = channel.guild.id
+    this.channelSnapshots.set(`${guildId}:${channel.id}`, {
+      id: channel.id,
+      name: "name" in channel ? channel.name : "unknown",
+      type: channel.type,
+      parentId: "parentId" in channel ? channel.parentId : null,
+      topic: "topic" in channel && channel.topic ? channel.topic : null,
+      nsfw: "nsfw" in channel ? channel.nsfw : false,
+    })
+  }
+
+  snapshotRole(role: Role) {
+    const guildId = role.guild.id
+    this.roleSnapshots.set(`${guildId}:${role.id}`, {
+      id: role.id,
+      name: role.name,
+      color: role.color,
+      hoist: role.hoist,
+      mentionable: role.mentionable,
+      permissions: role.permissions.bitfield.toString(),
+      position: role.position,
+    })
+  }
+
+  async restoreChannel(client: Client, guild: Guild, channelId: string): Promise<string | null> {
+    const snapshot = this.channelSnapshots.get(`${guild.id}:${channelId}`)
+    if (!snapshot) return null
+    try {
+      const options: { name: string; parent?: string; topic?: string; nsfw?: boolean } = {
+        name: snapshot.name,
+      }
+      if (snapshot.parentId) options.parent = snapshot.parentId
+      if (snapshot.topic) options.topic = snapshot.topic
+      if (snapshot.nsfw) options.nsfw = true
+
+      const createOptions: Parameters<Guild["channels"]["create"]>[0] = {
+        name: options.name,
+        type: snapshot.type as never,
+        parent: options.parent,
+        topic: options.topic,
+        nsfw: options.nsfw,
+      }
+      const created = await guild.channels.create(createOptions)
+      this.channelSnapshots.delete(`${guild.id}:${channelId}`)
+      this.logEvent(guild.id, "other", `Salon ${snapshot.name} restauré`)
+      return created.id
+    } catch (error) {
+      console.error(`Failed to restore channel ${channelId}:`, error)
+      return null
+    }
+  }
+
+  async restoreRole(client: Client, guild: Guild, roleId: string): Promise<string | null> {
+    const snapshot = this.roleSnapshots.get(`${guild.id}:${roleId}`)
+    if (!snapshot) return null
+    try {
+      const created = await guild.roles.create({
+        name: snapshot.name,
+        color: snapshot.color,
+        hoist: snapshot.hoist,
+        mentionable: snapshot.mentionable,
+        permissions: BigInt(snapshot.permissions),
+        reason: "Restauration anti-nuke",
+      })
+      this.roleSnapshots.delete(`${guild.id}:${roleId}`)
+      this.logEvent(guild.id, "other", `Rôle ${snapshot.name} restauré`)
+      return created.id
+    } catch (error) {
+      console.error(`Failed to restore role ${roleId}:`, error)
+      return null
+    }
+  }
+
+  async applyMode(client: Client, guildId: string, mode: AntiRaidMode) {
+    const config = await this.getConfig(guildId)
+    if (mode !== "custom") {
+      const preset = MODE_PRESETS[mode as Exclude<AntiRaidMode, "custom">]
+      const update: Record<string, unknown> = { mode }
+      for (const name of Object.keys(preset) as ModuleName[]) {
+        const values = preset[name] as Partial<ModuleSettings>
+        const module = config.modules[name]
+        for (const [key, value] of Object.entries(values)) {
+          if (!module.custom) update[`modules.${name}.${key}`] = value
+        }
+      }
+      await AntiRaid.findOneAndUpdate({ guildId }, { $set: update }, { upsert: true })
+    } else {
+      await AntiRaid.findOneAndUpdate({ guildId }, { $set: { mode: "custom" } }, { upsert: true })
+    }
+    this.invalidateConfig(guildId)
+    this.logEvent(guildId, "other", `Mode défini : ${mode}`)
+  }
+
+  async activatePanic(client: Client, config: AntiRaidConfig) {
+    const end = Date.now() + 6 * 60 * 60 * 1000
+    await AntiRaid.findOneAndUpdate(
+      { guildId: config.guildId },
+      { $set: { "panic.active": true, "panic.until": end } },
+      { upsert: true }
+    )
+    this.invalidateConfig(config.guildId)
+
+    if (!(config.raidMode && Date.now() < config.raidEndsAt)) {
+      await this.activateRaidMode(client, config, 6 * 60 * 60 * 1000)
+    }
+    this.logEvent(config.guildId, "panic", "Mode panic activé")
+    await sendLog(
+      client,
+      config.guildId,
+      buildAntiRaidEmbed(
+        "💣",
+        "MODE PANIC ACTIVÉ",
+        `> *Urgence critique ! Le serveur est verrouillé jusqu'à <t:${Math.floor(end / 1000)}:T>.*\n> *Arrivées bloquées, messages gelés, invitations bloquées.*`,
+        colors.red
+      )
+    )
+  }
+
+  async deactivatePanic(client: Client, config: AntiRaidConfig) {
+    await AntiRaid.findOneAndUpdate(
+      { guildId: config.guildId },
+      { $set: { "panic.active": false, "panic.until": 0 } },
+      { upsert: true }
+    )
+    this.invalidateConfig(config.guildId)
+    if (config.raidMode && Date.now() < config.raidEndsAt) {
+      await this.deactivateRaidMode(client, config)
+    }
+    this.logEvent(config.guildId, "panic", "Mode panic désactivé")
+    await sendLog(
+      client,
+      config.guildId,
+      buildAntiRaidEmbed("♻️", "Mode panic désactivé", "> *L'état précédent du serveur a été restauré.*", colors.yel)
+    )
+  }
+
+  async quarantineUser(client: Client, guild: Guild, userId: string): Promise<boolean> {
+    const config = await this.getConfig(guild.id)
+    const member = await this.resolveMember(guild, userId)
+    if (!member) return false
+
+    let roleId = config.quarantine.role
+    if (!roleId) {
+      try {
+        const role = await guild.roles.create({
+          name: "Quarantaine",
+          color: 0x2b2d31,
+          reason: "Rôle de quarantaine anti-raid",
+        })
+        roleId = role.id
+        await AntiRaid.findOneAndUpdate({ guildId: guild.id }, { $set: { "quarantine.role": roleId } }, { upsert: true })
+        this.invalidateConfig(guild.id)
+      } catch (error) {
+        console.error(`Failed to create quarantine role in guild ${guild.id}:`, error)
+        return false
+      }
+    }
+
+    const role = guild.roles.cache.get(roleId)
+    if (!role) return false
+
+    try {
+      const rolesToRemove = member.roles.cache.filter((r) => r.id !== guild.id && r.id !== roleId)
+      await member.roles.remove(rolesToRemove, "Mise en quarantaine")
+      await member.roles.add(role, "Mise en quarantaine")
+    } catch (error) {
+      console.error(`Failed to quarantine ${userId}:`, error)
+      return false
+    }
+
+    await AntiRaid.findOneAndUpdate(
+      { guildId: guild.id },
+      { $set: { "quarantine.enabled": true }, $addToSet: { "quarantine.users": userId } },
+      { upsert: true }
+    )
+    this.invalidateConfig(guild.id)
+    this.logEvent(guild.id, "other", `Quarantaine : <@${userId}>`)
+    return true
+  }
+
+  async unquarantineUser(client: Client, guild: Guild, userId: string) {
+    const config = await this.getConfig(guild.id)
+    const member = await this.resolveMember(guild, userId)
+    if (member && config.quarantine.role) {
+      const role = guild.roles.cache.get(config.quarantine.role)
+      if (role) {
+        try {
+          await member.roles.remove(role, "Fin de quarantaine")
+        } catch {}
+      }
+    }
+    await AntiRaid.findOneAndUpdate(
+      { guildId: guild.id },
+      { $pull: { "quarantine.users": userId } },
+      { upsert: true }
+    )
+    this.invalidateConfig(guild.id)
+    this.logEvent(guild.id, "other", `Fin de quarantaine : <@${userId}>`)
+  }
+
+  async handleHoneypotMemberUpdate(client: Client, member: GuildMember) {
+    const guild = member.guild
+    const config = await this.getConfig(guild.id)
+    if (!config.enabled || !config.honeypot.enabled) return
+    const hasHoneypotRole = config.honeypot.roles.some((roleId) => member.roles.cache.has(roleId))
+    if (!hasHoneypotRole) return
+    if (this.isWhitelisted(config, member)) return
+
+    const reason = `Honeypot : attribution d'un rôle piège sur ${guild.name}`
+    const result = await punishMember(client, member, config.honeypot.punishment, config.honeypot.duration, reason)
+    this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
+    await sendLog(
+      client,
+      guild.id,
+      buildAntiRaidEmbed(
+        "🕳️",
+        "Honeypot",
+        `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** rôle piège attribué*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
+        colors.red
+      )
+    )
+    this.logEvent(guild.id, "honeypot", `Rôle piège : <@${member.id}>`)
+    this.addSuspect(guild.id, member.id, 50)
   }
 
   async activateRaidMode(client: Client, config: AntiRaidConfig, duration: number) {
@@ -779,6 +1203,7 @@ export class AntiRaidEngine {
       guild.id,
       buildAntiRaidEmbed("✅", "Vérification réussie", `> ***Membre:** <@${member.id}> (${member.user.tag})*`, colors.yel)
     )
+    this.logEvent(guild.id, "verify", `Vérification réussie : <@${member.id}>`)
     return true
   }
 
@@ -829,6 +1254,17 @@ export class AntiRaidEngine {
     this.botJoins.cleanup(now)
     this.destructive.cleanup(now)
     this.rates.cleanup(now)
+
+    for (const [key, list] of this.eventLog) {
+      const filtered = list.filter((entry) => now - entry.ts <= 24 * 60 * 60 * 1000)
+      if (filtered.length === 0) this.eventLog.delete(key)
+      else this.eventLog.set(key, filtered)
+    }
+    for (const [key, list] of this.suspects) {
+      const filtered = list.filter((entry) => now - entry.ts <= 24 * 60 * 60 * 1000)
+      if (filtered.length === 0) this.suspects.delete(key)
+      else this.suspects.set(key, filtered)
+    }
 
     for (const [key, until] of this.cooldowns) {
       if (until <= now) this.cooldowns.delete(key)

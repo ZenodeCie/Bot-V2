@@ -14,7 +14,7 @@ export default {
   permissions: ["Administrator"],
   usage: "[on|off] [durée]",
   async execute(client: Client, message: Message, args: string[]) {
-    console.log(`Command ${client.prefix}raidmode used by ${message.author.tag} (${message.author.id}) in the guild ${message.guild?.name} (${message.guild?.id}${message.guild?.vanityURLCode ? ` / .gg/${message.guild?.vanityURLCode}` : ""})`)
+    console.log(`Command raidmode used by ${message.author.tag} (${message.author.id}) in the guild ${message.guild?.name} (${message.guild?.id}${message.guild?.vanityURLCode ? ` / .gg/${message.guild?.vanityURLCode}` : ""})`)
 
     if (!message.guild) {
       return message.reply({

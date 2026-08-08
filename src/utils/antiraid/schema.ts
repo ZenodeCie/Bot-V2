@@ -41,6 +41,18 @@ export const PUNISHMENT_LABELS: Record<Punishment, string> = {
   none: "Aucune",
 }
 
+export const MODES = ["off", "low", "balanced", "high", "maximum", "custom"] as const
+export type AntiRaidMode = (typeof MODES)[number]
+
+export const MODE_LABELS: Record<AntiRaidMode, string> = {
+  off: "Désactivé",
+  low: "Faible",
+  balanced: "Équilibré",
+  high: "Élevé",
+  maximum: "Maximum",
+  custom: "Personnalisé",
+}
+
 export interface ModuleSettings {
   enabled: boolean
   limit: number
@@ -49,35 +61,167 @@ export interface ModuleSettings {
   duration: number
   maxAge: number
   role: string | null
+  maxUserMentions: number
+  maxRoleMentions: number
+  allowEveryone: boolean
+  blockDiscordInvites: boolean
+  allowedDomains: string[]
+  blockedDomains: string[]
+  channelThreshold: number
+  roleThreshold: number
+  webhookThreshold: number
+  custom: boolean
+}
+
+export interface HoneypotSettings {
+  enabled: boolean
+  channels: string[]
+  roles: string[]
+  punishment: Punishment
+  duration: number
+}
+
+export interface QuarantineSettings {
+  enabled: boolean
+  role: string | null
+  users: string[]
+}
+
+export interface PanicSettings {
+  active: boolean
+  until: number
+}
+
+export interface LockdownSettings {
+  slowmode: number
+  blockJoins: boolean
+  blockMessages: boolean
 }
 
 const DAY = 24 * 60 * 60 * 1000
 const MIN = 60 * 1000
 const HOUR = 60 * MIN
 
+function moduleBase(
+  overrides: Partial<ModuleSettings> = {}
+): ModuleSettings {
+  return {
+    enabled: false,
+    limit: 5,
+    interval: 5 * 1000,
+    punishment: "timeout",
+    duration: 10 * MIN,
+    maxAge: 0,
+    role: null,
+    maxUserMentions: 5,
+    maxRoleMentions: 2,
+    allowEveryone: false,
+    blockDiscordInvites: true,
+    allowedDomains: [],
+    blockedDomains: [],
+    channelThreshold: 3,
+    roleThreshold: 3,
+    webhookThreshold: 3,
+    custom: false,
+    ...overrides,
+  }
+}
+
 export const MODULE_DEFAULTS: Record<ModuleName, ModuleSettings> = {
-  spam: { enabled: false, limit: 5, interval: 5 * 1000, punishment: "timeout", duration: 10 * MIN, maxAge: 0, role: null },
-  mentions: { enabled: false, limit: 5, interval: 3 * 1000, punishment: "timeout", duration: 10 * MIN, maxAge: 0, role: null },
-  links: { enabled: false, limit: 3, interval: 10 * 1000, punishment: "timeout", duration: HOUR, maxAge: 0, role: null },
-  emojis: { enabled: false, limit: 10, interval: 3 * 1000, punishment: "timeout", duration: 10 * MIN, maxAge: 0, role: null },
-  joins: { enabled: false, limit: 6, interval: 10 * 1000, punishment: "ban", duration: 0, maxAge: 0, role: null },
-  bots: { enabled: false, limit: 3, interval: 10 * 1000, punishment: "ban", duration: 0, maxAge: 0, role: null },
-  nuke: { enabled: false, limit: 3, interval: 5 * 1000, punishment: "lockdown", duration: HOUR, maxAge: 0, role: null },
-  selfbots: { enabled: false, limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0, maxAge: 0, role: null },
-  alts: { enabled: false, limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY, role: null },
-  verify: { enabled: false, limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN, maxAge: 0, role: null },
+  spam: moduleBase({ limit: 5, interval: 5 * 1000, punishment: "timeout", duration: 10 * MIN }),
+  mentions: moduleBase({ limit: 5, interval: 3 * 1000, punishment: "timeout", duration: 10 * MIN, maxUserMentions: 5, maxRoleMentions: 2, allowEveryone: false }),
+  links: moduleBase({ limit: 3, interval: 10 * 1000, punishment: "timeout", duration: HOUR, blockDiscordInvites: true }),
+  emojis: moduleBase({ limit: 10, interval: 3 * 1000, punishment: "timeout", duration: 10 * MIN }),
+  joins: moduleBase({ limit: 6, interval: 10 * 1000, punishment: "ban", duration: 0 }),
+  bots: moduleBase({ limit: 3, interval: 10 * 1000, punishment: "ban", duration: 0 }),
+  nuke: moduleBase({ limit: 3, interval: 5 * 1000, punishment: "lockdown", duration: HOUR, channelThreshold: 3, roleThreshold: 3, webhookThreshold: 3 }),
+  selfbots: moduleBase({ limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0 }),
+  alts: moduleBase({ limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY }),
+  verify: moduleBase({ limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN }),
+}
+
+type ModePreset = Partial<ModuleSettings> & { punishment?: Punishment }
+
+export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<ModuleName, ModePreset>> = {
+  off: {
+    spam: { limit: 15, interval: 10 * 1000, punishment: "warn", duration: 0 },
+    mentions: { limit: 12, interval: 10 * 1000, punishment: "warn", duration: 0 },
+    links: { limit: 10, interval: 30 * 1000, punishment: "warn", duration: 0 },
+    emojis: { limit: 25, interval: 10 * 1000, punishment: "warn", duration: 0 },
+    joins: { limit: 15, interval: 30 * 1000, punishment: "kick", duration: 0 },
+    bots: { limit: 5, interval: 30 * 1000, punishment: "kick", duration: 0 },
+    nuke: { limit: 6, interval: 10 * 1000, punishment: "lockdown", duration: HOUR, channelThreshold: 6, roleThreshold: 6, webhookThreshold: 6 },
+    selfbots: { limit: 8, interval: 10 * 1000, punishment: "kick", duration: 0 },
+    alts: { limit: 1, interval: 0, punishment: "warn", duration: 0, maxAge: 3 * DAY },
+    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 30 * MIN },
+  },
+  low: {
+    spam: { limit: 8, interval: 7 * 1000, punishment: "warn", duration: 0 },
+    mentions: { limit: 8, interval: 5 * 1000, punishment: "warn", duration: 0 },
+    links: { limit: 5, interval: 20 * 1000, punishment: "timeout", duration: 5 * MIN },
+    emojis: { limit: 15, interval: 5 * 1000, punishment: "warn", duration: 0 },
+    joins: { limit: 10, interval: 20 * 1000, punishment: "kick", duration: 0 },
+    bots: { limit: 4, interval: 20 * 1000, punishment: "kick", duration: 0 },
+    nuke: { limit: 4, interval: 8 * 1000, punishment: "lockdown", duration: 30 * MIN, channelThreshold: 4, roleThreshold: 4, webhookThreshold: 4 },
+    selfbots: { limit: 5, interval: 8 * 1000, punishment: "kick", duration: 0 },
+    alts: { limit: 1, interval: 0, punishment: "warn", duration: 0, maxAge: 5 * DAY },
+    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 30 * MIN },
+  },
+  balanced: {
+    spam: { limit: 5, interval: 5 * 1000, punishment: "timeout", duration: 10 * MIN },
+    mentions: { limit: 5, interval: 3 * 1000, punishment: "timeout", duration: 10 * MIN },
+    links: { limit: 3, interval: 10 * 1000, punishment: "timeout", duration: HOUR },
+    emojis: { limit: 10, interval: 3 * 1000, punishment: "timeout", duration: 10 * MIN },
+    joins: { limit: 6, interval: 10 * 1000, punishment: "ban", duration: 0 },
+    bots: { limit: 3, interval: 10 * 1000, punishment: "ban", duration: 0 },
+    nuke: { limit: 3, interval: 5 * 1000, punishment: "lockdown", duration: HOUR, channelThreshold: 3, roleThreshold: 3, webhookThreshold: 3 },
+    selfbots: { limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0 },
+    alts: { limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY },
+    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
+  },
+  high: {
+    spam: { limit: 4, interval: 4 * 1000, punishment: "timeout", duration: 15 * MIN },
+    mentions: { limit: 4, interval: 3 * 1000, punishment: "timeout", duration: 15 * MIN },
+    links: { limit: 2, interval: 8 * 1000, punishment: "timeout", duration: 2 * HOUR },
+    emojis: { limit: 8, interval: 3 * 1000, punishment: "timeout", duration: 15 * MIN },
+    joins: { limit: 5, interval: 10 * 1000, punishment: "ban", duration: 0 },
+    bots: { limit: 2, interval: 10 * 1000, punishment: "ban", duration: 0 },
+    nuke: { limit: 2, interval: 5 * 1000, punishment: "ban", duration: 0, channelThreshold: 2, roleThreshold: 2, webhookThreshold: 2 },
+    selfbots: { limit: 2, interval: 5 * 1000, punishment: "ban", duration: 0 },
+    alts: { limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 14 * DAY },
+    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
+  },
+  maximum: {
+    spam: { limit: 3, interval: 3 * 1000, punishment: "kick", duration: 0 },
+    mentions: { limit: 3, interval: 2 * 1000, punishment: "kick", duration: 0 },
+    links: { limit: 1, interval: 5 * 1000, punishment: "timeout", duration: 6 * HOUR },
+    emojis: { limit: 5, interval: 2 * 1000, punishment: "kick", duration: 0 },
+    joins: { limit: 3, interval: 10 * 1000, punishment: "ban", duration: 0 },
+    bots: { limit: 1, interval: 10 * 1000, punishment: "ban", duration: 0 },
+    nuke: { limit: 1, interval: 3 * 1000, punishment: "ban", duration: 0, channelThreshold: 1, roleThreshold: 1, webhookThreshold: 1 },
+    selfbots: { limit: 1, interval: 3 * 1000, punishment: "ban", duration: 0 },
+    alts: { limit: 1, interval: 0, punishment: "ban", duration: 0, maxAge: 30 * DAY },
+    verify: { limit: 1, interval: 0, punishment: "kick", duration: 0 },
+  },
 }
 
 export interface AntiRaidConfig {
   guildId: string
   enabled: boolean
   premium: boolean
+  mode: AntiRaidMode
   raidMode: boolean
   raidEndsAt: number
   raidDuration: number
   logChannel: string | null
   whitelistedUsers: string[]
   whitelistedRoles: string[]
+  whitelistedBots: string[]
+  whitelistedChannels: string[]
+  honeypot: HoneypotSettings
+  quarantine: QuarantineSettings
+  panic: PanicSettings
+  lockdown: LockdownSettings
   modules: Record<ModuleName, ModuleSettings>
 }
 
@@ -90,6 +234,16 @@ const moduleSchema = new Schema(
     duration: { type: Number, default: 600000 },
     maxAge: { type: Number, default: 0 },
     role: { type: String, default: null },
+    maxUserMentions: { type: Number, default: 5 },
+    maxRoleMentions: { type: Number, default: 2 },
+    allowEveryone: { type: Boolean, default: false },
+    blockDiscordInvites: { type: Boolean, default: true },
+    allowedDomains: { type: [String], default: [] },
+    blockedDomains: { type: [String], default: [] },
+    channelThreshold: { type: Number, default: 3 },
+    roleThreshold: { type: Number, default: 3 },
+    webhookThreshold: { type: Number, default: 3 },
+    custom: { type: Boolean, default: false },
   },
   { _id: false }
 )
@@ -110,23 +264,104 @@ const modulesSchema = new Schema(
   { _id: false }
 )
 
+const honeypotSchema = new Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    channels: { type: [String], default: [] },
+    roles: { type: [String], default: [] },
+    punishment: { type: String, enum: PUNISHMENTS, default: "ban" },
+    duration: { type: Number, default: 0 },
+  },
+  { _id: false }
+)
+
+const quarantineSchema = new Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    role: { type: String, default: null },
+    users: { type: [String], default: [] },
+  },
+  { _id: false }
+)
+
+const panicSchema = new Schema(
+  {
+    active: { type: Boolean, default: false },
+    until: { type: Number, default: 0 },
+  },
+  { _id: false }
+)
+
+const lockdownSchema = new Schema(
+  {
+    slowmode: { type: Number, default: 0 },
+    blockJoins: { type: Boolean, default: false },
+    blockMessages: { type: Boolean, default: true },
+  },
+  { _id: false }
+)
+
 const antiRaidSchema = new Schema(
   {
     guildId: { type: String, required: true, unique: true, index: true },
     enabled: { type: Boolean, default: false },
     premium: { type: Boolean, default: false },
+    mode: { type: String, enum: MODES, default: "balanced" },
     raidMode: { type: Boolean, default: false },
     raidEndsAt: { type: Number, default: 0 },
     raidDuration: { type: Number, default: HOUR },
     logChannel: { type: String, default: null },
     whitelistedUsers: { type: [String], default: [] },
     whitelistedRoles: { type: [String], default: [] },
+    whitelistedBots: { type: [String], default: [] },
+    whitelistedChannels: { type: [String], default: [] },
+    honeypot: { type: honeypotSchema, default: () => ({}) },
+    quarantine: { type: quarantineSchema, default: () => ({}) },
+    panic: { type: panicSchema, default: () => ({}) },
+    lockdown: { type: lockdownSchema, default: () => ({}) },
     modules: { type: modulesSchema, default: () => ({}) },
   },
   { timestamps: true }
 )
 
 export const AntiRaid = model("AntiRaid", antiRaidSchema, "antiraid")
+
+export const HONEYPOT_DEFAULTS: HoneypotSettings = {
+  enabled: false,
+  channels: [],
+  roles: [],
+  punishment: "ban",
+  duration: 0,
+}
+
+export const QUARANTINE_DEFAULTS: QuarantineSettings = {
+  enabled: false,
+  role: null,
+  users: [],
+}
+
+export const PANIC_DEFAULTS: PanicSettings = {
+  active: false,
+  until: 0,
+}
+
+export const LOCKDOWN_DEFAULTS: LockdownSettings = {
+  slowmode: 0,
+  blockJoins: false,
+  blockMessages: true,
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function asBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback
+}
+
+function asStringArray(value: unknown, fallback: string[]): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : fallback
+}
 
 export function normalizeConfig(raw: Record<string, unknown> | null | undefined): AntiRaidConfig {
   const modules = (raw?.modules as Record<string, Partial<ModuleSettings>> | undefined) ?? {}
@@ -136,26 +371,73 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
     const base = MODULE_DEFAULTS[name]
     const value = modules[name] ?? {}
     normalizedModules[name] = {
-      enabled: typeof value.enabled === "boolean" ? value.enabled : base.enabled,
-      limit: typeof value.limit === "number" ? value.limit : base.limit,
-      interval: typeof value.interval === "number" ? value.interval : base.interval,
+      enabled: asBoolean(value.enabled, base.enabled),
+      limit: asNumber(value.limit, base.limit),
+      interval: asNumber(value.interval, base.interval),
       punishment: PUNISHMENTS.includes(value.punishment as Punishment) ? (value.punishment as Punishment) : base.punishment,
-      duration: typeof value.duration === "number" ? value.duration : base.duration,
-      maxAge: typeof value.maxAge === "number" ? value.maxAge : base.maxAge,
+      duration: asNumber(value.duration, base.duration),
+      maxAge: asNumber(value.maxAge, base.maxAge),
       role: typeof value.role === "string" ? value.role : base.role,
+      maxUserMentions: asNumber(value.maxUserMentions, base.maxUserMentions),
+      maxRoleMentions: asNumber(value.maxRoleMentions, base.maxRoleMentions),
+      allowEveryone: asBoolean(value.allowEveryone, base.allowEveryone),
+      blockDiscordInvites: asBoolean(value.blockDiscordInvites, base.blockDiscordInvites),
+      allowedDomains: asStringArray(value.allowedDomains, base.allowedDomains),
+      blockedDomains: asStringArray(value.blockedDomains, base.blockedDomains),
+      channelThreshold: asNumber(value.channelThreshold, base.channelThreshold),
+      roleThreshold: asNumber(value.roleThreshold, base.roleThreshold),
+      webhookThreshold: asNumber(value.webhookThreshold, base.webhookThreshold),
+      custom: asBoolean(value.custom, base.custom),
     }
+  }
+
+  const rawHoneypot = raw?.honeypot as Record<string, unknown> | undefined
+  const rawQuarantine = raw?.quarantine as Record<string, unknown> | undefined
+  const rawPanic = raw?.panic as Record<string, unknown> | undefined
+  const rawLockdown = raw?.lockdown as Record<string, unknown> | undefined
+
+  const honeypot: HoneypotSettings = {
+    enabled: asBoolean(rawHoneypot?.enabled, HONEYPOT_DEFAULTS.enabled),
+    channels: asStringArray(rawHoneypot?.channels, HONEYPOT_DEFAULTS.channels),
+    roles: asStringArray(rawHoneypot?.roles, HONEYPOT_DEFAULTS.roles),
+    punishment: PUNISHMENTS.includes(rawHoneypot?.punishment as Punishment) ? (rawHoneypot?.punishment as Punishment) : HONEYPOT_DEFAULTS.punishment,
+    duration: asNumber(rawHoneypot?.duration, HONEYPOT_DEFAULTS.duration),
+  }
+
+  const quarantine: QuarantineSettings = {
+    enabled: asBoolean(rawQuarantine?.enabled, QUARANTINE_DEFAULTS.enabled),
+    role: typeof rawQuarantine?.role === "string" ? rawQuarantine.role : QUARANTINE_DEFAULTS.role,
+    users: asStringArray(rawQuarantine?.users, QUARANTINE_DEFAULTS.users),
+  }
+
+  const panic: PanicSettings = {
+    active: asBoolean(rawPanic?.active, PANIC_DEFAULTS.active),
+    until: asNumber(rawPanic?.until, PANIC_DEFAULTS.until),
+  }
+
+  const lockdown: LockdownSettings = {
+    slowmode: asNumber(rawLockdown?.slowmode, LOCKDOWN_DEFAULTS.slowmode),
+    blockJoins: asBoolean(rawLockdown?.blockJoins, LOCKDOWN_DEFAULTS.blockJoins),
+    blockMessages: asBoolean(rawLockdown?.blockMessages, LOCKDOWN_DEFAULTS.blockMessages),
   }
 
   return {
     guildId: typeof raw?.guildId === "string" ? raw.guildId : "",
-    enabled: typeof raw?.enabled === "boolean" ? raw.enabled : false,
-    premium: typeof raw?.premium === "boolean" ? raw.premium : false,
-    raidMode: typeof raw?.raidMode === "boolean" ? raw.raidMode : false,
-    raidEndsAt: typeof raw?.raidEndsAt === "number" ? raw.raidEndsAt : 0,
-    raidDuration: typeof raw?.raidDuration === "number" ? raw.raidDuration : HOUR,
+    enabled: asBoolean(raw?.enabled, false),
+    premium: asBoolean(raw?.premium, false),
+    mode: MODES.includes(raw?.mode as AntiRaidMode) ? (raw?.mode as AntiRaidMode) : "balanced",
+    raidMode: asBoolean(raw?.raidMode, false),
+    raidEndsAt: asNumber(raw?.raidEndsAt, 0),
+    raidDuration: asNumber(raw?.raidDuration, HOUR),
     logChannel: typeof raw?.logChannel === "string" ? raw.logChannel : null,
-    whitelistedUsers: Array.isArray(raw?.whitelistedUsers) ? (raw.whitelistedUsers as string[]) : [],
-    whitelistedRoles: Array.isArray(raw?.whitelistedRoles) ? (raw.whitelistedRoles as string[]) : [],
+    whitelistedUsers: asStringArray(raw?.whitelistedUsers, []),
+    whitelistedRoles: asStringArray(raw?.whitelistedRoles, []),
+    whitelistedBots: asStringArray(raw?.whitelistedBots, []),
+    whitelistedChannels: asStringArray(raw?.whitelistedChannels, []),
+    honeypot,
+    quarantine,
+    panic,
+    lockdown,
     modules: normalizedModules,
   }
 }

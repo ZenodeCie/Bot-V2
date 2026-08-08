@@ -11,7 +11,7 @@ export default {
   permissions: [],
   usage: "",
   async execute(_client: Client, _message: Message) {
-    console.log(`Command ${_client.prefix}ping used by ${_message.author.tag} (${_message.author.id}) in the guild ${_message.guild?.name} (${_message.guild?.id}${_message.guild?.vanityURLCode ? ` / .gg/${_message.guild?.vanityURLCode}` : ""})`)
+    console.log(`Command ping used by ${_message.author.tag} (${_message.author.id}) in the guild ${_message.guild?.name} (${_message.guild?.id}${_message.guild?.vanityURLCode ? ` / .gg/${_message.guild?.vanityURLCode}` : ""})`)
 
     const sent = await _message.reply("Pinging...")
     const apiping = sent.createdTimestamp - _message.createdTimestamp

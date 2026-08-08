@@ -14,7 +14,7 @@ export default {
   permissions: ["Administrator"],
   usage: "[new prefix]",
   async execute(_client: Client, _message: Message, _args: string[]) {
-    console.log(`Command ${_client.prefix}prefix used by ${_message.author.tag} (${_message.author.id}) in the guild ${_message.guild?.name} (${_message.guild?.id}${_message.guild?.vanityURLCode ? ` / .gg/${_message.guild?.vanityURLCode}` : ""})`)
+    console.log(`Command prefix used by ${_message.author.tag} (${_message.author.id}) in the guild ${_message.guild?.name} (${_message.guild?.id}${_message.guild?.vanityURLCode ? ` / .gg/${_message.guild?.vanityURLCode}` : ""})`)
 
     if (!_message.guild) {
       return _message.reply({

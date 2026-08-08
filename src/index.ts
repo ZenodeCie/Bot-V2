@@ -44,8 +44,8 @@ async function loadCommands(dir = join(import.meta.dirname, "commands")) {
     try {
       client.commands.set(command.default.name, command.default)
       console.log(`Command ${command.default.name} loaded`)
-      if (typeof command.handleInteraction === "function") {
-        client.interactions.set(command.default.name, command.handleInteraction)
+      if (typeof command.default.handleInteraction === "function") {
+        client.interactions.set(command.default.name, command.default.handleInteraction)
       }
     } catch (err) {
       console.log(`Failed to load command ${command.default.name}: ${err}`)

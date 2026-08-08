@@ -10,7 +10,7 @@ export default {
   permissions: [],
   usage: "<code>",
   async execute(client: Client, message: Message, args: string[]) {
-    console.log(`Command ${client.prefix}verify used by ${message.author.tag} (${message.author.id}) in the guild ${message.guild?.name} (${message.guild?.id}${message.guild?.vanityURLCode ? ` / .gg/${message.guild?.vanityURLCode}` : ""})`)
+    console.log(`Command verify used by ${message.author.tag} (${message.author.id}) in the guild ${message.guild?.name} (${message.guild?.id}${message.guild?.vanityURLCode ? ` / .gg/${message.guild?.vanityURLCode}` : ""})`)
 
     if (!message.guild) {
       return message.reply({
