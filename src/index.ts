@@ -1,6 +1,7 @@
 import { Client, Collection, GatewayIntentBits, Partials } from "discord.js"
 import { readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import config from "./config.js"
 import initData from "./utils/initData.js"
 import { AntiRaidEngine } from "./utils/antiraid/engine.js"
@@ -38,7 +39,7 @@ async function loadCommands(dir = join(import.meta.dirname, "commands")) {
     }
 
     if (!entry.endsWith(".js")) continue
-    const command = await import(fullPath)
+    const command = await import(pathToFileURL(fullPath).href)
     if (!command.default) continue
     try {
       client.commands.set(command.default.name, command.default)
@@ -63,7 +64,7 @@ async function loadEvents(dir = join(import.meta.dirname, "events")) {
     }
 
     if (!entry.endsWith(".js")) continue
-    const { default: event } = await import(fullPath)
+    const { default: event } = await import(pathToFileURL(fullPath).href)
     if (!event) continue
     try {
       client.on(event.name, event.execute.bind(null, client))
