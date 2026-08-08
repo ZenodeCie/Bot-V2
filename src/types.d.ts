@@ -1,5 +1,6 @@
 import type { Collection, Client, Interaction, Message, PermissionResolvable } from "discord.js"
 import type { Connection } from "mongoose"
+import type { AntiRaidEngine } from "./utils/antiraid/engine.js"
 
 export interface Command {
   name: string
@@ -20,5 +21,6 @@ declare module "discord.js" {
     commands: Collection<string, Command>
     db: Connection
     interactions: Collection<string, InteractionHandler>
+    antiraid: AntiRaidEngine
   }
 }

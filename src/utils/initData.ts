@@ -14,7 +14,7 @@ export type GuildData = InferSchemaType<typeof guildSchema>
 
 export const Guild = model<GuildData>("Guild", guildSchema, "guilds")
 
-const COLLECTIONS = ["guilds"]
+const COLLECTIONS = ["guilds", "antiraid"]
 
 export default async function initData() {
   const db = mongoClient.db
