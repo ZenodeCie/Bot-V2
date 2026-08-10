@@ -292,6 +292,23 @@ export class AntiRaidEngine {
           return
         }
         const reason = `Honeypot : interaction avec un ${inHoneypotChannel ? "salon piège" : "rôle piège"} sur ${guild.name}`
+        if (config.honeypot.punishment === "lockdown") {
+          await this.activateRaidMode(client, config, config.honeypot.duration)
+          this.setCooldown(guild.id, member.id, RAID_COOLDOWN)
+          this.addSuspect(guild.id, member.id, 50)
+          this.logEvent(guild.id, "honeypot", `Honeypot : <@${member.id}>`)
+          await sendLog(
+            client,
+            guild.id,
+            buildAntiRaidEmbed(
+              "🕳️",
+              "Honeypot",
+              `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** message dans un ${inHoneypotChannel ? "salon piège" : "rôle piège"}*\n> ***Action:** Verrouillage du serveur*`,
+              colors.red
+            )
+          )
+          return
+        }
         const result = await punishMember(client, member, config.honeypot.punishment, config.honeypot.duration, reason)
         this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
         await sendLog(
@@ -982,7 +999,12 @@ export class AntiRaidEngine {
     )
     this.invalidateConfig(config.guildId)
 
-    if (!(config.raidMode && Date.now() < config.raidEndsAt)) {
+    if (config.raidMode && Date.now() < config.raidEndsAt) {
+      if (config.raidEndsAt < end) {
+        await AntiRaid.findOneAndUpdate({ guildId: config.guildId }, { $set: { raidEndsAt: end } }, { upsert: true })
+        this.invalidateConfig(config.guildId)
+      }
+    } else {
       await this.activateRaidMode(client, config, 6 * 60 * 60 * 1000)
     }
     this.logEvent(config.guildId, "panic", "Mode panic activé")
@@ -1089,6 +1111,23 @@ export class AntiRaidEngine {
     if (this.isWhitelisted(config, member)) return
 
     const reason = `Honeypot : attribution d'un rôle piège sur ${guild.name}`
+    if (config.honeypot.punishment === "lockdown") {
+      await this.activateRaidMode(client, config, config.honeypot.duration)
+      this.setCooldown(guild.id, member.id, RAID_COOLDOWN)
+      this.addSuspect(guild.id, member.id, 50)
+      this.logEvent(guild.id, "honeypot", `Rôle piège : <@${member.id}>`)
+      await sendLog(
+        client,
+        guild.id,
+        buildAntiRaidEmbed(
+          "🕳️",
+          "Honeypot",
+          `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** rôle piège attribué*\n> ***Action:** Verrouillage du serveur*`,
+          colors.red
+        )
+      )
+      return
+    }
     const result = await punishMember(client, member, config.honeypot.punishment, config.honeypot.duration, reason)
     this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
     await sendLog(

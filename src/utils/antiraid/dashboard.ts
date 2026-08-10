@@ -1167,9 +1167,12 @@ export async function handleHoneypotInteraction(client: Client, interaction: Int
   if (customId === CUSTOM_ID.hpPunish && interaction.isStringSelectMenu()) {
     const value = interaction.values[0] as Punishment
     if (PUNISHMENTS.includes(value)) {
+      let duration = (await get()).honeypot.duration
+      if ((value === "timeout" || value === "lockdown") && duration <= 0) duration = 600000
+      if (value !== "timeout" && value !== "lockdown") duration = 0
       await AntiRaid.findOneAndUpdate(
         { guildId: guild.id },
-        { $set: { "honeypot.punishment": value } },
+        { $set: { "honeypot.punishment": value, "honeypot.duration": duration } },
         { upsert: true }
       )
       client.antiraid.invalidateConfig(guild.id)
