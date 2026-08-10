@@ -538,7 +538,7 @@ export class AntiRaidEngine {
     const guild = member.guild
     const config = await this.getConfig(guild.id)
     if (!config.enabled) return
-    if (this.anyModuleEnabled(config) === false && !config.raidMode && !config.panic.active) return
+    if (this.anyModuleEnabled(config) === false && !config.raidMode && !config.panic.active && !config.quarantine.enabled) return
 
     if (config.panic.active && Date.now() < config.panic.until) {
       if (this.isWhitelisted(config, member)) return

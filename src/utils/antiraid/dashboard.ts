@@ -52,8 +52,6 @@ export const CUSTOM_ID = {
   modeSel: "ar_mode_sel",
   panicOn: "ar_panic_on",
   panicOff: "ar_panic_off",
-  logsPrev: "ar_logs_prev",
-  logsNext: "ar_logs_next",
   logsFilter: "ar_logs_filter",
   logsChannel: "ar_logs_channel",
   qAdd: "ar_q_add",
@@ -111,32 +109,73 @@ const EMOJI_IDS = {
   permDisable: "1469693096278229002",
   pin: "1469696535850651933",
   plane: "1469696552934183005",
+  heart: "1469692928229245043",
+  gMute: "1469685636217962549",
 } as const
 
 const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
 
+const EMOJI_TAGS = {
+  add: "<:Add:1469692082107977782>",
+  addUser: "<:AddUser:1469692085992034387>",
+  bot: "<:Bot:1469692094342762526>",
+  cancel: "<:Cancel:1469692099736895592>",
+  channel: "<:Channel:1469692104589705376>",
+  check: "<:Check:1469692151251341425>",
+  cog: "<:Cog:1469692155680526427>",
+  cogUser: "<:CogUser:1469692167122325577>",
+  color: "<:Color:1469692171706962071>",
+  disable: "<:Disable:1469692191298556099>",
+  duration: "<:Duration:1469692196331458704>",
+  electricStar: "<:ElectricStar:1469692210961322025>",
+  emoji: "<:Emoji:1469692247107965071>",
+  enable: "<:Enable:1469692252988116992>",
+  eye: "<:Eye:1469692577384235161>",
+  file: "<:File:1469692584959017070>",
+  heart: "<:Heart:1469692928229245043>",
+  leave: "<:Leave:1469692941068009686>",
+  light: "<:Light:1469692975096402071>",
+  loop: "<:Loop:1469692980586872957>",
+  noPaper: "<:NoPaper:1469692984961536041>",
+  notes: "<:Notes:1469692988870623369>",
+  paper: "<:Paper:1469692994428080191>",
+  party: "<:Party:1469693039739146435>",
+  pause: "<:Pause:1469693044256145610>",
+  pen: "<:Pen:1469693057497563160>",
+  pending: "<:Pending:1469693062543311044>",
+  people: "<:People:1469693090280505458>",
+  permDisable: "<:PermDisable:1469693096278229002>",
+  pin: "<:Pin:1469696535850651933>",
+  plane: "<:Plane:1469696552934183005>",
+  gMute: "<:g_mute:1469685636217962549>",
+} as const
+
 const CONTAINER_ACCENT = 0x36373e
 
 const MODULE_EMOJIS: Record<ModuleName, string> = {
-  spam: "💬",
-  mentions: "📣",
-  links: "🔗",
-  emojis: "😀",
-  joins: "👥",
-  bots: "🤖",
-  nuke: "💥",
-  selfbots: "🔄",
-  alts: "👶",
-  verify: "✅",
-  badword: "🚫",
+  spam: EMOJI_TAGS.notes,
+  mentions: EMOJI_TAGS.cogUser,
+  links: EMOJI_TAGS.plane,
+  emojis: EMOJI_TAGS.emoji,
+  joins: EMOJI_TAGS.addUser,
+  bots: EMOJI_TAGS.bot,
+  nuke: EMOJI_TAGS.permDisable,
+  selfbots: EMOJI_TAGS.loop,
+  alts: EMOJI_TAGS.pending,
+  verify: EMOJI_TAGS.check,
+  badword: EMOJI_TAGS.noPaper,
 }
 
 function moduleState(module: { enabled: boolean }): string {
-  return module.enabled ? "✅ Activé" : "❌ Désactivé"
+  return module.enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
 }
 
 async function updatePanel(interaction: MessageComponentInteraction, containers: ContainerBuilder[]) {
   return interaction.update({ components: containers, flags: COMPONENTS_V2_FLAGS })
+}
+
+function logsNavId(dir: "prev" | "next", page: number, filter?: string): string {
+  return `ar_logs_${dir}_${page}_${filter ?? "all"}`
 }
 
 async function requireAdmin(interaction: Interaction): Promise<boolean> {
@@ -166,17 +205,17 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
       : "`comportement` (sans seuil)"
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`${MODULE_EMOJIS[selected]}\` 〃 ${MODULE_LABELS[selected]}`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${MODULE_EMOJIS[selected]} 〃 ${MODULE_LABELS[selected]}`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `> ${premium ? "🔒 **Module premium**\n" : ""}` +
+      `> ${premium ? `${EMOJI_TAGS.electricStar} **Module premium**\n` : ""}` +
         `> ***État:** ${moduleState(module)}*\n` +
-        `> ***Seuil:** ${threshold}*\n` +
-        `> ***Punition:** ${PUNISHMENT_LABELS[module.punishment]}*\n` +
-        `> ***Durée:** ${module.duration > 0 ? formatTime(module.duration) : "Définitif"}*\n` +
-        (module.maxAge > 0 ? `> ***Âge max du compte:** ${formatTime(module.maxAge)}*\n` : "") +
-        (module.role ? `> ***Rôle:** <@&${module.role}>*\n` : "")
+        `> ${EMOJI_TAGS.cog} ***Seuil:** ${threshold}*\n` +
+        `> ${EMOJI_TAGS.gMute} ***Punition:** ${PUNISHMENT_LABELS[module.punishment]}*\n` +
+        `> ${EMOJI_TAGS.duration} ***Durée:** ${module.duration > 0 ? formatTime(module.duration) : "Définitif"}*\n` +
+        (module.maxAge > 0 ? `> ${EMOJI_TAGS.pending} ***Âge max du compte:** ${formatTime(module.maxAge)}*\n` : "") +
+        (module.role ? `> ${EMOJI_TAGS.cogUser} ***Rôle:** <@&${module.role}>*\n` : "")
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -209,9 +248,8 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  const container2 = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container2.addTextDisplayComponents((t) => t.setContent("### \`🔢\` Réglages du seuil"))
-  container2.addSeparatorComponents((s) => s.setDivider(true))
+  container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.cog} Réglages du seuil`))
+  container.addSeparatorComponents((s) => s.setDivider(true))
 
   if (module.interval > 0) {
     const durations = [
@@ -226,8 +264,8 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
       { label: "1 minute", value: "1m" },
       { label: "5 minutes", value: "5m" },
     ]
-    container2.addTextDisplayComponents((t) => t.setContent("**Ajuster le seuil** (limite / intervalle)"))
-    container2.addActionRowComponents((row) =>
+    container.addTextDisplayComponents((t) => t.setContent("**Ajuster le seuil** (limite / intervalle)"))
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`ar_mod_limit_${selected}`)
@@ -235,7 +273,7 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
           .addOptions(durations)
       )
     )
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`ar_mod_interval_${selected}`)
@@ -246,14 +284,14 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
   }
 
   if (module.duration > 0 || module.punishment === "timeout" || module.punishment === "lockdown") {
-    container2.addSeparatorComponents((s) => s.setDivider(true))
-    container2.addTextDisplayComponents((t) => t.setContent("**Durée de la punition**"))
+    container.addSeparatorComponents((s) => s.setDivider(true))
+    container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.duration} **Durée de la punition**`))
     const durationsOpts = ["5m", "10m", "30m", "1h", "6h", "24h"].map((value) => ({
       label: value,
       value,
       default: module.duration > 0 && Math.abs(module.duration - parseTime(value)!) < 1000,
     }))
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`ar_mod_duration_${selected}`)
@@ -263,9 +301,9 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
     )
   }
 
-  addModuleSpecific(container2, config, selected)
+  addModuleSpecific(container, config, selected)
 
-  return [container, container2]
+  return [container]
 }
 
 function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, selected: ModuleName) {
@@ -273,7 +311,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "mentions") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent("### \`📣\` Options de mention"))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.cogUser} Options de mention`))
     container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
@@ -292,7 +330,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
     )
     container.addSectionComponents((sectionBuilder) =>
       sectionBuilder
-        .addTextDisplayComponents((t) => t.setContent(`**Autoriser @everyone / @here**\n> ${module.allowEveryone ? "Autorisé ✅" : "Bloqué ❌"}`))
+        .addTextDisplayComponents((t) => t.setContent(`**Autoriser @everyone / @here**\n> ${module.allowEveryone ? `Autorisé ${EMOJI_TAGS.enable}` : `Bloqué ${EMOJI_TAGS.disable}`}`))
         .setButtonAccessory((btn) =>
           btn
             .setCustomId("ar_mentions_everyone")
@@ -304,10 +342,10 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "links") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent("### \`🔗\` Options des liens"))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.plane} Options des liens`))
     container.addSectionComponents((sectionBuilder) =>
       sectionBuilder
-        .addTextDisplayComponents((t) => t.setContent(`**Bloquer les invitations Discord**\n> ${module.blockDiscordInvites ? "Activé ✅" : "Désactivé ❌"}`))
+        .addTextDisplayComponents((t) => t.setContent(`**Bloquer les invitations Discord**\n> ${module.blockDiscordInvites ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}`))
         .setButtonAccessory((btn) =>
           btn
             .setCustomId("ar_links_invites")
@@ -348,7 +386,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "nuke") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent("### \`💥\` Seuils destructifs"))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.permDisable} Seuils destructifs`))
     const thresholdOptions = (current: number) =>
       [1, 2, 3, 4, 5, 6, 8, 10].map((n) => ({ label: `${n} action${n > 1 ? "s" : ""}`, value: String(n), default: current === n }))
     container.addActionRowComponents((row) =>
@@ -379,7 +417,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "alts") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent("### \`👶\` Âge du compte"))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.pending} Âge du compte`))
     const ageOptions = [1, 3, 7, 14, 30, 90, 180, 365].map((d) => ({
       label: `${d} jour${d > 1 ? "s" : ""}`,
       value: String(d),
@@ -394,7 +432,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "verify") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent("### \`✅\` Rôle de vérification"))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.check} Rôle de vérification`))
     container.addActionRowComponents((row) =>
       row.setComponents(
         new RoleSelectMenuBuilder().setCustomId("ar_verify_role").setPlaceholder("Rôle attribué après vérification...").setMaxValues(1)
@@ -404,7 +442,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "badword") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### \`🚫\` Mots interdits (${module.bannedWords.length})`))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.noPaper} Mots interdits (${module.bannedWords.length})`))
     if (module.bannedWords.length > 0) {
       container.addActionRowComponents((row) =>
         row.setComponents(
@@ -425,23 +463,23 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
 export function buildWhitelistContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🧍\` 〃 Liste blanche`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.people} 〃 Liste blanche`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `### \`👥\` Utilisateurs (${config.whitelistedUsers.length})\n` +
+      `### ${EMOJI_TAGS.addUser} Utilisateurs (${config.whitelistedUsers.length})\n` +
         (config.whitelistedUsers.length > 0
           ? config.whitelistedUsers.map((id) => `> <@${id}>`).join("\n") + "\n"
           : "> *Aucun*\n") +
-        `### \`🎭\` Rôles (${config.whitelistedRoles.length})\n` +
+        `### ${EMOJI_TAGS.cogUser} Rôles (${config.whitelistedRoles.length})\n` +
         (config.whitelistedRoles.length > 0
           ? config.whitelistedRoles.map((id) => `> <@&${id}>`).join("\n") + "\n"
           : "> *Aucun*\n") +
-        `### \`🤖\` Bots (${config.whitelistedBots.length})\n` +
+        `### ${EMOJI_TAGS.bot} Bots (${config.whitelistedBots.length})\n` +
         (config.whitelistedBots.length > 0
           ? config.whitelistedBots.map((id) => `> <@${id}>`).join("\n") + "\n"
           : "> *Aucun*\n") +
-        `### \`📁\` Salons (${config.whitelistedChannels.length})\n` +
+        `### ${EMOJI_TAGS.channel} Salons (${config.whitelistedChannels.length})\n` +
         (config.whitelistedChannels.length > 0
           ? config.whitelistedChannels.map((id) => `> <#${id}>`).join("\n")
           : "> *Aucun*")
@@ -449,7 +487,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent("**Ajouter**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.add} **Ajouter**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new UserSelectMenuBuilder().setCustomId(CUSTOM_ID.wlUserAdd).setPlaceholder("Ajouter des utilisateurs...").setMaxValues(5)
@@ -471,12 +509,11 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
     )
   )
 
-  const container2 = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container2.addTextDisplayComponents((t) => t.setContent("**Retirer**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cancel} **Retirer**`))
 
   const rmUserOptions = config.whitelistedUsers.slice(0, 25).map((id) => ({ label: `Utilisateur ${id}`, value: id }))
   if (rmUserOptions.length > 0) {
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(CUSTOM_ID.wlUserRm)
@@ -489,7 +526,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
   }
   const rmRoleOptions = config.whitelistedRoles.slice(0, 25).map((id) => ({ label: `Rôle ${id}`, value: id }))
   if (rmRoleOptions.length > 0) {
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(CUSTOM_ID.wlRoleRm)
@@ -502,7 +539,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
   }
   const rmBotOptions = config.whitelistedBots.slice(0, 25).map((id) => ({ label: `Bot ${id}`, value: id }))
   if (rmBotOptions.length > 0) {
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(CUSTOM_ID.wlBotRm)
@@ -515,7 +552,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
   }
   const rmChannelOptions = config.whitelistedChannels.slice(0, 25).map((id) => ({ label: `Salon ${id}`, value: id }))
   if (rmChannelOptions.length > 0) {
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(CUSTOM_ID.wlChannelRm)
@@ -527,26 +564,26 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
     )
   }
 
-  return [container, container2]
+  return [container]
 }
 
 export function buildHoneypotContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🕳️\` 〃 Honeypot`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.eye} 〃 Honeypot`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Système piège : toute interaction avec un salon ou un rôle piège déclenche une punition automatique.*\n\n` +
-        `> ***État:** ${config.honeypot.enabled ? "Activé ✅" : "Désactivé ❌"}*\n` +
-        `> ***Punition:** ${PUNISHMENT_LABELS[config.honeypot.punishment]}*\n` +
-        `> ***Salons pièges:** ${config.honeypot.channels.length > 0 ? config.honeypot.channels.map((id) => `<#${id}>`).join(", ") : "*Aucun*"}*\n` +
-        `> ***Rôles pièges:** ${config.honeypot.roles.length > 0 ? config.honeypot.roles.map((id) => `<@&${id}>`).join(", ") : "*Aucun*"}*`
+        `> ***État:** ${config.honeypot.enabled ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}*\n` +
+        `> ${EMOJI_TAGS.gMute} ***Punition:** ${PUNISHMENT_LABELS[config.honeypot.punishment]}*\n` +
+        `> ${EMOJI_TAGS.channel} ***Salons pièges:** ${config.honeypot.channels.length > 0 ? config.honeypot.channels.map((id) => `<#${id}>`).join(", ") : "*Aucun*"}*\n` +
+        `> ${EMOJI_TAGS.cogUser} ***Rôles pièges:** ${config.honeypot.roles.length > 0 ? config.honeypot.roles.map((id) => `<@&${id}>`).join(", ") : "*Aucun*"}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent(`**Activation**\n> ${config.honeypot.enabled ? "Activé ✅" : "Désactivé ❌"}`))
+      .addTextDisplayComponents((t) => t.setContent(`**Activation**\n> ${config.honeypot.enabled ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}`))
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(CUSTOM_ID.hpToggle)
@@ -556,22 +593,21 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent("**Ajouter un salon piège**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Ajouter un salon piège**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder().setCustomId(CUSTOM_ID.hpChannelAdd).setPlaceholder("Choisir des salons...").setMaxValues(5)
     )
   )
-  container.addTextDisplayComponents((t) => t.setContent("**Ajouter un rôle piège**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Ajouter un rôle piège**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new RoleSelectMenuBuilder().setCustomId(CUSTOM_ID.hpRoleAdd).setPlaceholder("Choisir des rôles...").setMaxValues(5)
     )
   )
 
-  const container2 = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container2.addTextDisplayComponents((t) => t.setContent("**Punition appliquée aux intrus**"))
-  container2.addActionRowComponents((row) =>
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.gMute} **Punition appliquée aux intrus**`))
+  container.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
         .setCustomId(CUSTOM_ID.hpPunish)
@@ -585,9 +621,9 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
         )
     )
   )
-  container2.addSeparatorComponents((s) => s.setDivider(true))
+  container.addSeparatorComponents((s) => s.setDivider(true))
   if (config.honeypot.channels.length > 0) {
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(CUSTOM_ID.hpChannelRm)
@@ -599,7 +635,7 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
     )
   }
   if (config.honeypot.roles.length > 0) {
-    container2.addActionRowComponents((row) =>
+    container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(CUSTOM_ID.hpRoleRm)
@@ -611,7 +647,7 @@ export function buildHoneypotContainer(client: Client, guild: Guild, config: Ant
     )
   }
 
-  return [container, container2]
+  return [container]
 }
 
 export function buildLogsContainer(client: Client, guild: Guild, config: AntiRaidConfig, page = 0, filter?: string): ContainerBuilder[] {
@@ -623,7 +659,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
   const slice = filtered.slice(safePage * perPage, (safePage + 1) * perPage)
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🧾\` 〃 Journal des événements`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.file} 〃 Journal des événements`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
@@ -657,7 +693,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
       .addTextDisplayComponents((t) => t.setContent(`Page \`${safePage + 1}/${totalPages}\` (${filtered.length} événements)`))
       .setButtonAccessory((btn) =>
         btn
-          .setCustomId(CUSTOM_ID.logsPrev)
+          .setCustomId(logsNavId("prev", safePage, filter))
           .setLabel("◀")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(safePage <= 0)
@@ -668,14 +704,14 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
       .addTextDisplayComponents((t) => t.setContent("Page suivante"))
       .setButtonAccessory((btn) =>
         btn
-          .setCustomId(CUSTOM_ID.logsNext)
+          .setCustomId(logsNavId("next", safePage, filter))
           .setLabel("▶")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(safePage >= totalPages - 1)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent("**Salon de journalisation**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de journalisation**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -689,7 +725,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
 
 export function buildModeContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🧠\` 〃 Mode automatique`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.cog} 〃 Mode automatique`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
@@ -714,12 +750,12 @@ export function buildModeContainer(client: Client, guild: Guild, config: AntiRai
 export function buildPanicContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const panicActive = config.panic.active && Date.now() < config.panic.until
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`💣\` 〃 Mode Panic`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.party} 〃 Mode Panic`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Le mode panic est le **niveau d'urgence critique** : il verrouille le serveur, bloque les arrivées et gèle les salons critiques.*\n\n` +
-        `> ***Panic:** ${panicActive ? "Actif 💣" : "Inactif"}*` +
+        `> ***Panic:** ${panicActive ? `Actif ${EMOJI_TAGS.party}` : "Inactif"}*` +
         (panicActive ? `\n> ***Jusqu'à:** <t:${Math.floor(config.panic.until / 1000)}:T>*` : "")
     )
   )
@@ -739,18 +775,18 @@ export function buildPanicContainer(client: Client, guild: Guild, config: AntiRa
 
 export function buildQuarantineContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🛂\` 〃 Quarantaine`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.pause} 〃 Quarantaine`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Les utilisateurs placés en quarantaine perdent leurs rôles et permissions.*\n\n` +
-        `> ***État:** ${config.quarantine.enabled ? "Activée ✅" : "Désactivée ❌"}*\n` +
-        `> ***Rôle:** ${config.quarantine.role ? `<@&${config.quarantine.role}>` : "*Auto-créé à la première utilisation*"}*\n` +
-        `> ***Utilisateurs:** ${config.quarantine.users.length}*`
+        `> ***État:** ${config.quarantine.enabled ? `Activée ${EMOJI_TAGS.enable}` : `Désactivée ${EMOJI_TAGS.disable}`}*\n` +
+        `> ${EMOJI_TAGS.cogUser} ***Rôle:** ${config.quarantine.role ? `<@&${config.quarantine.role}>` : "*Auto-créé à la première utilisation*"}*\n` +
+        `> ${EMOJI_TAGS.people} ***Utilisateurs:** ${config.quarantine.users.length}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent("**Ajouter un utilisateur en quarantaine**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.addUser} **Ajouter un utilisateur en quarantaine**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new UserSelectMenuBuilder().setCustomId(CUSTOM_ID.qAdd).setPlaceholder("Choisir des utilisateurs...").setMaxValues(5)
@@ -758,7 +794,7 @@ export function buildQuarantineContainer(client: Client, guild: Guild, config: A
   )
   const rmOptions = config.quarantine.users.slice(0, 25).map((id) => ({ label: `Utilisateur ${id}`, value: id }))
   if (rmOptions.length > 0) {
-    container.addTextDisplayComponents((t) => t.setContent("**Retirer de la quarantaine**"))
+    container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cancel} **Retirer de la quarantaine**`))
     container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
@@ -781,15 +817,15 @@ export function buildQuarantineContainer(client: Client, guild: Guild, config: A
 export function buildLockdownContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const raidActive = config.raidMode && Date.now() < config.raidEndsAt
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# \`🚨\` 〃 Lockdown`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.light} 〃 Lockdown`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `### État\n> ***Lockdown:** ${raidActive ? "Actif 🔒" : "Inactif"}*\n` +
+      `### État\n> ***Lockdown:** ${raidActive ? `Actif ${EMOJI_TAGS.light}` : "Inactif"}*\n` +
         (raidActive ? `> ***Jusqu'à:** <t:${Math.floor(config.raidEndsAt / 1000)}:T>*\n` : "") +
-        `> ***Slowmode global:** ${config.lockdown.slowmode > 0 ? formatTime(config.lockdown.slowmode) : "Désactivé"}*\n` +
-        `> ***Blocage des messages:** ${config.lockdown.blockMessages ? "Activé ✅" : "Désactivé ❌"}*\n` +
-        `> ***Blocage des arrivées:** ${config.lockdown.blockJoins ? "Activé ✅" : "Désactivé ❌"}*`
+        `> ${EMOJI_TAGS.duration} ***Slowmode global:** ${config.lockdown.slowmode > 0 ? formatTime(config.lockdown.slowmode) : "Désactivé"}*\n` +
+        `> ${EMOJI_TAGS.noPaper} ***Blocage des messages:** ${config.lockdown.blockMessages ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}*\n` +
+        `> ${EMOJI_TAGS.addUser} ***Blocage des arrivées:** ${config.lockdown.blockJoins ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -804,7 +840,7 @@ export function buildLockdownContainer(client: Client, guild: Guild, config: Ant
       .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent("**Durée du verrouillage**"))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.duration} **Durée du verrouillage**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
@@ -835,7 +871,7 @@ export async function handleModuleInteraction(client: Client, interaction: Inter
     badword: "ar_badword_",
   }
   const prefix = specificPrefixes[moduleName]
-  if (prefix && !customId.startsWith(prefix)) return false
+  if (prefix && !genericMatch && !customId.startsWith(prefix)) return false
   if (!genericMatch && !prefix) return false
 
   if (!(await requireAdmin(interaction))) return true
@@ -1186,17 +1222,13 @@ export async function handleLogsInteraction(client: Client, interaction: Interac
     const fresh = await get()
     await updatePanel(interaction, buildLogsContainer(client, guild, fresh, page, filter))
   }
-
-  if (customId === CUSTOM_ID.logsPrev) {
-    const config = await get()
-    const events = client.antiraid.getEventLog(guild.id)
-    const totalPages = Math.max(1, Math.ceil(events.length / 8))
-    const next = Math.max(0, Math.min(totalPages - 1, 0))
-    await refresh(next)
-    return true
-  }
-  if (customId === CUSTOM_ID.logsNext) {
-    await refresh(1)
+  const navMatch = /^ar_logs_(prev|next)_(\d+)_(.+)$/.exec(customId)
+  if (navMatch) {
+    const dir = navMatch[1]
+    const current = Number(navMatch[2])
+    const filter = navMatch[3] === "all" ? undefined : navMatch[3]
+    const next = dir === "prev" ? Math.max(0, current - 1) : current + 1
+    await refresh(next, filter)
     return true
   }
 
