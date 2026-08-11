@@ -555,18 +555,7 @@ export class AntiRaidEngine {
     const guild = member.guild
     const config = await this.getConfig(guild.id)
     if (!config.enabled) return
-    if (this.anyModuleEnabled(config) === false && !config.raidMode && !config.panic.active && !config.quarantine.enabled) return
-
-    if (config.panic.active && Date.now() < config.panic.until) {
-      if (this.isWhitelisted(config, member)) return
-      if (member.moderatable) {
-        try {
-          await member.kick("Serveur en mode panic : arrivées bloquées.")
-        } catch {}
-      }
-      this.logEvent(guild.id, "panic", `Arrivée bloquée : <@${member.id}>`)
-      return
-    }
+    if (this.anyModuleEnabled(config) === false && !config.raidMode && !config.quarantine.enabled) return
 
     if (config.quarantine.enabled && config.quarantine.users.includes(member.id)) {
       const roleId = config.quarantine.role
@@ -878,7 +867,6 @@ export class AntiRaidEngine {
 
     const config = this.configCache.get(guildId)?.config
     if (config?.raidMode && Date.now() < config.raidEndsAt) level = Math.max(level, 60)
-    if (config?.panic.active && Date.now() < config.panic.until) level = Math.max(level, 90)
 
     return Math.min(100, level)
   }
@@ -988,54 +976,6 @@ export class AntiRaidEngine {
     }
     this.invalidateConfig(guildId)
     this.logEvent(guildId, "other", `Mode défini : ${mode}`)
-  }
-
-  async activatePanic(client: Client, config: AntiRaidConfig) {
-    const end = Date.now() + 6 * 60 * 60 * 1000
-    await AntiRaid.findOneAndUpdate(
-      { guildId: config.guildId },
-      { $set: { "panic.active": true, "panic.until": end } },
-      { upsert: true }
-    )
-    this.invalidateConfig(config.guildId)
-
-    if (config.raidMode && Date.now() < config.raidEndsAt) {
-      if (config.raidEndsAt < end) {
-        await AntiRaid.findOneAndUpdate({ guildId: config.guildId }, { $set: { raidEndsAt: end } }, { upsert: true })
-        this.invalidateConfig(config.guildId)
-      }
-    } else {
-      await this.activateRaidMode(client, config, 6 * 60 * 60 * 1000)
-    }
-    this.logEvent(config.guildId, "panic", "Mode panic activé")
-    await sendLog(
-      client,
-      config.guildId,
-      buildAntiRaidEmbed(
-        "💣",
-        "MODE PANIC ACTIVÉ",
-        `> *Urgence critique ! Le serveur est verrouillé jusqu'à <t:${Math.floor(end / 1000)}:T>.*\n> *Arrivées bloquées, messages gelés, invitations bloquées.*`,
-        colors.red
-      )
-    )
-  }
-
-  async deactivatePanic(client: Client, config: AntiRaidConfig) {
-    await AntiRaid.findOneAndUpdate(
-      { guildId: config.guildId },
-      { $set: { "panic.active": false, "panic.until": 0 } },
-      { upsert: true }
-    )
-    this.invalidateConfig(config.guildId)
-    if (config.raidMode && Date.now() < config.raidEndsAt) {
-      await this.deactivateRaidMode(client, config)
-    }
-    this.logEvent(config.guildId, "panic", "Mode panic désactivé")
-    await sendLog(
-      client,
-      config.guildId,
-      buildAntiRaidEmbed("♻️", "Mode panic désactivé", "> *L'état précédent du serveur a été restauré.*", colors.yel)
-    )
   }
 
   async quarantineUser(client: Client, guild: Guild, userId: string): Promise<boolean> {

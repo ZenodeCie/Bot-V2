@@ -90,11 +90,6 @@ export interface QuarantineSettings {
   users: string[]
 }
 
-export interface PanicSettings {
-  active: boolean
-  until: number
-}
-
 export interface LockdownSettings {
   slowmode: number
   blockJoins: boolean
@@ -230,7 +225,6 @@ export interface AntiRaidConfig {
   whitelistedChannels: string[]
   honeypot: HoneypotSettings
   quarantine: QuarantineSettings
-  panic: PanicSettings
   lockdown: LockdownSettings
   modules: Record<ModuleName, ModuleSettings>
 }
@@ -296,14 +290,6 @@ const quarantineSchema = new Schema(
   { _id: false }
 )
 
-const panicSchema = new Schema(
-  {
-    active: { type: Boolean, default: false },
-    until: { type: Number, default: 0 },
-  },
-  { _id: false }
-)
-
 const lockdownSchema = new Schema(
   {
     slowmode: { type: Number, default: 0 },
@@ -329,7 +315,6 @@ const antiRaidSchema = new Schema(
     whitelistedChannels: { type: [String], default: [] },
     honeypot: { type: honeypotSchema, default: () => ({}) },
     quarantine: { type: quarantineSchema, default: () => ({}) },
-    panic: { type: panicSchema, default: () => ({}) },
     lockdown: { type: lockdownSchema, default: () => ({}) },
     modules: { type: modulesSchema, default: () => ({}) },
   },
@@ -350,11 +335,6 @@ export const QUARANTINE_DEFAULTS: QuarantineSettings = {
   enabled: false,
   role: null,
   users: [],
-}
-
-export const PANIC_DEFAULTS: PanicSettings = {
-  active: false,
-  until: 0,
 }
 
 export const LOCKDOWN_DEFAULTS: LockdownSettings = {
@@ -406,7 +386,6 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
 
   const rawHoneypot = raw?.honeypot as Record<string, unknown> | undefined
   const rawQuarantine = raw?.quarantine as Record<string, unknown> | undefined
-  const rawPanic = raw?.panic as Record<string, unknown> | undefined
   const rawLockdown = raw?.lockdown as Record<string, unknown> | undefined
 
   const honeypot: HoneypotSettings = {
@@ -421,11 +400,6 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
     enabled: asBoolean(rawQuarantine?.enabled, QUARANTINE_DEFAULTS.enabled),
     role: typeof rawQuarantine?.role === "string" ? rawQuarantine.role : QUARANTINE_DEFAULTS.role,
     users: asStringArray(rawQuarantine?.users, QUARANTINE_DEFAULTS.users),
-  }
-
-  const panic: PanicSettings = {
-    active: asBoolean(rawPanic?.active, PANIC_DEFAULTS.active),
-    until: asNumber(rawPanic?.until, PANIC_DEFAULTS.until),
   }
 
   const lockdown: LockdownSettings = {
@@ -449,7 +423,6 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
     whitelistedChannels: asStringArray(raw?.whitelistedChannels, []),
     honeypot,
     quarantine,
-    panic,
     lockdown,
     modules: normalizedModules,
   }

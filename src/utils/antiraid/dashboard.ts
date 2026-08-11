@@ -50,8 +50,6 @@ export const CUSTOM_ID = {
   hpRoleRm: "ar_hp_role_rm",
   hpPunish: "ar_hp_punish",
   modeSel: "ar_mode_sel",
-  panicOn: "ar_panic_on",
-  panicOff: "ar_panic_off",
   logsFilter: "ar_logs_filter",
   logsChannel: "ar_logs_channel",
   qAdd: "ar_q_add",
@@ -675,7 +673,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  const filterOptions = ["spam", "mentions", "links", "emojis", "joins", "bots", "nuke", "selfbots", "badword", "honeypot", "lockdown", "panic", "verify", "other"].map(
+  const filterOptions = ["spam", "mentions", "links", "emojis", "joins", "bots", "nuke", "selfbots", "badword", "honeypot", "lockdown", "verify", "other"].map(
     (type) => ({
       label: type,
       value: type,
@@ -743,32 +741,6 @@ export function buildModeContainer(client: Client, guild: Guild, config: AntiRai
     row.setComponents(
       new StringSelectMenuBuilder().setCustomId(CUSTOM_ID.modeSel).setPlaceholder("Choisir un mode...").addOptions(options)
     )
-  )
-  return [container]
-}
-
-export function buildPanicContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
-  const panicActive = config.panic.active && Date.now() < config.panic.until
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.party} 〃 Mode Panic`))
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-  container.addTextDisplayComponents((t) =>
-    t.setContent(
-      `> *Le mode panic est le **niveau d'urgence critique** : il verrouille le serveur, bloque les arrivées et gèle les salons critiques.*\n\n` +
-        `> ***Panic:** ${panicActive ? `Actif ${EMOJI_TAGS.party}` : "Inactif"}*` +
-        (panicActive ? `\n> ***Jusqu'à:** <t:${Math.floor(config.panic.until / 1000)}:T>*` : "")
-    )
-  )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Déclencher le mode urgence**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOn).setEmoji(emoji("party")).setStyle(ButtonStyle.Danger))
-  )
-  container.addSectionComponents((sectionBuilder) =>
-    sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent("**Restaurer l'état précédent**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.panicOff).setEmoji(emoji("loop")).setStyle(ButtonStyle.Secondary))
   )
   return [container]
 }
@@ -1269,27 +1241,6 @@ export async function handleModeInteraction(client: Client, interaction: Interac
   return true
 }
 
-export async function handlePanicInteraction(client: Client, interaction: Interaction): Promise<boolean> {
-  if (!interaction.isMessageComponent()) return false
-  if (!interaction.inGuild()) return false
-  const customId = interaction.customId
-  if (customId !== CUSTOM_ID.panicOn && customId !== CUSTOM_ID.panicOff) return false
-  if (!(await requireAdmin(interaction))) return true
-
-  const guild = interaction.guild
-  if (!guild) return false
-  const config = await client.antiraid.getConfig(guild.id)
-
-  if (customId === CUSTOM_ID.panicOn) {
-    await client.antiraid.activatePanic(client, config)
-  } else {
-    await client.antiraid.deactivatePanic(client, config)
-  }
-  const fresh = await client.antiraid.getConfig(guild.id)
-  await updatePanel(interaction, buildPanicContainer(client, guild, fresh))
-  return true
-}
-
 export async function handleQuarantineInteraction(client: Client, interaction: Interaction): Promise<boolean> {
   if (!interaction.isMessageComponent()) return false
   if (!interaction.inGuild()) return false
@@ -1398,7 +1349,6 @@ export async function handlePanelInteraction(client: Client, interaction: Intera
   if (customId.startsWith("ar_hp_")) return handleHoneypotInteraction(client, interaction)
   if (customId.startsWith("ar_logs_")) return handleLogsInteraction(client, interaction)
   if (customId === CUSTOM_ID.modeSel) return handleModeInteraction(client, interaction)
-  if (customId === CUSTOM_ID.panicOn || customId === CUSTOM_ID.panicOff) return handlePanicInteraction(client, interaction)
   if (customId.startsWith("ar_q_")) return handleQuarantineInteraction(client, interaction)
   if (customId.startsWith("ar_lockdown_")) return handleLockdownInteraction(client, interaction)
 
