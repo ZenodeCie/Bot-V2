@@ -20,10 +20,12 @@ export const colors: Record<string, `#${string}` | null> = {
   prime: null,
 };
 
+const ownerId = process.env.OWNER_ID?.split(",").map((id) => id.trim()) || []
 
 export default {
   token,
   mongodbUri,
   prefix: ".",
-  colors: colors
+  colors: colors,
+  ownerId,
 }
