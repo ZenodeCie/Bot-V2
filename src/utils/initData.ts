@@ -22,6 +22,8 @@ const COLLECTIONS = [
   "mod_warnings",
   "mod_temp_sanctions",
   "mod_user_notes",
+  "premium_config",
+  "username_history",
 ]
 
 export default async function initData() {

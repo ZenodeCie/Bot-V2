@@ -97,10 +97,6 @@ interface CardRef {
 const pendingSanctions = new Map<string, PendingSanction>()
 const cardRefs = new Map<string, CardRef>()
 
-// ---------------------------------------------------------------------------
-// Rendu de la fiche
-// ---------------------------------------------------------------------------
-
 function buildSanctionLines(cases: ModCaseDoc[]): string {
   return cases
     .map((c) => {
@@ -217,10 +213,6 @@ async function updateCardMessage(
   return true
 }
 
-// ---------------------------------------------------------------------------
-// Modals
-// ---------------------------------------------------------------------------
-
 function buildNoteModal(guildId: string, targetId: string, requesterId: string, current: string | null): ModalBuilder {
   return new ModalBuilder()
     .setCustomId(`modcard_note_modal_${guildId}_${targetId}_${requesterId}`)
@@ -271,15 +263,11 @@ function buildPunishModal(
     )
 }
 
-// ---------------------------------------------------------------------------
-// Commande
-// ---------------------------------------------------------------------------
-
 export default {
-  name: "userinfo",
+  name: "modview",
   description: "Affiche la fiche de modération complète d'un utilisateur.",
   category: "moderation",
-  aliases: ["fiche", "card", "ui"],
+  aliases: ["fiche", "card", "mview", "modcard", "usercard"],
   permissions: ["ManageMessages"],
   usage: "<@utilisateur|id>",
 
