@@ -12,7 +12,7 @@ import {
 } from "discord.js"
 import { colors } from "../../config.js"
 import formatTime from "../formatTime.js"
-import { banUsers, dmUser, kickMembers, punishMember, timeoutMembers } from "./punish.js"
+import { banUsers, kickMembers, punishMember, timeoutMembers } from "./punish.js"
 import { buildAntiRaidEmbed, sendLog } from "./logs.js"
 import {
   AntiRaid,
@@ -63,13 +63,6 @@ interface TrackedAction {
   type: string
   target: string
   ts: number
-}
-
-interface PendingVerification {
-  guildId: string
-  userId: string
-  code: string
-  expires: number
 }
 
 interface EventEntry {
@@ -171,8 +164,6 @@ export class AntiRaidEngine {
   private botJoins = new ListTracker<TrackedMember>()
   private destructive = new ListTracker<TrackedAction>()
   private rates = new RateTracker()
-
-  private pendingVerify = new Map<string, PendingVerification>()
 
   private eventLog = new Map<string, EventEntry[]>()
   private suspects = new Map<string, SuspectEntry[]>()
@@ -586,34 +577,6 @@ export class AntiRaidEngine {
       if (recent.length >= bots.limit) {
         await this.handleBotRaid(client, guild, config, bots, recent)
       }
-    }
-
-    const alts = config.modules.alts
-    if (alts.enabled && config.premium) {
-      const createdAt = member.user.createdTimestamp
-      if (createdAt && Date.now() - createdAt < alts.maxAge) {
-        if (this.isCooldown(guild.id, member.id)) return
-        const reason = `Anti-Alts : compte créé il y a ${formatTime(Date.now() - createdAt)}`
-        const result = await punishMember(client, member, alts.punishment, alts.duration, reason)
-        this.setCooldown(guild.id, member.id, PUNISH_COOLDOWN)
-        this.addSuspect(guild.id, member.id, 20)
-        this.logEvent(guild.id, "alts", `Anti-Alts : <@${member.id}>`)
-        await sendLog(
-          client,
-          guild.id,
-          buildAntiRaidEmbed(
-            "🚨",
-            "Anti-Alts",
-            `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Compte créé:** <t:${Math.floor(createdAt / 1000)}:R>*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
-            colors.red
-          )
-        )
-      }
-    }
-
-    const verify = config.modules.verify
-    if (verify.enabled && config.premium) {
-      await this.startVerification(client, member, config, verify)
     }
   }
 
@@ -1190,80 +1153,6 @@ export class AntiRaidEngine {
     return users
   }
 
-  async verifyMember(client: Client, guild: Guild, member: GuildMember, code: string): Promise<boolean> {
-    const key = `${guild.id}:${member.id}`
-    const entry = this.pendingVerify.get(key)
-    if (!entry) return false
-    if (Date.now() > entry.expires) {
-      this.pendingVerify.delete(key)
-      return false
-    }
-    const supplied = typeof code === "string" ? code.trim().toUpperCase() : ""
-    if (entry.code !== supplied) return false
-
-    this.pendingVerify.delete(key)
-    try {
-      await member.timeout(null, "Vérification réussie")
-    } catch {}
-    const config = await this.getConfig(guild.id)
-    const roleId = config.modules.verify.role
-    if (roleId) {
-      const role = guild.roles.cache.get(roleId)
-      if (role) {
-        try {
-          await member.roles.add(role, "Vérification réussie")
-        } catch {}
-      }
-    }
-    await sendLog(
-      client,
-      guild.id,
-      buildAntiRaidEmbed("✅", "Vérification réussie", `> ***Membre:** <@${member.id}> (${member.user.tag})*`, colors.yel)
-    )
-    this.logEvent(guild.id, "verify", `Vérification réussie : <@${member.id}>`)
-    return true
-  }
-
-  private async startVerification(client: Client, member: GuildMember, config: AntiRaidConfig, settings: ModuleSettings) {
-    const guild = member.guild
-    const key = `${guild.id}:${member.id}`
-    const code = this.generateCode()
-    const expires = Date.now() + Math.max(settings.duration, 60_000)
-    this.pendingVerify.set(key, { guildId: guild.id, userId: member.id, code, expires })
-
-    if (member.moderatable) {
-      try {
-        await member.timeout(expires - Date.now(), "Vérification requise (anti-raid premium)")
-      } catch {}
-    }
-
-    const dmSent = await dmUser(
-      member.user,
-      "Vérification requise",
-      `> *Pour finir votre arrivée sur **${guild.name}**, veuillez vérifier votre compte.*\n> ***Code:** \`${code}\`*\n> *Tapez \`verify ${code}\` dans le serveur avant <t:${Math.floor(expires / 1000)}:T>.*`
-    )
-
-    await sendLog(
-      client,
-      guild.id,
-      buildAntiRaidEmbed(
-        "🛂",
-        "Vérification requise",
-        `> ***Membre:** <@${member.id}> (${member.user.tag})*\n> *Code de vérification envoyé par message privé.*${dmSent ? "" : "\n> *⚠️ Impossible d'envoyer le message privé — le membre pourra être expulsé.*"}`,
-        colors.yel
-      )
-    )
-  }
-
-  private generateCode(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    let code = ""
-    for (let i = 0; i < 6; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)]
-    }
-    return code
-  }
-
   private cleanup() {
     const now = Date.now()
     this.messages.cleanup(now)
@@ -1294,35 +1183,6 @@ export class AntiRaidEngine {
     }
     for (const [key, ts] of this.ownBans) {
       if (now - ts > 120_000) this.ownBans.delete(key)
-    }
-    for (const [key, entry] of this.pendingVerify) {
-      if (now > entry.expires) {
-        this.pendingVerify.delete(key)
-        void this.expireVerification(entry)
-      }
-    }
-  }
-
-  private async expireVerification(entry: PendingVerification) {
-    const guild = this.client.guilds.cache.get(entry.guildId)
-    if (!guild) return
-    try {
-      const member = await guild.members.fetch(entry.userId).catch(() => null)
-      if (!member) return
-      if (!member.kickable) return
-      await member.kick("Vérification expirée (anti-raid premium)")
-      await sendLog(
-        this.client,
-        entry.guildId,
-        buildAntiRaidEmbed(
-          "⏰",
-          "Vérification expirée",
-          `> ***Membre expulsé:** <@${entry.userId}>*\n> *Il n'a pas validé la vérification à temps.*`,
-          colors.red
-        )
-      )
-    } catch (error) {
-      console.error(`Failed to expire verification for ${entry.userId}:`, error)
     }
   }
 }

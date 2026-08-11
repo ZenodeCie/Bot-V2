@@ -26,7 +26,6 @@ import {
   MODES,
   MODULE_LABELS,
   MODULES,
-  PREMIUM_MODULES,
   PUNISHMENT_LABELS,
   PUNISHMENTS,
   type AntiRaidConfig,
@@ -159,8 +158,6 @@ const MODULE_EMOJIS: Record<ModuleName, string> = {
   bots: EMOJI_TAGS.bot,
   nuke: EMOJI_TAGS.permDisable,
   selfbots: EMOJI_TAGS.loop,
-  alts: EMOJI_TAGS.pending,
-  verify: EMOJI_TAGS.check,
   badword: EMOJI_TAGS.noPaper,
 }
 
@@ -196,7 +193,6 @@ async function requireAdmin(interaction: Interaction): Promise<boolean> {
 
 export function buildModuleContainer(client: Client, guild: Guild, config: AntiRaidConfig, selected: ModuleName): ContainerBuilder[] {
   const module = config.modules[selected]
-  const premium = PREMIUM_MODULES.includes(selected)
   const threshold =
     module.interval > 0
       ? `\`${module.limit}\` actions / \`${formatTime(module.interval)}\``
@@ -207,8 +203,7 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `> ${premium ? `${EMOJI_TAGS.electricStar} **Module premium**\n` : ""}` +
-        `> ***État:** ${moduleState(module)}*\n` +
+      `> ***État:** ${moduleState(module)}*\n` +
         `> ${EMOJI_TAGS.cog} ***Seuil:** ${threshold}*\n` +
         `> ${EMOJI_TAGS.gMute} ***Punition:** ${PUNISHMENT_LABELS[module.punishment]}*\n` +
         `> ${EMOJI_TAGS.duration} ***Durée:** ${module.duration > 0 ? formatTime(module.duration) : "Définitif"}*\n` +
@@ -409,31 +404,6 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
           .setCustomId("ar_nuke_web")
           .setPlaceholder("Créations de webhooks...")
           .addOptions(thresholdOptions(module.webhookThreshold))
-      )
-    )
-  }
-
-  if (selected === "alts") {
-    container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.pending} Âge du compte`))
-    const ageOptions = [1, 3, 7, 14, 30, 90, 180, 365].map((d) => ({
-      label: `${d} jour${d > 1 ? "s" : ""}`,
-      value: String(d),
-      default: module.maxAge === d * 86400000,
-    }))
-    container.addActionRowComponents((row) =>
-      row.setComponents(
-        new StringSelectMenuBuilder().setCustomId("ar_alts_maxage").setPlaceholder("Âge maximum du compte...").addOptions(ageOptions)
-      )
-    )
-  }
-
-  if (selected === "verify") {
-    container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.check} Rôle de vérification`))
-    container.addActionRowComponents((row) =>
-      row.setComponents(
-        new RoleSelectMenuBuilder().setCustomId("ar_verify_role").setPlaceholder("Rôle attribué après vérification...").setMaxValues(1)
       )
     )
   }
@@ -673,7 +643,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  const filterOptions = ["spam", "mentions", "links", "emojis", "joins", "bots", "nuke", "selfbots", "badword", "honeypot", "lockdown", "verify", "other"].map(
+  const filterOptions = ["spam", "mentions", "links", "emojis", "joins", "bots", "nuke", "selfbots", "badword", "honeypot", "lockdown", "other"].map(
     (type) => ({
       label: type,
       value: type,
@@ -838,8 +808,6 @@ export async function handleModuleInteraction(client: Client, interaction: Inter
     mentions: "ar_mentions_",
     links: "ar_links_",
     nuke: "ar_nuke_",
-    alts: "ar_alts_",
-    verify: "ar_verify_",
     badword: "ar_badword_",
   }
   const prefix = specificPrefixes[moduleName]
@@ -1016,30 +984,6 @@ export async function handleModuleInteraction(client: Client, interaction: Inter
       await refresh()
       return true
     }
-  }
-
-  if (moduleName === "alts" && interaction.isStringSelectMenu() && customId === "ar_alts_maxage") {
-    const value = Number(interaction.values[0])
-    await AntiRaid.findOneAndUpdate(
-      { guildId: guild.id },
-      { $set: { "modules.alts.maxAge": value * 86400000, mode: "custom" } },
-      { upsert: true }
-    )
-    client.antiraid.invalidateConfig(guild.id)
-    await refresh()
-    return true
-  }
-
-  if (moduleName === "verify" && interaction.isRoleSelectMenu() && customId === "ar_verify_role") {
-    const roleId = interaction.values[0]
-    await AntiRaid.findOneAndUpdate(
-      { guildId: guild.id },
-      { $set: { "modules.verify.role": roleId, mode: "custom" } },
-      { upsert: true }
-    )
-    client.antiraid.invalidateConfig(guild.id)
-    await refresh()
-    return true
   }
 
   if (moduleName === "badword" && interaction.isStringSelectMenu() && customId === "ar_badword_rm") {
@@ -1334,8 +1278,6 @@ export async function handlePanelInteraction(client: Client, interaction: Intera
       mentions: "ar_mentions_",
       links: "ar_links_",
       nuke: "ar_nuke_",
-      alts: "ar_alts_",
-      verify: "ar_verify_",
       badword: "ar_badword_",
     }
     return prefixes[name] !== undefined && customId.startsWith(prefixes[name])

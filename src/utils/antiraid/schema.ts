@@ -12,13 +12,9 @@ export const MODULES = [
   "bots",
   "nuke",
   "selfbots",
-  "alts",
-  "verify",
   "badword",
 ] as const
 export type ModuleName = (typeof MODULES)[number]
-
-export const PREMIUM_MODULES: ModuleName[] = ["alts", "verify"]
 
 export const MODULE_LABELS: Record<ModuleName, string> = {
   spam: "Anti-Spam",
@@ -29,8 +25,6 @@ export const MODULE_LABELS: Record<ModuleName, string> = {
   bots: "Anti-Bot",
   nuke: "Anti-Nuke",
   selfbots: "Anti-Selfbot",
-  alts: "Anti-Alts",
-  verify: "Vérification",
   badword: "Anti-Mot Interdit",
 }
 
@@ -96,7 +90,6 @@ export interface LockdownSettings {
   blockMessages: boolean
 }
 
-const DAY = 24 * 60 * 60 * 1000
 const MIN = 60 * 1000
 const HOUR = 60 * MIN
 
@@ -135,8 +128,6 @@ export const MODULE_DEFAULTS: Record<ModuleName, ModuleSettings> = {
   bots: moduleBase({ limit: 3, interval: 10 * 1000, punishment: "ban", duration: 0 }),
   nuke: moduleBase({ limit: 3, interval: 5 * 1000, punishment: "lockdown", duration: HOUR, channelThreshold: 3, roleThreshold: 3, webhookThreshold: 3 }),
   selfbots: moduleBase({ limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0 }),
-  alts: moduleBase({ limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY }),
-  verify: moduleBase({ limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN }),
   badword: moduleBase({ limit: 1, interval: 0, punishment: "timeout", duration: 10 * MIN, bannedWords: [] }),
 }
 
@@ -152,8 +143,6 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     bots: { limit: 5, interval: 30 * 1000, punishment: "kick", duration: 0 },
     nuke: { limit: 6, interval: 10 * 1000, punishment: "lockdown", duration: HOUR, channelThreshold: 6, roleThreshold: 6, webhookThreshold: 6 },
     selfbots: { limit: 8, interval: 10 * 1000, punishment: "kick", duration: 0 },
-    alts: { limit: 1, interval: 0, punishment: "warn", duration: 0, maxAge: 3 * DAY },
-    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 30 * MIN },
     badword: { limit: 1, interval: 0, punishment: "warn", duration: 0 },
   },
   low: {
@@ -165,8 +154,6 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     bots: { limit: 4, interval: 20 * 1000, punishment: "kick", duration: 0 },
     nuke: { limit: 4, interval: 8 * 1000, punishment: "lockdown", duration: 30 * MIN, channelThreshold: 4, roleThreshold: 4, webhookThreshold: 4 },
     selfbots: { limit: 5, interval: 8 * 1000, punishment: "kick", duration: 0 },
-    alts: { limit: 1, interval: 0, punishment: "warn", duration: 0, maxAge: 5 * DAY },
-    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 30 * MIN },
     badword: { limit: 1, interval: 0, punishment: "warn", duration: 0 },
   },
   balanced: {
@@ -178,8 +165,6 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     bots: { limit: 3, interval: 10 * 1000, punishment: "ban", duration: 0 },
     nuke: { limit: 3, interval: 5 * 1000, punishment: "lockdown", duration: HOUR, channelThreshold: 3, roleThreshold: 3, webhookThreshold: 3 },
     selfbots: { limit: 3, interval: 5 * 1000, punishment: "ban", duration: 0 },
-    alts: { limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 7 * DAY },
-    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
     badword: { limit: 1, interval: 0, punishment: "timeout", duration: 10 * MIN },
   },
   high: {
@@ -191,8 +176,6 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     bots: { limit: 2, interval: 10 * 1000, punishment: "ban", duration: 0 },
     nuke: { limit: 2, interval: 5 * 1000, punishment: "ban", duration: 0, channelThreshold: 2, roleThreshold: 2, webhookThreshold: 2 },
     selfbots: { limit: 2, interval: 5 * 1000, punishment: "ban", duration: 0 },
-    alts: { limit: 1, interval: 0, punishment: "kick", duration: 0, maxAge: 14 * DAY },
-    verify: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
     badword: { limit: 1, interval: 0, punishment: "timeout", duration: 15 * MIN },
   },
   maximum: {
@@ -204,8 +187,6 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
     bots: { limit: 1, interval: 10 * 1000, punishment: "ban", duration: 0 },
     nuke: { limit: 1, interval: 3 * 1000, punishment: "ban", duration: 0, channelThreshold: 1, roleThreshold: 1, webhookThreshold: 1 },
     selfbots: { limit: 1, interval: 3 * 1000, punishment: "ban", duration: 0 },
-    alts: { limit: 1, interval: 0, punishment: "ban", duration: 0, maxAge: 30 * DAY },
-    verify: { limit: 1, interval: 0, punishment: "kick", duration: 0 },
     badword: { limit: 1, interval: 0, punishment: "kick", duration: 0 },
   },
 }
@@ -213,7 +194,6 @@ export const MODE_PRESETS: Record<Exclude<AntiRaidMode, "custom">, Record<Module
 export interface AntiRaidConfig {
   guildId: string
   enabled: boolean
-  premium: boolean
   mode: AntiRaidMode
   raidMode: boolean
   raidEndsAt: number
@@ -263,8 +243,6 @@ const modulesSchema = new Schema(
     bots: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.bots }) },
     nuke: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.nuke }) },
     selfbots: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.selfbots }) },
-    alts: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.alts }) },
-    verify: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.verify }) },
     badword: { type: moduleSchema, default: () => ({ ...MODULE_DEFAULTS.badword }) },
   },
   { _id: false }
@@ -303,7 +281,6 @@ const antiRaidSchema = new Schema(
   {
     guildId: { type: String, required: true, unique: true, index: true },
     enabled: { type: Boolean, default: false },
-    premium: { type: Boolean, default: false },
     mode: { type: String, enum: MODES, default: "balanced" },
     raidMode: { type: Boolean, default: false },
     raidEndsAt: { type: Number, default: 0 },
@@ -411,7 +388,6 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
   return {
     guildId: typeof raw?.guildId === "string" ? raw.guildId : "",
     enabled: asBoolean(raw?.enabled, false),
-    premium: asBoolean(raw?.premium, false),
     mode: MODES.includes(raw?.mode as AntiRaidMode) ? (raw?.mode as AntiRaidMode) : "balanced",
     raidMode: asBoolean(raw?.raidMode, false),
     raidEndsAt: asNumber(raw?.raidEndsAt, 0),
