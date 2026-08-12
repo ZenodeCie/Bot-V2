@@ -21,7 +21,7 @@ Bot Discord écrit en TypeScript, construit avec [discord.js](https://discord.js
 ## Installation rapide
 
 ```bash
-git clone <url-du-depot>
+git clone https://github.com/ZenodeCie/Bot-V2.git
 cd Bot-V2
 npm install
 ```
@@ -41,14 +41,17 @@ Copy-Item .env.example .env
 Renseignez le fichier `.env` :
 
 ```env
-BOT_TOKEN=votre_token_discord
-MONGODB_URI=mongodb://localhost:27017/znd-v2
+BOT_TOKEN=votre_token_ici
+MONGODB_URI=mongodb://localhost:27017/YOUR-DATABASE-NAME
+
+OWNER_ID=1234,5678
 ```
 
 | Variable | Requise | Rôle |
 | --- | --- | --- |
 | `BOT_TOKEN` | Oui | Token de l'application Discord. Ne le partagez jamais et ne le versionnez pas. |
 | `MONGODB_URI` | Oui | Chaîne de connexion MongoDB. |
+| `OWNER_ID` | Partiellement | ID.s des/du owner du bot. |
 
 ## Lancer le bot
 
