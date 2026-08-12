@@ -1,7 +1,4 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ContainerBuilder,
   MediaGalleryBuilder,
   MediaGalleryItemBuilder,
@@ -9,11 +6,9 @@ import {
   ThumbnailBuilder,
   type Client,
   type Guild,
-  type Interaction,
   type Message,
 } from "discord.js"
 import { logCommandUse, replyError, requireGuild, resolveTarget } from "../../utils/moderation/helpers.js"
-import { getUsernameHistory, recordUsername } from "../../utils/usernameHistory.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x2b2d31
@@ -56,18 +51,6 @@ const DEVICE_TAGS: Record<string, string> = {
   desktop: `${E.pc} Desktop`,
   mobile: `${E.dpad} Mobile`,
   web: `${E.cursor} Web`,
-}
-
-const KIND_LABELS: Record<string, string> = {
-  username: "pseudo",
-  global_name: "nom global",
-  nickname: "surnom",
-}
-
-const KIND_EMOJIS: Record<string, string> = {
-  username: E.rocket,
-  global_name: E.goldstar,
-  nickname: E.flag,
 }
 
 async function renderCard(client: Client, guildId: string, targetId: string): Promise<ContainerBuilder[]> {
@@ -172,59 +155,6 @@ export default {
     const target = resolved.target
 
     const containers = await renderCard(client, guild.id, target.id)
-    const prevRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`prevnames_${guild.id}_${target.id}`)
-        .setLabel("Prevname.s")
-        .setStyle(ButtonStyle.Secondary)
-    )
-    await _message.reply({ components: [...containers, prevRow], flags: COMPONENTS_V2_FLAGS })
-  },
-
-  async handleInteraction(client: Client, interaction: Interaction): Promise<boolean> {
-    if (!interaction.isButton()) return false
-    const match = /^prevnames_(\d+)_(\d+)$/.exec(interaction.customId)
-    if (!match) return false
-
-    const [, guildId, userId] = match
-    const guild = client.guilds.cache.get(guildId)
-    const member = guild ? await guild.members.fetch(userId).catch(() => null) : null
-    const user = member?.user ?? (await client.users.fetch(userId).catch(() => null))
-
-    let history = await getUsernameHistory(guildId, userId)
-    if (history.length === 0) {
-      await Promise.all([
-        recordUsername("global", userId, user?.username ?? "", "username"),
-        recordUsername("global", userId, user?.globalName ?? "", "global_name"),
-        recordUsername(guildId, userId, member?.nickname ?? "", "nickname"),
-      ])
-      history = await getUsernameHistory(guildId, userId)
-    }
-
-    const reversed = [...history].reverse()
-    const shown = reversed.slice(0, 30)
-    const lines = shown.map(
-      (entry) =>
-        `> ${KIND_EMOJIS[entry.kind]} ${KIND_LABELS[entry.kind]} — **${entry.value}** <t:${Math.floor(entry.at / 1000)}:d>`
-    )
-    if (reversed.length > 30) {
-      lines.push(`> *… et ${reversed.length - 30} autre(s) nom(s) plus ancien(s).*`)
-    }
-    if (lines.length === 0) lines.push("> *Aucun ancien pseudo enregistré.*")
-
-    await interaction.reply({
-      embeds: [
-        {
-          title: " ",
-          description:
-            `# \`${E.rocket}\` 〃 Historique des pseudonymes\n` +
-            `> ***Utilisateur :** <@${userId}> (\`${userId}\`)*\n\n` +
-            lines.join("\n"),
-          color: CONTAINER_ACCENT,
-        },
-      ],
-      flags: MessageFlags.Ephemeral,
-    })
-    return true
+    await _message.reply({ components: containers, flags: COMPONENTS_V2_FLAGS })
   },
 }
