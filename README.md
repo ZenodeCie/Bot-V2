@@ -1,168 +1,198 @@
-# ZenodeBot V2
+# ZenodeBots — VM Host
 
-Bot Discord écrit en TypeScript, construit avec [discord.js](https://discord.js.org/) et MongoDB via [Mongoose](https://mongoosejs.com/). Il propose une base simple et extensible pour des commandes à préfixe, avec une configuration propre à chaque serveur.
+Agent d’orchestration multi-bots pour une VM Linux. Un process **host** reste allumé, parle au core `dfb-vm-core` (WebSocket + REST), et lance **N process Discord isolés** via PM2.
 
-## Fonctionnalités
+Le bot Discord (commandes, modules, events) est un **template** : chaque instance lit `configs/{bot_id}.json` et n’active que `config.modules`.
 
-- Commandes Discord à préfixe, chargées automatiquement depuis `src/commands/`
-- Préfixe personnalisable par serveur, enregistré dans MongoDB
-- Commande d'aide avec menu de catégories interactif
-- Gestion centralisée des interactions, qui reste fonctionnelle après un redémarrage
-- Chargement automatique des événements Discord et initialisation de la collection MongoDB nécessaire
+Ce dépôt n’implémente pas le site, Mongo du core, OAuth, ni le load-balancer. L’agent est un **client**.
+
+## Architecture
+
+```text
+src/
+├── host/                 # Agent VM (process principal, PM2 name = zenode-vm-host)
+│   ├── index.ts          # Boot, health, orphan cleanup, boucles stats
+│   ├── protocol.ts       # Payloads WS/REST typés (source de vérité)
+│   ├── wsClient.ts       # WS core + ping 25s + reconnect exponentiel
+│   ├── restClient.ts     # REST X-API-Key
+│   ├── pm2Manager.ts     # start/stop/restart/delete/logs (execFile, jamais le shell)
+│   ├── handlers.ts       # bot_command, config_upload, bot_logs_request
+│   └── reporter.ts       # POST /vms/stats + /real-status
+├── bot/                  # Template Discord (1 process PM2 par bot)
+│   ├── index.ts          # --config, modules, heartbeat, graceful shutdown
+│   ├── config.ts         # Token / prefix / color depuis le JSON (pas de BOT_TOKEN .env)
+│   ├── modules.ts        # Mapping clés core → dossiers du repo
+│   └── commands|events|utils
+└── shared/               # bot_id, forme du JSON config
+```
+
+Chaque bot = un fork PM2, un token, un plafond RAM (`--max-memory-restart`). Pas de client discord.js multiplexé.
 
 ## Prérequis
 
-- [Node.js](https://nodejs.org/) 20 ou version plus récente
-- Une application Discord et son token de bot
-- Une instance MongoDB locale ou une base [MongoDB Atlas](https://www.mongodb.com/atlas)
+- Ubuntu (ou autre Linux) avec **Node.js 18+** (20 recommandée)
+- **PM2** déjà installé (`pm2 -v`). Inutile de relancer `npm install -g pm2` si la commande existe (sur cette VM elle est dans `/usr/bin/pm2`, installée en root → `EACCES` en user).
+- Accès réseau vers le core (`API_PORT` prod = 3000)
+- Une clé `API_KEY` = `API_KEY_VM_BOTS_FREE` ou `API_KEY_VM_BOTS_PREMIUM` du core
+- Un fichier **`.env` à la racine du repo** (obligatoire avant `pm2 start`)
 
-> Le bot utilise l'intent **Message Content**. Activez-le dans le portail développeur Discord, dans **Bot → Privileged Gateway Intents**, sinon les commandes à préfixe ne pourront pas être lues.
+Activez les **Privileged Gateway Intents** (Message Content, Server Members, Presence) sur chaque application Discord. Le template loggue clairement les erreurs d’intents (le dashboard du core parse ces logs).
 
-## Installation rapide
+## Identité de la VM
+
+| Variable | Exemple | Rôle |
+| --- | --- | --- |
+| `VM_HOST` | `vm-freebots-01` | Identifiant **unique** de cette machine. Le core route les commandes avec ça. |
+| `VM_TYPE` | `vm-bots-free` | `vm-bots-free` ou `vm-bots-premium` |
+| `CORE_API_URL` | `http://IP:3000` | API REST du core |
+| `CORE_WS_URL` | `ws://IP:3000/ws` | Même host/port, path `/ws` |
+| `API_KEY` | *(secret)* | Header `X-API-Key` + query WS `apiKey` |
+
+Convention des noms :
+
+- free : `vm-freebots-01`, `vm-freebots-02`, …
+- premium : `vm-bots-premium`
+
+Sans `vmHost` dans l’URL WS, la VM est invisible pour les start/stop ciblés.
+
+## Installation
 
 ```bash
 git clone <url-du-depot>
 cd Bot-V2
 npm install
-```
-
-Copiez ensuite le fichier d'exemple :
-
-```bash
 cp .env.example .env
 ```
 
-Sous PowerShell :
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Renseignez le fichier `.env` :
+Éditez `.env` (ne le commitez jamais) :
 
 ```env
-BOT_TOKEN=votre_token_discord
-MONGODB_URI=mongodb://localhost:27017/znd-v2
+CORE_API_URL=http://IP_OU_HOST:3000
+CORE_WS_URL=ws://IP_OU_HOST:3000/ws
+API_KEY=...
+VM_HOST=vm-freebots-01
+VM_TYPE=vm-bots-free
+CONFIGS_DIR=./configs
+BOT_ENTRY=dist/bot/index.js
 ```
 
-| Variable | Requise | Rôle |
-| --- | --- | --- |
-| `BOT_TOKEN` | Oui | Token de l'application Discord. Ne le partagez jamais et ne le versionnez pas. |
-| `MONGODB_URI` | Oui | Chaîne de connexion MongoDB. |
+`MONGODB_URI` est **optionnelle**. Si elle est définie, chaque process bot utilise une base isolée `znd_{bot_id}`. L’agent host ne se connecte pas à Mongo.
 
-## Lancer le bot
-
-Compilez le projet puis démarrez-le :
+Compilez, créez `.env`, puis lancez **uniquement l’agent** :
 
 ```bash
 npm run build
-npm start
+cp .env.example .env   # puis éditer CORE_*, API_KEY, VM_HOST
+pm2 start ecosystem.config.cjs
+pm2 save
 ```
 
-Pour recompiler automatiquement les fichiers TypeScript pendant le développement :
+Si `pm2 -v` échoue :
 
 ```bash
-npm run dev
+sudo npm install -g pm2
 ```
 
-Dans un second terminal, utilisez `npm start` après chaque compilation réussie. Le dossier `dist/` est généré par TypeScript et contient les fichiers exécutés par Node.js.
+`pm2 startup` n’est utile que si systemd n’est pas déjà branché. S’il affiche une commande `sudo env PATH=... pm2 startup systemd`, copiez-la une fois. Ne relancez pas `npm i -g pm2` à chaque déploiement.
 
-## Commandes disponibles
+Vérifier que l’agent **reste** online (pas `errored`) :
 
-Le préfixe initial est `.`. Chaque serveur peut le remplacer avec la commande `prefix`.
-
-| Commande | Alias | Description |
-| --- | --- | --- |
-| `.help [commande]` | `h`, `aide` | Affiche l'aide, les catégories ou le détail d'une commande. |
-| `.ping` | `latency`, `bot-latency` | Affiche la latence du bot et son temps de fonctionnement. |
-| `.prefix [nouveau-préfixe]` | `setprefix`, `prefixe`, `préfix` | Affiche ou change le préfixe du serveur. Réservé aux administrateurs. |
-
-Exemple :
-
-```text
-.prefix !
-!help ping
-!ping
+```bash
+pm2 ls
+pm2 logs zenode-vm-host --lines 50 --nostream
 ```
 
-Le nouveau préfixe est enregistré dans la collection MongoDB `guilds`. Il peut comporter jusqu'à 10 caractères.
+S’il crash sur `Missing required environment variable CORE_API_URL`, le `.env` est absent ou pas lu (cwd PM2 = racine du repo).
 
-## Structure du projet
+Les bots n’apparaissent dans `ecosystem.config.cjs` **jamais**. Ils sont créés par l’agent :
 
-```text
-src/
-├── index.ts                  # Démarrage : MongoDB, chargement, connexion Discord
-├── config.ts                 # Lecture des variables d'environnement et configuration par défaut
-├── types.d.ts                # Types partagés des commandes et du client Discord
-├── commands/
-│   └── utils/                # Commandes intégrées : help, ping, prefix
-├── events/                   # Événements Discord : ready, messageCreate, interactionCreate
-└── utils/
-    ├── mongoClient.ts        # Connexion Mongoose
-    ├── initData.ts           # Modèle Guild et création de la collection guilds
-    ├── errorEmbed.ts         # Embeds d'erreur
-    └── formatTime.ts         # Formatage des durées
+```bash
+pm2 start dist/bot/index.js --force --name "{pm2Name}" --max-memory-restart {max_memory}M -- --config "{abs}/configs/{bot_id}.json"
 ```
 
-## Ajouter une commande
+Nom PM2 = `bot_id` normalisé (`bot00019` → `bot00019`).
 
-Créez un fichier dans `src/commands/<catégorie>/`. Il doit exporter par défaut un objet conforme à l'interface `Command` :
+## Comportement
 
-```ts
-import type { Client, Message } from "discord.js"
+Au boot, l’agent :
 
-export default {
-  name: "bonjour",
-  description: "Salue l'utilisateur.",
-  category: "fun",
-  aliases: ["salut"],
-  permissions: [],
-  usage: "",
-  async execute(_client: Client, message: Message) {
-    await message.reply("Bonjour !")
-  },
-}
-```
+1. Vérifie Node 18+ et `pm2 -v`
+2. Ouvre le WS : `{CORE_WS_URL}?apiKey={API_KEY}&vmHost={VM_HOST}`
+3. `GET /health` puis `GET /api/v1/bots/vm/{VM_HOST}`
+4. Stop/delete les process PM2 « bots » **non assignés** à cette VM (anti-doublon)
+5. Démarre la boucle stats (15 s) et real-status (25 s, limité ~90 req/min)
+6. **Ne démarre pas** tous les bots assignés (`AUTO_START_ASSIGNED=false` par défaut)
 
-Les fichiers JavaScript générés dans `dist/commands/` sont détectés automatiquement au lancement.
+Commandes core (`type: bot_command`) :
 
-### Ajouter une interaction
-
-Une commande peut également exporter `handleInteraction`. Elle doit retourner `true` lorsqu'elle a traité l'interaction ; les autres gestionnaires ne seront alors pas appelés.
-
-```ts
-import type { Client, Interaction } from "discord.js"
-
-export async function handleInteraction(
-  _client: Client,
-  interaction: Interaction
-): Promise<boolean> {
-  if (!interaction.isButton() || interaction.customId !== "bonjour") return false
-
-  await interaction.reply({ content: "Bonjour !", ephemeral: true })
-  return true
-}
-```
-
-## Dépannage
-
-| Symptôme | Vérification |
+| Action | Effet |
 | --- | --- |
-| Le bot s'arrête immédiatement | Vérifiez `BOT_TOKEN` et `MONGODB_URI` dans `.env`. |
-| Le bot est connecté mais ignore les messages | Activez **Message Content Intent** sur le portail développeur Discord et vérifiez le préfixe du serveur. |
-| La connexion MongoDB échoue | Vérifiez l'URI, l'accès réseau et les identifiants de la base. |
-| Une nouvelle commande n'apparaît pas | Lancez `npm run build`, puis redémarrez le bot. |
+| `start` | Écrit la config si fournie, refuse si le bot tourne déjà ailleurs (`GET /hosted`), `pm2 start`, WS `starting` puis `online` (process up, **pas** Discord ready) + REST `/status` |
+| `stop` | `pm2 stop` + `delete`, idempotent, `offline` |
+| `restart` | Delete PM2 puis start (process neuf, après un `config_upload`) |
+| `delete` | `pm2 delete` + suppression du JSON local |
+
+`config_upload` : écrit `configs/{bot_id}.json` (chmod 600), **ne démarre pas**, répond `config_received`.
+
+`bot_logs_request` : `pm2 logs` sous 15 s, renvoie le `request_id` tel quel.
+
+Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 s → `discord_ready=false`. Le dashboard n’affiche « En ligne » que si `really_online` arrive en REST.
+
+## Modules (clés core)
+
+`Base` est toujours chargé. Les autres clés de `config.modules` sont mappées ainsi :
+
+| Clé core | Dans ce repo |
+| --- | --- |
+| `Base` | help, ping, prefix, commandes `dev`, events ready / messageCreate / interactionCreate |
+| `Utilities` | userinfo, emoji |
+| `Moderation` | `commands/moderation` + `events/moderation` |
+| `ModerationAvancee` | `commands/antiraid` + `events/antiraid` |
+| Autres clés core (Giveaway, Tickets, …) | no-op + warning, pas de crash |
+
+## Données & secrets
+
+- `configs/` : JSON avec **tokens Discord** — gitignoré, dossier `700`, fichiers `600`
+- `data/{bot_id}/` : runtime + état disque du bot, jamais partagé entre bots
+- `API_KEY` uniquement en variable d’environnement
+- Health HTTP optionnel : `HOST_HEALTH_PORT=9100` → `127.0.0.1` uniquement
+
+## Tests manuels
+
+1. Agent up → le core voit la VM (`getIndividualVMs` / staff infra).
+2. POST stats → la VM apparaît avec 0 bots.
+3. `config_upload` create → fichier écrit, `config_received`.
+4. `bot_command start` → process PM2, Discord ready, `really_online=true`.
+5. `logs_request` → stdout non vide.
+6. `stop` → plus de process, dashboard hors ligne.
+7. `restart` → nouveau pid, config rechargée.
+8. `delete` → plus de process ni de fichier.
+9. Couper le WS 10 s → reconnect, stats, bots toujours up.
+10. Deuxième agent / autre `VM_HOST` : un start sur A n’apparaît pas sur B.
 
 ## Scripts
 
 | Script | Action |
 | --- | --- |
-| `npm run build` | Compile TypeScript dans `dist/`. |
-| `npm run dev` | Lance la compilation TypeScript en surveillance. |
-| `npm start` | Exécute `dist/index.js`. |
+| `npm run build` | Compile TypeScript vers `dist/` |
+| `npm start` | Lance l’agent (`dist/host/index.js`) |
+| `npm run start:bot` | Template seul (exige `--config`) |
+| `npm run pm2:start` | `pm2 start ecosystem.config.cjs` |
+
+## Dépannage
+
+| Symptôme | Vérification |
+| --- | --- |
+| Agent quitte au boot | `CORE_API_URL`, `CORE_WS_URL`, `API_KEY`, `VM_HOST` dans `.env` à la racine. Relancer : `pm2 restart zenode-vm-host` |
+| `EACCES` sur `npm install -g pm2` | PM2 est déjà installé en root. Utilisez `pm2 -v`. Mise à jour : `sudo npm install -g pm2` |
+| VM invisible au core | Query WS `vmHost` + ping avec `vm_host` ; même host/port que l’API |
+| Bot PM2 up mais dashboard « hors ligne » | `data/{bot_id}/runtime.json` et POST `/real-status` (`really_online`) |
+| Privileged Intents | Portail Discord → Bot → intents ; logs `Privileged Intents error` |
+| Doublon bot_id | Le core envoie `stop` partout ; cette VM refuse un start si `/hosted` dit « ailleurs » |
+| `pm2: command not found` | `sudo npm install -g pm2` |
 
 ## Sécurité
 
-- Conservez `.env` hors de Git ; le fichier est déjà ignoré par le projet.
-- Révoquez et remplacez immédiatement un token Discord exposé.
-- Donnez au bot uniquement les permissions Discord dont il a besoin.
+- Ne versionnez jamais `.env` ni `configs/*.json`
+- Révoquez un token Discord exposé
+- N’ouvrez pas de HTTP public : l’agent est client du core
