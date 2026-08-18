@@ -58,7 +58,7 @@ Sans `vmHost` dans l’URL WS, la VM est invisible pour les start/stop ciblés.
 ## Installation
 
 ```bash
-git clone <url-du-depot>
+git clone https://github.com/ZenodeCie/Bot-V2.git
 cd Bot-V2
 npm install
 cp .env.example .env
