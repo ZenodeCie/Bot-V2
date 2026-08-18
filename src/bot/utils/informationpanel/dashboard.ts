@@ -1,0 +1,370 @@
+import {
+  ActionRowBuilder,
+  ButtonStyle,
+  ChannelSelectMenuBuilder,
+  ChannelType,
+  ContainerBuilder,
+  EmbedBuilder,
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  type Client,
+  type Guild,
+  type Interaction,
+  type MessageComponentInteraction,
+} from "discord.js"
+import { colors } from "../../config.js"
+import formatTime from "../formatTime.js"
+import parseTime from "../parseTime.js"
+import { publishPanel, rescheduleInformationPanel } from "./engine.js"
+import {
+  FIELD_KEYS,
+  FIELD_LABELS,
+  clampDescription,
+  clampInterval,
+  clampTitle,
+  getConfig,
+  isFieldKey,
+  updateConfig,
+  type FieldKey,
+  type InformationPanelConfig,
+} from "./schema.js"
+
+export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
+const CONTAINER_ACCENT = 0x36373e
+
+const EMOJI_IDS = {
+  channel: "1469692104589705376",
+  check: "1469692151251341425",
+  cog: "1469692155680526427",
+  disable: "1469692191298556099",
+  enable: "1469692252988116992",
+  notes: "1469692988870623369",
+  pen: "1469693057497563160",
+} as const
+
+const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
+
+const EMOJI_TAGS = {
+  channel: "<:Channel:1469692104589705376>",
+  check: "<:Check:1469692151251341425>",
+  cog: "<:Cog:1469692155680526427>",
+  disable: "<:Disable:1469692191298556099>",
+  enable: "<:Enable:1469692252988116992>",
+  notes: "<:Notes:1469692988870623369>",
+} as const
+
+function compactDuration(ms: number): string {
+  if (ms % 86_400_000 === 0) return `${ms / 86_400_000}d`
+  if (ms % 3_600_000 === 0) return `${ms / 3_600_000}h`
+  if (ms % 60_000 === 0) return `${ms / 60_000}m`
+  if (ms % 1000 === 0) return `${ms / 1000}s`
+  return `${ms}ms`
+}
+
+function onOff(enabled: boolean): string {
+  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+}
+
+function channelMention(channelId: string | null): string {
+  return channelId ? `<#${channelId}>` : "Aucun"
+}
+
+function previewText(value: string, max = 80): string {
+  const one = value.replace(/\s+/g, " ").trim()
+  if (!one) return "*Vide*"
+  return one.length > max ? `${one.slice(0, max)}…` : one
+}
+
+export function buildInformationPanelEmbed(
+  emojiChar: string,
+  title: string,
+  desc: string,
+  color: `#${string}` | null = colors.prime
+): EmbedBuilder {
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  if (color) embed.setColor(color)
+  return embed
+}
+
+async function requireManageGuild(interaction: Interaction): Promise<boolean> {
+  const member = interaction.member
+  const memberPermissions =
+    member && typeof member.permissions === "object" && member.permissions !== null ? member.permissions : null
+  if (!member || !memberPermissions || !memberPermissions.has("ManageGuild")) {
+    if (interaction.isRepliable()) {
+      await interaction.reply({
+        content: "> *Cette action nécessite la permission **Gérer le serveur**.*",
+        flags: MessageFlags.Ephemeral,
+      })
+    }
+    return false
+  }
+  return true
+}
+
+function fieldSummary(config: InformationPanelConfig): string {
+  const enabled = FIELD_KEYS.filter((key) => config.fields[key])
+  if (enabled.length === 0) return "*Aucun*"
+  if (enabled.length === FIELD_KEYS.length) return "*Tous*"
+  return enabled.map((key) => FIELD_LABELS[key]).join(", ")
+}
+
+export function buildInformationPanelContainer(
+  _client: Client,
+  _guild: Guild,
+  config: InformationPanelConfig
+): ContainerBuilder[] {
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Panneau d'information`))
+  container.addSeparatorComponents((s) => s.setSpacing(1))
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `> *Liste des informations utiles du serveur, publiée et actualisée dans un salon.*\n\n` +
+        `> **État :** ${onOff(config.enabled)}\n` +
+        `> ${EMOJI_TAGS.channel} **Salon :** ${channelMention(config.channelId)}\n` +
+        `> ${EMOJI_TAGS.cog} **Intervalle :** \`${formatTime(config.interval)}\`\n` +
+        `> ${EMOJI_TAGS.notes} **Titre :** ${previewText(config.title || "*Nom du serveur*")}\n` +
+        `> **Champs :** ${fieldSummary(config)}`
+    )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) => t.setContent(`**Activation**\n> ${onOff(config.enabled)}`))
+      .setButtonAccessory((btn) =>
+        btn
+          .setCustomId("ip_toggle")
+          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+      )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon du panneau**`))
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId("ip_channel")
+        .setPlaceholder("Choisir le salon...")
+        .setMaxValues(1)
+        .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+    )
+  )
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
+      .setButtonAccessory((btn) =>
+        btn.setCustomId("ip_channel_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
+      )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) => t.setContent(`**Intervalle**\n> \`${formatTime(config.interval)}\``))
+      .setButtonAccessory((btn) => btn.setCustomId("ip_interval").setEmoji(emoji("cog")).setStyle(ButtonStyle.Secondary))
+  )
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) =>
+        t.setContent(`**Titre et description**\n> ${previewText(config.title || "*Nom du serveur*")}`)
+      )
+      .setButtonAccessory((btn) => btn.setCustomId("ip_text").setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary))
+  )
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) => t.setContent("**Publier / actualiser**\n> Envoie ou met à jour le message dans le salon."))
+      .setButtonAccessory((btn) =>
+        btn.setCustomId("ip_publish").setEmoji(emoji("check")).setStyle(ButtonStyle.Success).setDisabled(!config.channelId)
+      )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addTextDisplayComponents((t) => t.setContent("**Champs affichés**"))
+  for (const key of FIELD_KEYS) {
+    const enabled = config.fields[key]
+    container.addSectionComponents((sectionBuilder) =>
+      sectionBuilder
+        .addTextDisplayComponents((t) => t.setContent(`**${FIELD_LABELS[key]}**\n> ${onOff(enabled)}`))
+        .setButtonAccessory((btn) =>
+          btn
+            .setCustomId(`ip_field_${key}`)
+            .setEmoji(enabled ? emoji("enable") : emoji("disable"))
+            .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Danger)
+        )
+    )
+  }
+  return [container]
+}
+
+function buildIntervalModal(config: InformationPanelConfig): ModalBuilder {
+  const input = new TextInputBuilder()
+    .setCustomId("interval")
+    .setLabel("Intervalle (1m, 5m, 1h, 1d…)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(16)
+    .setPlaceholder("5m")
+    .setValue(compactDuration(config.interval))
+  return new ModalBuilder()
+    .setCustomId("ip_modal_interval")
+    .setTitle("Intervalle du panneau")
+    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input))
+}
+
+function buildTextModal(config: InformationPanelConfig): ModalBuilder {
+  const title = new TextInputBuilder()
+    .setCustomId("title")
+    .setLabel("Titre (vide = nom du serveur)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(256)
+    .setPlaceholder("Informations du serveur")
+    .setValue(config.title.slice(0, 256))
+  const description = new TextInputBuilder()
+    .setCustomId("description")
+    .setLabel("Description (optionnelle)")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setMaxLength(1000)
+    .setPlaceholder("Quelques infos utiles pour la communauté.")
+    .setValue(config.description.slice(0, 1000))
+  return new ModalBuilder()
+    .setCustomId("ip_modal_text")
+    .setTitle("Texte du panneau")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(title),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(description)
+    )
+}
+
+async function refreshPanel(
+  client: Client,
+  interaction: MessageComponentInteraction | { update: MessageComponentInteraction["update"]; guild: Guild | null },
+  guild: Guild
+): Promise<void> {
+  const config = await getConfig(guild.id)
+  await interaction.update({
+    components: buildInformationPanelContainer(client, guild, config),
+    flags: COMPONENTS_V2_FLAGS,
+  })
+}
+
+export async function handleInformationPanelInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+  if (!interaction.isMessageComponent() && !interaction.isModalSubmit()) return false
+  const customId = interaction.customId
+  if (!customId.startsWith("ip_")) return false
+  if (!interaction.inGuild()) return false
+  if (!(await requireManageGuild(interaction))) return true
+
+  const guild = interaction.guild
+  if (!guild) return false
+
+  if (interaction.isButton() && customId === "ip_interval") {
+    const config = await getConfig(guild.id)
+    await interaction.showModal(buildIntervalModal(config))
+    return true
+  }
+
+  if (interaction.isButton() && customId === "ip_text") {
+    const config = await getConfig(guild.id)
+    await interaction.showModal(buildTextModal(config))
+    return true
+  }
+
+  if (interaction.isModalSubmit()) {
+    if (!interaction.isFromMessage()) return false
+
+    if (customId === "ip_modal_interval") {
+      const parsed = parseTime(interaction.fields.getTextInputValue("interval"))
+      if (parsed === null || parsed <= 0) {
+        await interaction.reply({
+          content: "> *Durée invalide. Exemples : `1m`, `5m`, `1h`, `1d`.*",
+          flags: MessageFlags.Ephemeral,
+        })
+        return true
+      }
+      const interval = clampInterval(parsed)
+      const current = await getConfig(guild.id)
+      const nextAt = current.enabled && current.channelId ? Date.now() + interval : current.nextAt
+      await updateConfig(guild.id, { $set: { interval, nextAt } })
+      await rescheduleInformationPanel(client, guild.id)
+      await refreshPanel(client, interaction, guild)
+      return true
+    }
+
+    if (customId === "ip_modal_text") {
+      await updateConfig(guild.id, {
+        $set: {
+          title: clampTitle(interaction.fields.getTextInputValue("title")),
+          description: clampDescription(interaction.fields.getTextInputValue("description")),
+        },
+      })
+      await refreshPanel(client, interaction, guild)
+      return true
+    }
+
+    return false
+  }
+
+  if (!interaction.isMessageComponent()) return false
+
+  if (customId === "ip_toggle") {
+    const config = await getConfig(guild.id)
+    const enabled = !config.enabled
+    const nextAt = enabled && config.channelId ? Date.now() : null
+    await updateConfig(guild.id, { $set: { enabled, nextAt } })
+    await rescheduleInformationPanel(client, guild.id)
+    await refreshPanel(client, interaction, guild)
+    return true
+  }
+
+  if (customId === "ip_channel_clear") {
+    await updateConfig(guild.id, { $set: { channelId: null, messageId: null, nextAt: null } })
+    await rescheduleInformationPanel(client, guild.id)
+    await refreshPanel(client, interaction, guild)
+    return true
+  }
+
+  if (customId === "ip_channel" && interaction.isChannelSelectMenu()) {
+    const channelId = interaction.values[0]
+    const channel = guild.channels.cache.get(channelId)
+    if (!channel || !channel.isTextBased() || channel.isDMBased()) {
+      await interaction.reply({ content: "> *Le salon doit être un salon textuel du serveur.*", flags: MessageFlags.Ephemeral })
+      return true
+    }
+    const current = await getConfig(guild.id)
+    const nextAt = current.enabled ? Date.now() : current.nextAt
+    await updateConfig(guild.id, { $set: { channelId, messageId: null, nextAt } })
+    await rescheduleInformationPanel(client, guild.id)
+    await refreshPanel(client, interaction, guild)
+    return true
+  }
+
+  if (customId === "ip_publish") {
+    const result = await publishPanel(client, guild.id)
+    if (!result.ok) {
+      await interaction.reply({ content: result.error, flags: MessageFlags.Ephemeral })
+      return true
+    }
+    await refreshPanel(client, interaction, guild)
+    await interaction
+      .followUp({
+        content: `> *Panneau publié dans <#${result.config.channelId}>.*`,
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => undefined)
+    return true
+  }
+
+  if (customId.startsWith("ip_field_")) {
+    const key = customId.slice("ip_field_".length)
+    if (!isFieldKey(key)) return false
+    const config = await getConfig(guild.id)
+    const fieldKey: FieldKey = key
+    await updateConfig(guild.id, { $set: { [`fields.${fieldKey}`]: !config.fields[fieldKey] } })
+    await refreshPanel(client, interaction, guild)
+    return true
+  }
+
+  return false
+}
