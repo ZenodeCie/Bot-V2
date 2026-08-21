@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { config as loadDotenv } from "dotenv"
-import { parseHexColor, type BotConfig } from "../shared/botConfig.js"
+import { parseHexColor, KNOWN_MODULE_KEYS, type BotConfig } from "../shared/botConfig.js"
 
 loadDotenv()
 
@@ -51,6 +51,35 @@ function loadBotJson(path: string): BotConfig {
   return { ...(record as unknown as BotConfig), bot_id: botId, token }
 }
 
+function loadStandaloneBot(): BotConfig {
+  const token = (process.env.BOT_TOKEN ?? "").trim()
+  if (!token) {
+    console.error("Missing BOT_TOKEN in .env (standalone mode).")
+    process.exit(1)
+  }
+  let clientId = ""
+  try {
+    clientId = Buffer.from(token.split(".")[0] ?? "", "base64").toString("utf8")
+  } catch {
+    /* ignore */
+  }
+  if (!/^\d{5,22}$/.test(clientId)) clientId = ""
+  const modules = (process.env.MODULES ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return {
+    bot_id: process.env.BOT_ID?.trim() || clientId || "standalone",
+    name: process.env.BOT_NAME?.trim() || "Standalone",
+    token,
+    prefix: process.env.PREFIX?.trim() || undefined,
+    status: process.env.BOT_STATUS?.trim() || undefined,
+    color: process.env.BOT_COLOR?.trim() || undefined,
+    modules: modules.length > 0 ? modules : [...KNOWN_MODULE_KEYS],
+    client_id: clientId || undefined,
+  }
+}
+
 function collectOwnerIds(bot: BotConfig): string[] {
   const ids = new Set<string>()
   if (bot.client_id && /^\d{5,22}$/.test(bot.client_id)) ids.add(bot.client_id)
@@ -63,8 +92,9 @@ function collectOwnerIds(bot: BotConfig): string[] {
   return [...ids]
 }
 
-const configPath = resolveConfigPath()
-const bot = loadBotJson(configPath)
+const alone = process.argv.includes("--alone") || process.env.STANDALONE === "1"
+const configPath = alone ? "" : resolveConfigPath()
+const bot = alone ? loadStandaloneBot() : loadBotJson(configPath)
 
 const prefix = typeof bot.prefix === "string" && bot.prefix.length > 0 ? bot.prefix : "!"
 const color = parseHexColor(bot.color)
@@ -80,7 +110,7 @@ const repoRoot = process.env.REPO_ROOT ?? process.cwd()
 const dataRoot = process.env.DATA_DIR ?? resolve(repoRoot, "data")
 
 export const botRuntime = {
-  configPath,
+  configPath: configPath || null,
   botId: bot.bot_id,
   name: bot.name ?? bot.bot_id,
   token: bot.token as string,
