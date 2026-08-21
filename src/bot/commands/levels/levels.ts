@@ -78,6 +78,7 @@ export default {
   name: "levels",
   description: "Configure le système de niveaux du serveur.",
   category: "levels",
+  slashName: "config",
   aliases: ["niveaux", "leveling"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|xp|cooldown|notify|message|role|stack|ignore|set|reset]",
@@ -159,7 +160,7 @@ export default {
       return message.reply({
         embeds: [
           buildLevelsEmbed(
-            "✅",
+            "check",
             enabled ? "Niveaux activés" : "Niveaux désactivés",
             enabled
               ? "> *Le gain d'XP automatique est maintenant **activé**.*"
@@ -179,7 +180,7 @@ export default {
         await resetMember(guild.id, resolved.target.id)
         return message.reply({
           embeds: [
-            buildLevelsEmbed("✅", "XP réinitialisée", `> *Les statistiques de <@${resolved.target.id}> ont été **effacées**.*`),
+            buildLevelsEmbed("check", "XP réinitialisée", `> *Les statistiques de <@${resolved.target.id}> ont été **effacées**.*`),
           ],
         })
       }
@@ -200,7 +201,7 @@ export default {
         },
       })
       return message.reply({
-        embeds: [buildLevelsEmbed("✅", "Niveaux réinitialisés", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
+        embeds: [buildLevelsEmbed("check", "Niveaux réinitialisés", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
       })
     }
 
@@ -210,7 +211,7 @@ export default {
         await updateConfig(guild.id, { $set: { notifyChannelId: null } })
         return message.reply({
           embeds: [
-            buildLevelsEmbed("📁", "Salon retiré", "> *Les notifications seront envoyées dans le salon du message.*", colors.prime),
+            buildLevelsEmbed("file", "Salon retiré", "> *Les notifications seront envoyées dans le salon du message.*", colors.prime),
           ],
         })
       }
@@ -225,7 +226,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { notifyChannelId: channel.id } })
       return message.reply({
-        embeds: [buildLevelsEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildLevelsEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -248,7 +249,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { xpMin, xpMax } })
       return message.reply({
-        embeds: [buildLevelsEmbed("✅", "XP mise à jour", `> ***XP par message :** \`${xpMin}\`–\`${xpMax}\`*`)],
+        embeds: [buildLevelsEmbed("check", "XP mise à jour", `> ***XP par message :** \`${xpMin}\`–\`${xpMax}\`*`)],
       })
     }
 
@@ -262,7 +263,7 @@ export default {
       const cooldown = clampCooldown(parsed)
       await updateConfig(guild.id, { $set: { cooldown } })
       return message.reply({
-        embeds: [buildLevelsEmbed("✅", "Cooldown mis à jour", `> ***Cooldown :** \`${formatTime(cooldown)}\`*`)],
+        embeds: [buildLevelsEmbed("check", "Cooldown mis à jour", `> ***Cooldown :** \`${formatTime(cooldown)}\`*`)],
       })
     }
 
@@ -279,7 +280,7 @@ export default {
       return message.reply({
         embeds: [
           buildLevelsEmbed(
-            "✅",
+            "check",
             "Notifications",
             enabled
               ? "> *Les notifications de level-up sont **activées**.*"
@@ -309,7 +310,7 @@ export default {
       const notifyMessage = clampNotifyMessage(raw)
       await updateConfig(guild.id, { $set: { notifyMessage } })
       return message.reply({
-        embeds: [buildLevelsEmbed("✅", "Message mis à jour", `> ***Message :** ${notifyMessage}*`)],
+        embeds: [buildLevelsEmbed("check", "Message mis à jour", `> ***Message :** ${notifyMessage}*`)],
       })
     }
 
@@ -326,7 +327,7 @@ export default {
       return message.reply({
         embeds: [
           buildLevelsEmbed(
-            "✅",
+            "check",
             "Cumul des rôles",
             enabled
               ? "> *Tous les rôles de récompense atteints sont **conservés**.*"
@@ -341,7 +342,7 @@ export default {
       if (isOffArg(raw) || stripAccents(raw.toLowerCase()) === "clear") {
         await updateConfig(guild.id, { $set: { ignoredChannels: [] } })
         return message.reply({
-          embeds: [buildLevelsEmbed("📁", "Salons ignorés", "> *Aucun salon n'est ignoré.*", colors.prime)],
+          embeds: [buildLevelsEmbed("file", "Salons ignorés", "> *Aucun salon n'est ignoré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -362,7 +363,7 @@ export default {
       return message.reply({
         embeds: [
           buildLevelsEmbed(
-            "📁",
+            "file",
             "Salons ignorés",
             ignoredChannels.length
               ? `> ***Salons :** ${ignoredChannels.map((id) => `<#${id}>`).join(" ")}*`
@@ -405,7 +406,7 @@ export default {
         const config = await getConfig(guild.id)
         await updateConfig(guild.id, { $set: { rewards: removeReward(config.rewards, role.id) } })
         return message.reply({
-          embeds: [buildLevelsEmbed("📁", "Rôle retiré", `> *Le rôle ${role} n'est plus une récompense.*`, colors.prime)],
+          embeds: [buildLevelsEmbed("file", "Rôle retiré", `> *Le rôle ${role} n'est plus une récompense.*`, colors.prime)],
         })
       }
 
@@ -434,7 +435,7 @@ export default {
       const level = clampRewardLevel(rawLevel)
       await updateConfig(guild.id, { $set: { rewards: upsertReward(config.rewards, role.id, level) } })
       return message.reply({
-        embeds: [buildLevelsEmbed("📁", "Rôle configuré", `> ***Récompense :** ${role} au niveau \`${level}\`*`)],
+        embeds: [buildLevelsEmbed("file", "Rôle configuré", `> ***Récompense :** ${role} au niveau \`${level}\`*`)],
       })
     }
 
@@ -465,7 +466,7 @@ export default {
       return message.reply({
         embeds: [
           buildLevelsEmbed(
-            "✅",
+            "check",
             "Niveau défini",
             `> ***Membre :** <@${resolved.target.id}>*\n> ***Niveau :** \`${stats.level}\`*\n> ***XP :** \`${stats.xp}\`*`
           ),

@@ -1,6 +1,7 @@
 import type { Client, Message } from "discord.js"
 import { EmbedBuilder } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
 import formatTime from "../../utils/formatTime.js"
 
@@ -23,7 +24,7 @@ export default {
     const embed = new EmbedBuilder()
       .setTitle(" ")
       .setDescription(
-        `# <:Duration:1469692196331458704> 〃 Latency\n` +
+        `${appEmojiHeading("loop", "Latency")}\n` +
         `> ***Websocket:** \`${_client.ws.ping}ms\`*\n` +
         `> ***API:** \`${sent.createdTimestamp - _message.createdTimestamp}ms\`*\n` +
         `> ***Uptime:** \`${formatTime(_client.uptime ?? 0)}\`*`

@@ -3,8 +3,6 @@ import buildErrorEmbed from "../../utils/errorEmbed.js"
 import { buildLevelsEmbed } from "../../utils/levels/dashboard.js"
 import { listLeaderboard } from "../../utils/levels/schema.js"
 
-const RANK_EMOJI = "<:People:1469693090280505458>"
-
 export default {
   name: "leaderboard",
   description: "Affiche le classement des niveaux du serveur.",
@@ -27,7 +25,7 @@ export default {
     const top = await listLeaderboard(message.guild.id, 10)
     if (top.length === 0) {
       return message.reply({
-        embeds: [buildLevelsEmbed(RANK_EMOJI, "Classement", "> *Aucun membre n'a encore gagné d'XP.*")],
+        embeds: [buildLevelsEmbed("people", "Classement", "> *Aucun membre n'a encore gagné d'XP.*")],
       })
     }
 
@@ -36,7 +34,7 @@ export default {
     })
 
     return message.reply({
-      embeds: [buildLevelsEmbed(RANK_EMOJI, `Classement (${top.length})`, lines.join("\n"))],
+      embeds: [buildLevelsEmbed("people", `Classement (${top.length})`, lines.join("\n"))],
     })
   },
 }

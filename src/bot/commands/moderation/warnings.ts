@@ -13,6 +13,7 @@ import {
   handlePageNav,
   type PageRenderResult,
 } from "../../utils/moderation/pagination.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 const PER_PAGE = 5
 
@@ -42,7 +43,7 @@ async function renderWarningsPage(guildId: string, userId: string, page: number)
   const embed = {
     title: " ",
     description:
-      `# \`📋\` 〃 Avertissements de ${username} (\`${userId}\`)\n` +
+      `${appEmojiHeading("file", `Avertissements de ${username} (\`${userId}\`)`)}\n` +
       `> ***Total :** ${all.length} • Actifs : ${active} • Révoqués : ${revoked}*\n\n` +
       (lines.join("\n\n") || "> *Aucun avertissement.*") +
       `\n\n> ***Page :** ${safe + 1}/${totalPages}*`,

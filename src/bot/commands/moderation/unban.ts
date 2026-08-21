@@ -3,6 +3,7 @@ import { ApplicationCommandOptionType } from "discord.js"
 import { extractReason, logCommandUse, replyError, requireGuild, resolveIdFromArg } from "../../utils/moderation/helpers.js"
 import { createCase, findActiveCase, logModCase, notifyUser, recordFailed, updateCaseDm, type DmResult } from "../../utils/moderation/cases.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 export default {
   name: "unban",
@@ -68,12 +69,12 @@ export default {
           {
             title: " ",
             description:
-              `# \`🔓\` 〃 Utilisateur débanni\n` +
+              `${appEmojiHeading("check", "Utilisateur débanni")}\n` +
               `> ***Utilisateur :** ${targetSnap.username} (\`${userId}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +
               (previousBan ? `\n> ***Bannissement d'origine :** ${previousBan.caseIdFormatted} (toujours consultable)*` : "") +
-              (dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${dm.error}*` : ""),
+              (dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${dm.error}*` : ""),
             color: 0x2ecc71,
           },
         ],

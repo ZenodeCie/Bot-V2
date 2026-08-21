@@ -10,6 +10,7 @@ import {
 } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase, notifyUser, recordDenied, recordFailed, updateCaseDm, type DmResult } from "../../utils/moderation/cases.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 export default {
   name: "softban",
@@ -79,12 +80,12 @@ export default {
           {
             title: " ",
             description:
-              `# \`🧹\` 〃 Softban effectué\n` +
+              `${appEmojiHeading("cancel", "Softban effectué")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> *L'utilisateur a été banni, ses 7 derniers jours de messages supprimés, puis immédiatement débanni.*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +
-              (dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${dm.error}*` : ""),
+              (dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${dm.error}*` : ""),
             color: 0x2ecc71,
           },
         ],

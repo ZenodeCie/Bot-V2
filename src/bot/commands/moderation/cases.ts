@@ -3,6 +3,7 @@ import { ApplicationCommandOptionType } from "discord.js"
 import { formatDate, logCommandUse, replyError, requireGuild, resolveTarget } from "../../utils/moderation/helpers.js"
 import { ModCase, ACTION_EMOJIS, ACTION_LABELS, STATUS_LABELS } from "../../utils/moderation/schema.js"
 import { buildNavRow, handlePageNav, type PageRenderResult } from "../../utils/moderation/pagination.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 const PER_PAGE = 6
 
@@ -15,7 +16,7 @@ async function renderCasesPage(guildId: string, userId: string, page: number): P
   const lines = slice.map((c) => {
     const duration = c.duration && c.duration > 0 ? ` • **${c.duration / 1000}s**` : ""
     return (
-      `> **${c.caseIdFormatted}** — ${ACTION_EMOJIS[c.action]} **${ACTION_LABELS[c.action]}** — \`${STATUS_LABELS[c.status]}\`${duration}\n` +
+      `> **${c.caseIdFormatted}** — ${appEmojiText(ACTION_EMOJIS[c.action])} **${ACTION_LABELS[c.action]}** — \`${STATUS_LABELS[c.status]}\`${duration}\n` +
       `> ${c.reason} — *${formatDate(c.startedAt)} (<t:${Math.floor(c.startedAt / 1000)}:R>)*`
     )
   })
@@ -23,7 +24,7 @@ async function renderCasesPage(guildId: string, userId: string, page: number): P
   const embed = {
     title: " ",
     description:
-      `# \`🗂️\` 〃 Cases de <@${userId}> (\`${userId}\`)\n` +
+      `${appEmojiHeading("file", `Cases de <@${userId}> (\`${userId}\`)`)}\n` +
       `> ***Total des cases :** ${all.length}*\n\n` +
       (lines.join("\n\n") || "> *Aucune case enregistrée.*") +
       `\n\n> ***Page :** ${safe + 1}/${totalPages}*`,

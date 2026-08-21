@@ -1,13 +1,11 @@
 import type { Client, Guild, GuildTextBasedChannel, Message } from "discord.js"
 import { ApplicationCommandOptionType, type ChatInputCommandInteraction } from "discord.js"
-import { colors } from "../../config.js"
-import buildErrorEmbed from "../../utils/errorEmbed.js"
 import formatTime from "../../utils/formatTime.js"
 import {
   COMPONENTS_V2_FLAGS,
   buildGiveawayContainer,
-  buildGiveawayEmbed,
   handleGiveawayInteraction,
+  noticePayload,
 } from "../../utils/giveaway/dashboard.js"
 import { cancelGiveaway, endGiveaway, rerollGiveaway, startGiveaway } from "../../utils/giveaway/engine.js"
 import {
@@ -136,6 +134,7 @@ export default {
   name: "giveaway",
   description: "Lance et gère les giveaways du serveur.",
   category: "giveaway",
+  slashName: "config",
   aliases: ["giveaways", "gw"],
   permissions: ["ManageGuild"],
   usage: "[start|end|reroll|cancel|list|salon|gagnants|role|reset]",
@@ -222,9 +221,9 @@ export default {
     )
 
     if (!message.guild) {
-      return message.reply({
-        embeds: [buildErrorEmbed("400 Bad Request", "> *Cette commande doit être exécutée dans un serveur.*")],
-      })
+      return message.reply(
+        noticePayload("cancel", "Contexte invalide", "> *Cette commande doit être exécutée dans un serveur.*")
+      )
     }
 
     const guild = message.guild
@@ -243,88 +242,75 @@ export default {
           requiredRoleId: defaults.requiredRoleId,
         },
       })
-      return message.reply({
-        embeds: [
-          buildGiveawayEmbed("✅", "Giveaway réinitialisé", "> *Les paramètres par défaut ont été remis aux valeurs d'origine.*"),
-        ],
-      })
+      return message.reply(
+        noticePayload("check", "Giveaway réinitialisé", "> *Les paramètres par défaut ont été remis aux valeurs d'origine.*")
+      )
     }
 
     if (head === "salon") {
       const raw = args[1] ?? ""
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { defaultChannelId: null } })
-        return message.reply({
-          embeds: [buildGiveawayEmbed("📁", "Salon retiré", "> *Aucun salon par défaut n'est configuré.*", colors.prime)],
-        })
+        return message.reply(noticePayload("cancel", "Salon retiré", "> *Aucun salon par défaut n'est configuré.*"))
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
       const channel = await resolveTextChannel(guild, channelId)
       if (!channel) {
-        return message.reply({
-          embeds: [buildErrorEmbed("400 Bad Request", "> *Salon invalide. Utilisez : `giveaway salon <#salon|off>`.*")],
-        })
+        return message.reply(
+          noticePayload("cancel", "Salon invalide", "> *Salon invalide. Utilisez : `giveaway salon <#salon|off>`.*")
+        )
       }
       await updateConfig(guild.id, { $set: { defaultChannelId: channel.id } })
-      return message.reply({
-        embeds: [buildGiveawayEmbed("📁", "Salon configuré", `> ***Salon par défaut :** <#${channel.id}>*`)],
-      })
+      return message.reply(
+        noticePayload("file", "Salon configuré", `> ***Salon par défaut :** <#${channel.id}>*`)
+      )
     }
 
     if (head === "role") {
       const raw = args[1] ?? ""
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { requiredRoleId: null } })
-        return message.reply({
-          embeds: [buildGiveawayEmbed("📁", "Rôle retiré", "> *Aucun rôle n'est requis pour participer.*", colors.prime)],
-        })
+        return message.reply(noticePayload("cancel", "Rôle retiré", "> *Aucun rôle n'est requis pour participer.*"))
       }
       const id = message.mentions.roles.first()?.id ?? resolveIdFromArg(raw)
       if (!id) {
-        return message.reply({
-          embeds: [buildErrorEmbed("400 Bad Request", "> *Utilisation : `giveaway role <@rôle|id|off>`.*")],
-        })
+        return message.reply(noticePayload("cancel", "Rôle invalide", "> *Utilisation : `giveaway role <@rôle|id|off>`.*"))
       }
       if (id === guild.id) {
-        return message.reply({
-          embeds: [buildErrorEmbed("400 Bad Request", "> *Le rôle @everyone ne peut pas être utilisé.*")],
-        })
+        return message.reply(
+          noticePayload("cancel", "Rôle invalide", "> *Le rôle @everyone ne peut pas être utilisé.*")
+        )
       }
       const role = guild.roles.cache.get(id) ?? (await guild.roles.fetch(id).catch(() => null))
       if (!role) {
-        return message.reply({ embeds: [buildErrorEmbed("400 Bad Request", "> *Rôle introuvable.*")] })
+        return message.reply(noticePayload("cancel", "Rôle introuvable", "> *Rôle introuvable.*"))
       }
       await updateConfig(guild.id, { $set: { requiredRoleId: role.id } })
-      return message.reply({
-        embeds: [buildGiveawayEmbed("📁", "Rôle configuré", `> ***Rôle requis :** ${role}*`)]
-      })
+      return message.reply(noticePayload("people", "Rôle configuré", `> ***Rôle requis :** ${role}*`))
     }
 
     if (head === "gagnants") {
       const raw = Number(args[1])
       if (!Number.isInteger(raw) || raw < MIN_WINNERS || raw > MAX_WINNERS) {
-        return message.reply({
-          embeds: [
-            buildErrorEmbed(
-              "400 Bad Request",
-              `> *Utilisation : \`giveaway gagnants <n>\` (${MIN_WINNERS}–${MAX_WINNERS}).*`
-            ),
-          ],
-        })
+        return message.reply(
+          noticePayload(
+            "cancel",
+            "Valeur invalide",
+            `> *Utilisation : \`giveaway gagnants <n>\` (${MIN_WINNERS}–${MAX_WINNERS}).*`
+          )
+        )
       }
       const defaultWinnerCount = clampWinners(raw)
       await updateConfig(guild.id, { $set: { defaultWinnerCount } })
-      return message.reply({
-        embeds: [buildGiveawayEmbed("✅", "Gagnants mis à jour", `> ***Gagnants par défaut :** \`${defaultWinnerCount}\`*`)],
-      })
+      return message.reply(
+        noticePayload("people", "Gagnants mis à jour", `> ***Gagnants par défaut :** \`${defaultWinnerCount}\`*`)
+      )
     }
 
     if (head === "list") {
       const active = await listActiveGiveaways(guild.id, 25)
       if (active.length === 0) {
-        return message.reply({
-          embeds: [buildGiveawayEmbed("🎁", "Giveaways", "> *Aucun giveaway en cours.*", colors.prime)],
-        })
+        return message.reply(noticePayload("file", "Giveaways", "> *Aucun giveaway en cours.*"))
       }
       const lines = active.map((giveaway) => {
         const jump = giveaway.messageId
@@ -335,35 +321,27 @@ export default {
           `\`${giveaway.participants.length}\` participant${giveaway.participants.length > 1 ? "s" : ""} — ${jump}`
         )
       })
-      return message.reply({
-        embeds: [
-          buildGiveawayEmbed(
-            "🎁",
-            `Giveaways en cours (${active.length})`,
-            lines.join("\n"),
-            colors.prime
-          ),
-        ],
-      })
+      return message.reply(
+        noticePayload("file", `Giveaways en cours (${active.length})`, lines.join("\n"))
+      )
     }
 
     if (head === "start") {
       const parsed = await parseStartArgs(guild, args.slice(1))
       if ("error" in parsed) {
-        return message.reply({ embeds: [buildErrorEmbed("400 Bad Request", parsed.error)] })
+        return message.reply(noticePayload("cancel", "Utilisation incorrecte", parsed.error))
       }
       const config = await getConfig(guild.id)
       const channelId = parsed.channelId ?? config.defaultChannelId ?? message.channel?.id ?? message.channelId
       const channel = await resolveTextChannel(guild, channelId)
       if (!channel) {
-        return message.reply({
-          embeds: [
-            buildErrorEmbed(
-              "400 Bad Request",
-              "> *Salon invalide. Configurez un salon par défaut ou précisez un salon textuel.*"
-            ),
-          ],
-        })
+        return message.reply(
+          noticePayload(
+            "cancel",
+            "Salon invalide",
+            "> *Salon invalide. Configurez un salon par défaut ou précisez un salon textuel.*"
+          )
+        )
       }
       const result = await startGiveaway({
         client,
@@ -376,38 +354,35 @@ export default {
         requiredRoleId: parsed.roleId ?? config.requiredRoleId,
       })
       if (!result.ok) {
-        return message.reply({ embeds: [buildErrorEmbed("400 Bad Request", result.error)] })
+        return message.reply(noticePayload("cancel", "Action impossible", result.error))
       }
       const remaining = result.giveaway.endsAt - Date.now()
-      return message.reply({
-        embeds: [
-          buildGiveawayEmbed(
-            "✅",
-            "Giveaway lancé",
-            `> ***Prix :** ${result.giveaway.prize}*\n` +
-              `> ***Salon :** <#${result.giveaway.channelId}>*\n` +
-              `> ***Gagnants :** \`${result.giveaway.winnerCount}\`*\n` +
-              `> ***Durée :** \`${formatTime(remaining)}\`*\n` +
-              `> ***Fin :** <t:${Math.floor(result.giveaway.endsAt / 1000)}:R>*`
-          ),
-        ],
-      })
+      return message.reply(
+        noticePayload(
+          "add",
+          "Giveaway lancé",
+          `> ***Prix :** ${result.giveaway.prize}*\n` +
+            `> ***Salon :** <#${result.giveaway.channelId}>*\n` +
+            `> ***Gagnants :** \`${result.giveaway.winnerCount}\`*\n` +
+            `> ***Durée :** \`${formatTime(remaining)}\`*\n` +
+            `> ***Fin :** <t:${Math.floor(result.giveaway.endsAt / 1000)}:R>*`
+        )
+      )
     }
 
     if (head === "end" || head === "reroll" || head === "cancel") {
       const mode = head === "reroll" ? "ended" : "active"
       const target = await resolveGiveaway(guild.id, message.channel?.id ?? message.channelId, args[1], mode)
       if (!target) {
-        return message.reply({
-          embeds: [
-            buildErrorEmbed(
-              "400 Bad Request",
-              head === "reroll"
-                ? "> *Aucun giveaway terminé à relancer. Précisez l'ID ou le lien du message.*"
-                : "> *Aucun giveaway en cours. Précisez l'ID ou le lien du message.*"
-            ),
-          ],
-        })
+        return message.reply(
+          noticePayload(
+            "cancel",
+            "Giveaway introuvable",
+            head === "reroll"
+              ? "> *Aucun giveaway terminé à relancer. Précisez l'ID ou le lien du message.*"
+              : "> *Aucun giveaway en cours. Précisez l'ID ou le lien du message.*"
+          )
+        )
       }
       const result =
         head === "end"
@@ -416,23 +391,22 @@ export default {
             ? await rerollGiveaway(client, target.id)
             : await cancelGiveaway(client, target.id)
       if (!result.ok) {
-        return message.reply({ embeds: [buildErrorEmbed("400 Bad Request", result.error)] })
+        return message.reply(noticePayload("cancel", "Action impossible", result.error))
       }
       const title = head === "end" ? "Giveaway terminé" : head === "reroll" ? "Giveaway relancé" : "Giveaway annulé"
+      const emojiKey = head === "end" ? ("check" as const) : head === "reroll" ? ("loop" as const) : ("cancel" as const)
       const winners =
         result.giveaway.winners.length > 0
           ? result.giveaway.winners.map((id) => `<@${id}>`).join(", ")
           : "*Aucun*"
-      return message.reply({
-        embeds: [
-          buildGiveawayEmbed(
-            "✅",
-            title,
-            `> ***Prix :** ${result.giveaway.prize}*\n` +
-              (head === "cancel" ? "" : `> ***Gagnant${result.giveaway.winners.length > 1 ? "s" : ""} :** ${winners}*`)
-          ),
-        ],
-      })
+      return message.reply(
+        noticePayload(
+          emojiKey,
+          title,
+          `> ***Prix :** ${result.giveaway.prize}*\n` +
+            (head === "cancel" ? "" : `> ***Gagnant${result.giveaway.winners.length > 1 ? "s" : ""} :** ${winners}*`)
+        )
+      )
     }
 
     return sendPanel(client, message, guild)

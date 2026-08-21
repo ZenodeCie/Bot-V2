@@ -44,7 +44,7 @@ export default {
       }
       await client.antiraid.applyMode(client, message.guild.id, value)
       return message.reply({
-        embeds: [buildAntiRaidEmbed("🧠", "Mode mis à jour", `> *Le mode \`${MODE_LABELS[value]}\` a été appliqué (seuils automatiques, réglages custom conservés).*`)],
+        embeds: [buildAntiRaidEmbed("cog", "Mode mis à jour", `> *Le mode \`${MODE_LABELS[value]}\` a été appliqué (seuils automatiques, réglages custom conservés).*`)],
       })
     }
 

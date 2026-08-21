@@ -10,6 +10,7 @@ import {
 } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase, notifyUser, recordDenied, recordFailed, updateCaseDm, type DmResult } from "../../utils/moderation/cases.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 export default {
   name: "kick",
@@ -76,11 +77,11 @@ export default {
           {
             title: " ",
             description:
-              `# \`👢\` 〃 Membre expulsé\n` +
+              `${appEmojiHeading("cancel", "Membre expulsé")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +
-              (dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${dm.error}*` : ""),
+              (dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${dm.error}*` : ""),
             color: 0x2ecc71,
           },
         ],

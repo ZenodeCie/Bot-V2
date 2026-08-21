@@ -55,6 +55,7 @@ export default {
   name: "infopanel",
   description: "Configure le panneau d'informations du serveur.",
   category: "informationpanel",
+  slashName: "config",
   aliases: ["information", "panneau", "infoserveur"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|interval|titre|publish|reset]",
@@ -117,7 +118,7 @@ export default {
       return message.reply({
         embeds: [
           buildInformationPanelEmbed(
-            "✅",
+            "check",
             enabled ? "Panneau activé" : "Panneau désactivé",
             enabled
               ? `> *Le panneau d'information est maintenant **activé**.*` +
@@ -148,7 +149,7 @@ export default {
       return message.reply({
         embeds: [
           buildInformationPanelEmbed(
-            "✅",
+            "check",
             "Panneau réinitialisé",
             "> *Tous les paramètres ont été remis aux valeurs par défaut.*"
           ),
@@ -162,7 +163,7 @@ export default {
         await updateConfig(guild.id, { $set: { channelId: null, messageId: null, nextAt: null } })
         await rescheduleInformationPanel(client, guild.id)
         return message.reply({
-          embeds: [buildInformationPanelEmbed("📁", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
+          embeds: [buildInformationPanelEmbed("file", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -179,7 +180,7 @@ export default {
       await updateConfig(guild.id, { $set: { channelId: channel.id, messageId: null, nextAt } })
       await rescheduleInformationPanel(client, guild.id)
       return message.reply({
-        embeds: [buildInformationPanelEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildInformationPanelEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -201,7 +202,7 @@ export default {
       await updateConfig(guild.id, { $set: { interval, nextAt } })
       await rescheduleInformationPanel(client, guild.id)
       return message.reply({
-        embeds: [buildInformationPanelEmbed("✅", "Intervalle mis à jour", `> ***Intervalle :** \`${formatTime(interval)}\`*`)],
+        embeds: [buildInformationPanelEmbed("check", "Intervalle mis à jour", `> ***Intervalle :** \`${formatTime(interval)}\`*`)],
       })
     }
 
@@ -211,7 +212,7 @@ export default {
       return message.reply({
         embeds: [
           buildInformationPanelEmbed(
-            "✅",
+            "check",
             "Titre mis à jour",
             title ? `> ***Titre :** ${title}*` : "> *Le titre utilisera le **nom du serveur**.*"
           ),
@@ -227,7 +228,7 @@ export default {
       return message.reply({
         embeds: [
           buildInformationPanelEmbed(
-            "✅",
+            "check",
             "Panneau publié",
             `> ***Salon :** <#${result.config.channelId}>*\n> *Le message a été envoyé ou mis à jour.*`
           ),

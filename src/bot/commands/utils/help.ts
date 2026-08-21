@@ -8,47 +8,35 @@ import {
 import type { Command } from "../../types.js"
 import { colors } from "../../config.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
+import {
+  appEmoji,
+  appEmojiOrFallback,
+  appEmojiText,
+  type AppEmojiName,
+} from "../../utils/appEmojis.js"
 
 const HOME_VALUE = "__home__"
 const SELECT_ID = "help-category"
 
-const E = {
-  channel: { id: "1469692104589705376", name: "Channel", tag: "<:Channel:1469692104589705376>" },
-  check: { id: "1469692151251341425", name: "Check", tag: "<:Check:1469692151251341425>" },
-  cog: { id: "1469692155680526427", name: "Cog", tag: "<:Cog:1469692155680526427>" },
-  cogUser: { id: "1469692167122325577", name: "CogUser", tag: "<:CogUser:1469692167122325577>" },
-  duration: { id: "1469692196331458704", name: "Duration", tag: "<:Duration:1469692196331458704>" },
-  electricStar: { id: "1469692210961322025", name: "ElectricStar", tag: "<:ElectricStar:1469692210961322025>" },
-  eye: { id: "1469692577384235161", name: "Eye", tag: "<:Eye:1469692577384235161>" },
-  file: { id: "1469692584959017070", name: "File", tag: "<:File:1469692584959017070>" },
-  gMute: { id: "1469685636217962549", name: "g_mute", tag: "<:g_mute:1469685636217962549>" },
-  notes: { id: "1469692988870623369", name: "Notes", tag: "<:Notes:1469692988870623369>" },
-  party: { id: "1469693039739146435", name: "Party", tag: "<:Party:1469693039739146435>" },
-  people: { id: "1469693090280505458", name: "People", tag: "<:People:1469693090280505458>" },
-  permDisable: { id: "1469693096278229002", name: "PermDisable", tag: "<:PermDisable:1469693096278229002>" },
-  pin: { id: "1469696535850651933", name: "Pin", tag: "<:Pin:1469696535850651933>" },
-  plane: { id: "1469696552934183005", name: "Plane", tag: "<:Plane:1469696552934183005>" },
-} as const
-
-/** Icônes custom du pack modération (gris / blanc). */
-const CATEGORY_EMOJIS: Record<string, { id: string; name: string; tag: string }> = {
-  utils: E.cog,
-  dev: E.electricStar,
-  moderation: E.gMute,
-  antiraid: E.permDisable,
-  aeroport: E.plane,
-  captcha: E.check,
-  giveaway: E.party,
-  logs: E.notes,
-  levels: E.people,
-  informationpanel: E.pin,
-  "message-horaire": E.duration,
-  stafflist: E.cogUser,
-  rules: E.file,
+const CATEGORY_EMOJIS: Record<string, AppEmojiName> = {
+  utils: "cog",
+  dev: "settings",
+  moderation: "cancel",
+  antiraid: "power",
+  aeroport: "people",
+  captcha: "check",
+  giveaway: "add",
+  logs: "file",
+  levels: "people",
+  informationpanel: "pin",
+  "message-horaire": "loop",
+  stafflist: "people",
+  rules: "file",
+  invitations: "people",
 }
 
-const FALLBACK_EMOJI = E.channel
-const HOME_EMOJI = E.pin
+const FALLBACK_EMOJI: AppEmojiName = "pin"
+const HOME_EMOJI: AppEmojiName = "pin"
 
 const CATEGORY_LABELS: Record<string, string> = {
   utils: "Utilitaires",
@@ -64,6 +52,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   "message-horaire": "Messages horaires",
   stafflist: "Liste du staff",
   rules: "Règlement",
+  invitations: "Invitations",
 }
 
 function capitalize(value: string): string {
@@ -75,12 +64,14 @@ function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category.toLowerCase()] ?? capitalize(category)
 }
 
-function categoryEmoji(category: string): { id: string; name: string; tag: string } {
+function categoryEmoji(category: string): AppEmojiName {
   return CATEGORY_EMOJIS[category.toLowerCase()] ?? FALLBACK_EMOJI
 }
 
-function toSelectEmoji(spec: { id: string; name: string }): { id: string; name: string } {
-  return { id: spec.id, name: spec.name }
+function toSelectEmoji(name: AppEmojiName): { id: string } | string {
+  const custom = appEmoji(name)
+  if (custom) return custom
+  return appEmojiOrFallback(name)
 }
 
 function uniqueCategories(commands: Command[]): string[] {
@@ -105,7 +96,7 @@ function buildHomeEmbed(client: Client, author: User): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle(" ")
     .setDescription(
-      `# ${E.file.tag} 〃 Help\n` +
+      `# ${appEmojiText("pin")} 〃 Help\n` +
         `> *${commands.length} commandes disponibles sur ${categories.length} catégories.*\n` +
         `> *Sélectionnez une catégorie dans le menu ci-dessous,*\n` +
         `> *ou tapez \`${client.prefix}help <commande>\` pour voir le détail d'une commande.*\n\n` +
@@ -127,7 +118,7 @@ function buildCategoryEmbed(client: Client, category: string): EmbedBuilder {
 
   return new EmbedBuilder()
     .setTitle(" ")
-    .setDescription(`# ${categoryEmoji(category).tag} 〃 ${categoryLabel(category)}\n\n${list}`)
+    .setDescription(`# ${appEmojiText(categoryEmoji(category))} 〃 ${categoryLabel(category)}\n\n${list}`)
     .setColor(colors.prime ?? "#5865f2")
 }
 
@@ -147,7 +138,7 @@ function buildCommandEmbed(client: Client, command: Command): EmbedBuilder {
 
   return new EmbedBuilder()
     .setTitle(" ")
-    .setDescription(`# ${E.eye.tag} 〃 ${command.name}\n\n${fields.join("\n")}`)
+    .setDescription(`# ${appEmojiText("pin")} 〃 ${command.name}\n\n${fields.join("\n")}`)
     .setColor(colors.prime ?? "#5865f2")
 }
 

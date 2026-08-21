@@ -59,6 +59,7 @@ export default {
   name: "logs",
   description: "Configure le journal des événements du serveur.",
   category: "logs",
+  slashName: "config",
   aliases: ["serverlogs", "slog"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|events|bots|ignore|reset]",
@@ -118,7 +119,7 @@ export default {
       return message.reply({
         embeds: [
           buildLogsEmbed(
-            "✅",
+            "check",
             enabled ? "Logs activés" : "Logs désactivés",
             enabled
               ? `> *Les événements du serveur seront envoyés dans le salon configuré.*` +
@@ -141,7 +142,7 @@ export default {
         },
       })
       return message.reply({
-        embeds: [buildLogsEmbed("✅", "Logs réinitialisés", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
+        embeds: [buildLogsEmbed("check", "Logs réinitialisés", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
       })
     }
 
@@ -150,7 +151,7 @@ export default {
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { channelId: null } })
         return message.reply({
-          embeds: [buildLogsEmbed("📁", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
+          embeds: [buildLogsEmbed("file", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -164,7 +165,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { channelId: channel.id } })
       return message.reply({
-        embeds: [buildLogsEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildLogsEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -189,7 +190,7 @@ export default {
         return message.reply({
           embeds: [
             buildLogsEmbed(
-              "✅",
+              "check",
               "Catégories",
               enabled ? "> *Toutes les catégories sont **activées**.*" : "> *Toutes les catégories sont **désactivées**.*"
             ),
@@ -202,7 +203,7 @@ export default {
       return message.reply({
         embeds: [
           buildLogsEmbed(
-            "✅",
+            "check",
             EVENT_LABELS[key as EventKey],
             enabled ? `> *La catégorie **${EVENT_LABELS[key]}** est **activée**.*` : `> *La catégorie **${EVENT_LABELS[key]}** est **désactivée**.*`
           ),
@@ -223,7 +224,7 @@ export default {
       return message.reply({
         embeds: [
           buildLogsEmbed(
-            "✅",
+            "check",
             "Bots",
             enabled
               ? "> *Les actions des bots **ne sont plus** journalisées.*"
@@ -238,7 +239,7 @@ export default {
       if (isOffArg(raw) || stripAccents(raw.toLowerCase()) === "clear") {
         await updateConfig(guild.id, { $set: { ignoredChannels: [] } })
         return message.reply({
-          embeds: [buildLogsEmbed("📁", "Salons ignorés", "> *Aucun salon n'est ignoré.*", colors.prime)],
+          embeds: [buildLogsEmbed("file", "Salons ignorés", "> *Aucun salon n'est ignoré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -259,7 +260,7 @@ export default {
       return message.reply({
         embeds: [
           buildLogsEmbed(
-            "📁",
+            "file",
             "Salons ignorés",
             ignoredChannels.length
               ? `> ***Salons :** ${ignoredChannels.map((id) => `<#${id}>`).join(" ")}*`

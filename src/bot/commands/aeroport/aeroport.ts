@@ -69,6 +69,7 @@ export default {
   name: "aeroport",
   description: "Configure les messages d'arrivée et de départ, le MP et les autoroles.",
   category: "aeroport",
+  slashName: "config",
   aliases: ["airport", "welcome", "goodbye", "arrivee", "depart"],
   permissions: ["ManageGuild"],
   usage: "[arrivee|depart|dm|bots|autorole|preview|reset]",
@@ -138,7 +139,7 @@ export default {
       return message.reply({
         embeds: [
           buildAeroportEmbed(
-            "✅",
+            "check",
             "Aéroport réinitialisé",
             "> *Arrivée, départ, message privé et autoroles ont été remis aux valeurs par défaut.*"
           ),
@@ -159,7 +160,7 @@ export default {
       return message.reply({
         embeds: [
           buildAeroportEmbed(
-            "✅",
+            "check",
             "Bots",
             enabled
               ? "> *Les bots **ne déclenchent plus** les messages ni les autoroles.*"
@@ -182,7 +183,7 @@ export default {
       return message.reply({
         embeds: [
           buildAeroportEmbed(
-            "✅",
+            "check",
             next ? "Message privé activé" : "Message privé désactivé",
             next
               ? "> *Un message privé sera envoyé à l'arrivée d'un membre.*"
@@ -235,7 +236,7 @@ export default {
         return message.reply({
           embeds: [
             buildAeroportEmbed(
-              "✅",
+              "check",
               "Autorole mis à jour",
               `> ***Rôle :** ${role}*\n> ***Action :** ${action === "add" ? "Ajouté" : "Retiré"}*`
             ),
@@ -265,7 +266,7 @@ export default {
         return message.reply({
           embeds: [
             buildAeroportEmbed(
-              "✅",
+              "check",
               `${flightLabel(target)} ${enabled ? "activée" : "désactivée"}`,
               enabled
                 ? `> *Les messages de **${flightLabel(target).toLowerCase()}** sont maintenant **activés**.*`
@@ -282,7 +283,7 @@ export default {
           await updateConfig(guild.id, { $set: { [`${target}.channelId`]: null } })
           return message.reply({
             embeds: [
-              buildAeroportEmbed("📁", `Salon de ${flightLabel(target).toLowerCase()} retiré`, "> *Aucun salon n'est configuré.*", colors.prime),
+              buildAeroportEmbed("file", `Salon de ${flightLabel(target).toLowerCase()} retiré`, "> *Aucun salon n'est configuré.*", colors.prime),
             ],
           })
         }
@@ -299,7 +300,7 @@ export default {
         return message.reply({
           embeds: [
             buildAeroportEmbed(
-              "📁",
+              "file",
               `Salon de ${flightLabel(target).toLowerCase()} configuré`,
               `> ***Salon :** <#${channel.id}>*`
             ),

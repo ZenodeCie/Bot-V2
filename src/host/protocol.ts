@@ -1,4 +1,4 @@
-import { asBotConfig, type BotConfig } from "../shared/botConfig.js"
+import { asBotConfig, parseApplicationEmojis, type BotConfig } from "../shared/botConfig.js"
 
 export type BotLifecycleStatus = "online" | "offline" | "starting" | "error"
 export type BotRestStatus = BotLifecycleStatus | "stopping"
@@ -174,10 +174,19 @@ function asString(value: unknown): string | undefined {
 
 function mergeConfig(botId: string, value: unknown): BotConfig | undefined {
   const parsed = asBotConfig(value)
-  if (parsed) return { ...parsed, bot_id: parsed.bot_id || botId }
+  if (parsed) {
+    const application_emojis = parseApplicationEmojis(parsed.application_emojis)
+    return application_emojis
+      ? { ...parsed, bot_id: parsed.bot_id || botId, application_emojis }
+      : { ...parsed, bot_id: parsed.bot_id || botId }
+  }
   const record = asRecord(value)
   if (!record) return undefined
-  return { ...record, bot_id: asString(record.bot_id) ?? botId }
+  const application_emojis = parseApplicationEmojis(record.application_emojis)
+  const config: BotConfig = { ...record, bot_id: asString(record.bot_id) ?? botId }
+  if (application_emojis) config.application_emojis = application_emojis
+  else delete config.application_emojis
+  return config
 }
 
 export function parseInboundMessage(raw: unknown): InboundMessage {

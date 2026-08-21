@@ -17,20 +17,13 @@ import {
   type PartialGuildMember,
 } from "discord.js"
 import { getConfig, type CaptchaConfig } from "./schema.js"
+import { appEmojiOrFallback, appEmojiText } from "../appEmojis.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 const SWEEP_INTERVAL = 15_000
 const CODE_LENGTH = 5
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-const EMOJI_TAGS = {
-  check: "<:Check:1469692151251341425>",
-} as const
-
-const EMOJI_IDS = {
-  check: "1469692151251341425",
-} as const
 
 export interface PendingChallenge {
   guildId: string
@@ -78,7 +71,7 @@ function normalizeCode(value: string): string {
 
 function buildChallengeComponents(userId: string, code: string): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.check} 〃 Vérification`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("check")} 〃 Vérification`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
@@ -92,7 +85,7 @@ function buildChallengeComponents(userId: string, code: string): ContainerBuilde
       new ButtonBuilder()
         .setCustomId(`cp_verify:${userId}`)
         .setLabel("Vérifier")
-        .setEmoji({ id: EMOJI_IDS.check })
+        .setEmoji(appEmojiOrFallback("check"))
         .setStyle(ButtonStyle.Success)
     )
   )

@@ -5,8 +5,6 @@ import { resolveTarget } from "../../utils/moderation/helpers.js"
 import { buildLevelsEmbed } from "../../utils/levels/dashboard.js"
 import { getMemberRank, getMemberStats, xpProgress } from "../../utils/levels/schema.js"
 
-const RANK_EMOJI = "<:People:1469693090280505458>"
-
 function progressBar(into: number, needed: number, size = 10): string {
   if (needed <= 0) return "▰".repeat(size)
   const filled = Math.max(0, Math.min(size, Math.round((into / needed) * size)))
@@ -53,7 +51,7 @@ export default {
     return message.reply({
       embeds: [
         buildLevelsEmbed(
-          RANK_EMOJI,
+          "people",
           "Rank",
           `> ***Membre :** <@${userId}>*\n` +
             `> ***Niveau :** \`${progress.level}\`*\n` +

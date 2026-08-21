@@ -71,6 +71,7 @@ export default {
   name: "message-horaire",
   description: "Programmez des messages ou embeds envoyés régulièrement.",
   category: "message-horaire",
+  slashName: "config",
   aliases: ["messagehoraire", "horaire", "schedule"],
   permissions: ["ManageGuild"],
   usage: "[create|list|delete|on|off|salon|reset]",
@@ -146,7 +147,7 @@ export default {
       return message.reply({
         embeds: [
           buildMessageHoraireEmbed(
-            "✅",
+            "check",
             "Messages horaires réinitialisés",
             "> *Le salon par défaut a été remis aux valeurs d'origine.*"
           ),
@@ -160,7 +161,7 @@ export default {
         await updateConfig(guild.id, { $set: { defaultChannelId: null } })
         return message.reply({
           embeds: [
-            buildMessageHoraireEmbed("📁", "Salon retiré", "> *Aucun salon par défaut n'est configuré.*", colors.prime),
+            buildMessageHoraireEmbed("file", "Salon retiré", "> *Aucun salon par défaut n'est configuré.*", colors.prime),
           ],
         })
       }
@@ -173,7 +174,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { defaultChannelId: channel.id } })
       return message.reply({
-        embeds: [buildMessageHoraireEmbed("📁", "Salon configuré", `> ***Salon par défaut :** <#${channel.id}>*`)],
+        embeds: [buildMessageHoraireEmbed("file", "Salon configuré", `> ***Salon par défaut :** <#${channel.id}>*`)],
       })
     }
 
@@ -181,7 +182,7 @@ export default {
       const jobs = await listJobs(guild.id)
       if (jobs.length === 0) {
         return message.reply({
-          embeds: [buildMessageHoraireEmbed("🕐", "Messages horaires", "> *Aucun message programmé.*", colors.prime)],
+          embeds: [buildMessageHoraireEmbed("loop", "Messages horaires", "> *Aucun message programmé.*", colors.prime)],
         })
       }
       const lines = jobs.map((job) => {
@@ -192,7 +193,7 @@ export default {
       })
       return message.reply({
         embeds: [
-          buildMessageHoraireEmbed("🕐", `Messages horaires (${jobs.length})`, lines.join("\n"), colors.prime),
+          buildMessageHoraireEmbed("loop", `Messages horaires (${jobs.length})`, lines.join("\n"), colors.prime),
         ],
       })
     }
@@ -262,7 +263,7 @@ export default {
       return message.reply({
         embeds: [
           buildMessageHoraireEmbed(
-            "✅",
+            "check",
             "Message horaire créé",
             `> ***ID :** \`${result.job.id}\`*\n` +
               `> ***Salon :** <#${result.job.channelId}>*\n` +
@@ -285,7 +286,7 @@ export default {
         return message.reply({ embeds: [buildErrorEmbed("400 Bad Request", result.error)] })
       }
       return message.reply({
-        embeds: [buildMessageHoraireEmbed("✅", "Message horaire supprimé", `> ***ID :** \`${job.id}\`*`)],
+        embeds: [buildMessageHoraireEmbed("check", "Message horaire supprimé", `> ***ID :** \`${job.id}\`*`)],
       })
     }
 
@@ -303,7 +304,7 @@ export default {
       return message.reply({
         embeds: [
           buildMessageHoraireEmbed(
-            "✅",
+            "check",
             head === "on" ? "Message horaire activé" : "Message horaire désactivé",
             `> ***ID :** \`${result.job.id}\`*`
           ),

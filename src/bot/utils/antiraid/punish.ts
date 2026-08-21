@@ -9,7 +9,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export async function dmUser(user: User, title: string, desc: string): Promise<boolean> {
   try {
-    await user.send({ embeds: [buildUserEmbed("⚠️", title, desc, colors.red)] })
+    await user.send({ embeds: [buildUserEmbed("cancel", title, desc, colors.red)] })
     return true
   } catch {
     return false

@@ -11,7 +11,7 @@ export interface ModuleLoadSpec {
 export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
   Base: {
     commandGlobs: ["commands/utils/help.js", "commands/utils/ping.js", "commands/utils/prefix.js", "commands/dev"],
-    eventGlobs: ["events/ready.js", "events/messageCreate.js", "events/interactionCreate.js"],
+    eventGlobs: ["events/ready.js", "events/messageCreate.js", "events/interactionCreate.js", "events/guildCreate.js"],
   },
   Utilities: {
     commandGlobs: ["commands/utils/userinfo.js", "commands/utils/emoji.js"],
@@ -59,6 +59,14 @@ export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
   },
   Rules: {
     commandGlobs: ["commands/rules"],
+    eventGlobs: [],
+  },
+  Invitations: {
+    commandGlobs: ["commands/invitations"],
+    eventGlobs: ["events/invitations"],
+  },
+  Tickets: {
+    commandGlobs: ["commands/tickets"],
     eventGlobs: [],
   },
 }

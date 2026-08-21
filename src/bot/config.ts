@@ -1,7 +1,13 @@
-import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { readFileSync, watch, type FSWatcher } from "node:fs"
+import { basename, dirname, resolve } from "node:path"
 import { config as loadDotenv } from "dotenv"
-import { parseHexColor, type BotConfig } from "../shared/botConfig.js"
+import {
+  KNOWN_MODULE_KEYS,
+  mergeApplicationEmojis,
+  parseApplicationEmojis,
+  parseHexColor,
+  type BotConfig,
+} from "../shared/botConfig.js"
 
 loadDotenv()
 
@@ -48,7 +54,40 @@ function loadBotJson(path: string): BotConfig {
     console.error(`Invalid Discord token in ${path} (unauthorized): token missing.`)
     process.exit(1)
   }
-  return { ...(record as unknown as BotConfig), bot_id: botId, token }
+  const application_emojis = parseApplicationEmojis(record.application_emojis)
+  const loaded: BotConfig = { ...(record as unknown as BotConfig), bot_id: botId, token }
+  if (application_emojis) loaded.application_emojis = application_emojis
+  else delete loaded.application_emojis
+  return loaded
+}
+
+function loadStandaloneBot(): BotConfig {
+  const token = (process.env.BOT_TOKEN ?? "").trim()
+  if (!token) {
+    console.error("Missing BOT_TOKEN in .env (standalone mode).")
+    process.exit(1)
+  }
+  let clientId = ""
+  try {
+    clientId = Buffer.from(token.split(".")[0] ?? "", "base64").toString("utf8")
+  } catch {
+    /* ignore */
+  }
+  if (!/^\d{5,22}$/.test(clientId)) clientId = ""
+  const modules = (process.env.MODULES ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return {
+    bot_id: process.env.BOT_ID?.trim() || clientId || "standalone",
+    name: process.env.BOT_NAME?.trim() || "Standalone",
+    token,
+    prefix: process.env.PREFIX?.trim() || undefined,
+    status: process.env.BOT_STATUS?.trim() || undefined,
+    color: process.env.BOT_COLOR?.trim() || undefined,
+    modules: modules.length > 0 ? modules : [...KNOWN_MODULE_KEYS],
+    client_id: clientId || undefined,
+  }
 }
 
 function collectOwnerIds(bot: BotConfig): string[] {
@@ -63,8 +102,9 @@ function collectOwnerIds(bot: BotConfig): string[] {
   return [...ids]
 }
 
-const configPath = resolveConfigPath()
-const bot = loadBotJson(configPath)
+const alone = process.argv.includes("--alone") || process.env.STANDALONE === "1"
+const configPath = alone ? "" : resolveConfigPath()
+const bot = alone ? loadStandaloneBot() : loadBotJson(configPath)
 
 const prefix = typeof bot.prefix === "string" && bot.prefix.length > 0 ? bot.prefix : "!"
 const color = parseHexColor(bot.color)
@@ -80,7 +120,7 @@ const repoRoot = process.env.REPO_ROOT ?? process.cwd()
 const dataRoot = process.env.DATA_DIR ?? resolve(repoRoot, "data")
 
 export const botRuntime = {
-  configPath,
+  configPath: configPath || null,
   botId: bot.bot_id,
   name: bot.name ?? bot.bot_id,
   token: bot.token as string,
@@ -102,6 +142,43 @@ const config = {
   ownerId: botRuntime.ownerId,
   botId: botRuntime.botId,
   dataDir: botRuntime.dataDir,
+}
+
+export function startApplicationEmojiWatcher(): () => void {
+  if (!configPath) return () => undefined
+  const dir = dirname(configPath)
+  const file = basename(configPath)
+  let debounce: NodeJS.Timeout | undefined
+  let watcher: FSWatcher | undefined
+
+  const reload = (): void => {
+    try {
+      const raw: unknown = JSON.parse(readFileSync(configPath, "utf8"))
+      if (!raw || typeof raw !== "object") return
+      const merged = mergeApplicationEmojis(
+        botRuntime.raw.application_emojis,
+        (raw as Record<string, unknown>).application_emojis
+      )
+      if (merged) botRuntime.raw.application_emojis = merged
+    } catch {
+      /* tmp/rename race — ignore */
+    }
+  }
+
+  try {
+    watcher = watch(dir, (_event, filename) => {
+      if (typeof filename === "string" && filename !== file && filename !== `${file}.tmp`) return
+      if (debounce) clearTimeout(debounce)
+      debounce = setTimeout(reload, 150)
+    })
+  } catch {
+    /* watch unavailable (standalone / restricted fs) */
+  }
+
+  return () => {
+    if (debounce) clearTimeout(debounce)
+    watcher?.close()
+  }
 }
 
 export default config

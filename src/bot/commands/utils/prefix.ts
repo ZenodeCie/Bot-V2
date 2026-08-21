@@ -1,6 +1,7 @@
 import type { Client, Message } from "discord.js"
 import { ApplicationCommandOptionType, EmbedBuilder } from "discord.js"
 import config, { colors } from "../../config.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
 import { Guild } from "../../utils/initData.js"
 
@@ -37,7 +38,7 @@ export default {
       const embed = new EmbedBuilder()
         .setTitle(" ")
         .setDescription(
-          `# <:Cog:1469692155680526427> 〃 Préfixe\n` +
+          `${appEmojiHeading("cog", "Préfixe")}\n` +
           `> ***Préfixe actuel:** \`${current}\`*\n\n` +
           `> *Tapez \`${current}prefix <nouveau préfixe>\` pour le changer.*`
         )
@@ -68,7 +69,7 @@ export default {
     const embed = new EmbedBuilder()
       .setTitle(" ")
       .setDescription(
-        `# \`✅\` 〃 Préfixe mis à jour\n` +
+        `${appEmojiHeading("check", "Préfixe mis à jour")}\n` +
         `> ***Le préfixe du bot est maintenant \`${newPrefix}\` sur ce serveur.***`
       )
       .setColor(colors.prime ?? "#5865f2")

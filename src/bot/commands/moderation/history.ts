@@ -3,6 +3,7 @@ import { ApplicationCommandOptionType } from "discord.js"
 import { formatDate, logCommandUse, replyError, requireGuild, resolveTarget } from "../../utils/moderation/helpers.js"
 import { ModCase, Warning, ACTION_EMOJIS, ACTION_LABELS, STATUS_LABELS } from "../../utils/moderation/schema.js"
 import { buildNavRow, handlePageNav, type PageRenderResult } from "../../utils/moderation/pagination.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 const PER_PAGE = 6
 
@@ -19,7 +20,7 @@ async function renderHistoryPage(guildId: string, userId: string, page: number):
       c.duration && c.duration > 0 ? ` • **Durée :** ${c.duration / 1000}s` : ""
     const linked = c.linkedCaseIdFormatted ? ` • **Liée :** ${c.linkedCaseIdFormatted}` : ""
     return (
-      `> **${c.caseIdFormatted}** — ${ACTION_EMOJIS[c.action]} **${ACTION_LABELS[c.action]}** — \`${STATUS_LABELS[c.status]}\`${duration}${linked}\n` +
+      `> **${c.caseIdFormatted}** — ${appEmojiText(ACTION_EMOJIS[c.action])} **${ACTION_LABELS[c.action]}** — \`${STATUS_LABELS[c.status]}\`${duration}${linked}\n` +
       `> ***Raison :** ${c.reason}*\n` +
       `> ***Modérateur :** ${c.moderatorUsername} (\`${c.moderatorId ?? "auto"}\`) • ${formatDate(c.startedAt)} (<t:${Math.floor(c.startedAt / 1000)}:R>)*`
     )
@@ -28,7 +29,7 @@ async function renderHistoryPage(guildId: string, userId: string, page: number):
   const embed = {
     title: " ",
     description:
-      `# \`📜\` 〃 Historique de modération de <@${userId}> (\`${userId}\`)\n` +
+      `${appEmojiHeading("file", `Historique de modération de <@${userId}> (\`${userId}\`)`)}\n` +
       `> ***Cas enregistrés :** ${all.length} • Avertissements actifs : ${activeWarnings}*\n\n` +
       (lines.join("\n\n") || "> *Aucune action de modération enregistrée.*") +
       `\n\n> ***Page :** ${safe + 1}/${totalPages}*`,

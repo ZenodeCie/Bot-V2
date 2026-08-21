@@ -16,37 +16,19 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import { handleAcceptInteraction, publishRules, republishIfPublished } from "./engine.js"
 import { clampDescription, clampTitle, getConfig, updateConfig, type RulesConfig } from "./schema.js"
 
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 
-const EMOJI_IDS = {
-  bot: "1469692094342762526",
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cogUser: "1469692167122325577",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  notes: "1469692988870623369",
-  pen: "1469693057497563160",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  bot: "<:Bot:1469692094342762526>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  notes: "<:Notes:1469692988870623369>",
-} as const
-
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
+}
+
+function yesNo(value: boolean): string {
+  return value ? `${appEmojiText("check")} Oui` : `${appEmojiText("cancel")} Non`
 }
 
 function channelMention(channelId: string | null): string {
@@ -64,12 +46,12 @@ function previewText(value: string, max = 80): string {
 }
 
 export function buildRulesEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -92,16 +74,16 @@ async function requireManageGuild(interaction: Interaction): Promise<boolean> {
 
 export function buildRulesContainer(_client: Client, _guild: Guild, config: RulesConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Règlement`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("file")} 〃 Règlement`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Affiche un règlement personnalisable avec un bouton de validation.*\n\n` +
         `> **État :** ${onOff(config.enabled)}\n` +
-        `> ${EMOJI_TAGS.channel} **Salon :** ${channelMention(config.channelId)}\n` +
-        `> ${EMOJI_TAGS.cogUser} **Rôle :** ${roleMention(config.roleId)}\n` +
-        `> ${EMOJI_TAGS.bot} **Ignorer les bots :** ${config.ignoreBots ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}\n` +
-        `> ${EMOJI_TAGS.notes} **Titre :** ${previewText(config.title || "Règlement")}`
+        `> ${appEmojiText("file")} **Salon :** ${channelMention(config.channelId)}\n` +
+        `> ${appEmojiText("people")} **Rôle :** ${roleMention(config.roleId)}\n` +
+        `> ${appEmojiText("people")} **Ignorer les bots :** ${yesNo(config.ignoreBots)}\n` +
+        `> ${appEmojiText("file")} **Titre :** ${previewText(config.title || "Règlement")}`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -111,12 +93,12 @@ export function buildRulesContainer(_client: Client, _guild: Guild, config: Rule
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("rl_toggle")
-          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon du règlement**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon du règlement**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -130,11 +112,11 @@ export function buildRulesContainer(_client: Client, _guild: Guild, config: Rule
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("rl_channel_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
+        btn.setCustomId("rl_channel_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Rôle après validation**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Rôle après validation**`))
   container.addActionRowComponents((row) =>
     row.setComponents(new RoleSelectMenuBuilder().setCustomId("rl_role").setPlaceholder("Choisir le rôle...").setMaxValues(1))
   )
@@ -142,20 +124,20 @@ export function buildRulesContainer(_client: Client, _guild: Guild, config: Rule
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le rôle**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("rl_role_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.roleId)
+        btn.setCustomId("rl_role_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.roleId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Titre et règlement**\n> ${previewText(config.title || "Règlement")}`))
-      .setButtonAccessory((btn) => btn.setCustomId("rl_text").setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("rl_text").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Publier / actualiser**\n> Envoie ou met à jour le message dans le salon."))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("rl_publish").setEmoji(emoji("check")).setStyle(ButtonStyle.Success).setDisabled(!config.channelId)
+        btn.setCustomId("rl_publish").setEmoji(appEmojiComponent("check")).setStyle(ButtonStyle.Success).setDisabled(!config.channelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -163,13 +145,13 @@ export function buildRulesContainer(_client: Client, _guild: Guild, config: Rule
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
-          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots ne peuvent pas valider ${EMOJI_TAGS.enable}` : `Les bots peuvent valider ${EMOJI_TAGS.disable}`}`
+          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots ne peuvent pas valider ${appEmojiText("check")}` : `Les bots peuvent valider ${appEmojiText("cancel")}`}`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("rl_bots")
-          .setEmoji(config.ignoreBots ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.ignoreBots ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )

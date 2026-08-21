@@ -57,6 +57,7 @@ export default {
   name: "stafflist",
   description: "Configure la liste automatique du staff.",
   category: "stafflist",
+  slashName: "config",
   aliases: ["staff", "listestaff"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|role|statut|bots|titre|publish|reset]",
@@ -125,7 +126,7 @@ export default {
       return message.reply({
         embeds: [
           buildStaffListEmbed(
-            "✅",
+            "check",
             enabled ? "Liste activée" : "Liste désactivée",
             enabled
               ? `> *La liste du staff est maintenant **activée**.*` +
@@ -153,7 +154,7 @@ export default {
         },
       })
       return message.reply({
-        embeds: [buildStaffListEmbed("✅", "Liste réinitialisée", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
+        embeds: [buildStaffListEmbed("check", "Liste réinitialisée", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
       })
     }
 
@@ -162,7 +163,7 @@ export default {
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { channelId: null, messageId: null } })
         return message.reply({
-          embeds: [buildStaffListEmbed("📁", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
+          embeds: [buildStaffListEmbed("file", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -177,7 +178,7 @@ export default {
       await updateConfig(guild.id, { $set: { channelId: channel.id, messageId: null } })
       await republishIfPublished(client, guild.id)
       return message.reply({
-        embeds: [buildStaffListEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildStaffListEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -214,7 +215,7 @@ export default {
         return message.reply({
           embeds: [
             buildStaffListEmbed(
-              "✅",
+              "check",
               "Rôle mis à jour",
               `> ***Rôle :** ${role}*\n> ***Action :** ${action === "add" ? "Ajouté" : "Retiré"}*`
             ),
@@ -226,7 +227,7 @@ export default {
         await updateConfig(guild.id, { $set: { roleIds: [] } })
         await republishIfPublished(client, guild.id)
         return message.reply({
-          embeds: [buildStaffListEmbed("📁", "Rôles retirés", "> *Aucun rôle staff n'est configuré.*", colors.prime)],
+          embeds: [buildStaffListEmbed("file", "Rôles retirés", "> *Aucun rôle staff n'est configuré.*", colors.prime)],
         })
       }
 
@@ -247,7 +248,7 @@ export default {
       return message.reply({
         embeds: [
           buildStaffListEmbed(
-            "✅",
+            "check",
             "Statut",
             enabled
               ? "> *Le statut en ligne/hors ligne est maintenant **affiché**.*"
@@ -271,7 +272,7 @@ export default {
       return message.reply({
         embeds: [
           buildStaffListEmbed(
-            "✅",
+            "check",
             "Bots",
             enabled
               ? "> *Les bots **n'apparaissent plus** dans la liste.*"
@@ -288,7 +289,7 @@ export default {
       return message.reply({
         embeds: [
           buildStaffListEmbed(
-            "✅",
+            "check",
             "Titre mis à jour",
             title ? `> ***Titre :** ${title}*` : "> *Le titre utilisera **Liste du Staff**.*"
           ),
@@ -304,7 +305,7 @@ export default {
       return message.reply({
         embeds: [
           buildStaffListEmbed(
-            "✅",
+            "check",
             "Liste publiée",
             `> ***Salon :** <#${result.config.channelId}>*\n> *Le message a été envoyé ou mis à jour.*`
           ),

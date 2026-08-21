@@ -56,6 +56,7 @@ export default {
   name: "rules",
   description: "Configure le règlement interactif du serveur.",
   category: "rules",
+  slashName: "config",
   aliases: ["reglement", "regles"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|role|bots|titre|publish|reset]",
@@ -122,7 +123,7 @@ export default {
       return message.reply({
         embeds: [
           buildRulesEmbed(
-            "✅",
+            "check",
             enabled ? "Règlement activé" : "Règlement désactivé",
             enabled
               ? `> *Le règlement est maintenant **activé**.*` +
@@ -149,7 +150,7 @@ export default {
         },
       })
       return message.reply({
-        embeds: [buildRulesEmbed("✅", "Règlement réinitialisé", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
+        embeds: [buildRulesEmbed("check", "Règlement réinitialisé", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
       })
     }
 
@@ -158,7 +159,7 @@ export default {
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { channelId: null, messageId: null } })
         return message.reply({
-          embeds: [buildRulesEmbed("📁", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
+          embeds: [buildRulesEmbed("file", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -173,7 +174,7 @@ export default {
       await updateConfig(guild.id, { $set: { channelId: channel.id, messageId: null } })
       await republishIfPublished(client, guild.id)
       return message.reply({
-        embeds: [buildRulesEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildRulesEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -183,7 +184,7 @@ export default {
         await updateConfig(guild.id, { $set: { roleId: null } })
         await republishIfPublished(client, guild.id)
         return message.reply({
-          embeds: [buildRulesEmbed("📁", "Rôle retiré", "> *Aucun rôle n'est configuré.*", colors.prime)],
+          embeds: [buildRulesEmbed("file", "Rôle retiré", "> *Aucun rôle n'est configuré.*", colors.prime)],
         })
       }
       const id = message.mentions.roles.first()?.id ?? resolveIdFromArg(raw)
@@ -204,7 +205,7 @@ export default {
       await updateConfig(guild.id, { $set: { roleId: role.id } })
       await republishIfPublished(client, guild.id)
       return message.reply({
-        embeds: [buildRulesEmbed("📁", "Rôle configuré", `> ***Rôle :** ${role}*`)]
+        embeds: [buildRulesEmbed("file", "Rôle configuré", `> ***Rôle :** ${role}*`)]
       })
     }
 
@@ -221,7 +222,7 @@ export default {
       return message.reply({
         embeds: [
           buildRulesEmbed(
-            "✅",
+            "check",
             "Bots",
             enabled
               ? "> *Les bots **ne peuvent plus** valider le règlement.*"
@@ -238,7 +239,7 @@ export default {
       return message.reply({
         embeds: [
           buildRulesEmbed(
-            "✅",
+            "check",
             "Titre mis à jour",
             title ? `> ***Titre :** ${title}*` : "> *Le titre utilisera **Règlement**.*"
           ),
@@ -254,7 +255,7 @@ export default {
       return message.reply({
         embeds: [
           buildRulesEmbed(
-            "✅",
+            "check",
             "Règlement publié",
             `> ***Salon :** <#${result.config.channelId}>*\n> *Le message a été envoyé ou mis à jour.*`
           ),

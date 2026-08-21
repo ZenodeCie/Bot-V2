@@ -10,6 +10,7 @@ import {
 } from "../../utils/moderation/helpers.js"
 import { createCase, findActiveCase, logModCase, recordDenied, recordFailed } from "../../utils/moderation/cases.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export default {
   name: "untimeout",
@@ -69,7 +70,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`⏸️\` 〃 Exclusion retirée\n` +
+              `${appEmojiHeading("check", "Exclusion retirée")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +

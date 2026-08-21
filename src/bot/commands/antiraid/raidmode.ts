@@ -51,7 +51,7 @@ export default {
       return message.reply({
         embeds: [
           buildAntiRaidEmbed(
-            "✅",
+            "check",
             "Mode raid activé",
             `> *Le serveur est verrouillé pour \`${formatTime(duration ?? config.raidDuration)}\`.*`,
             colors.orng
@@ -63,7 +63,7 @@ export default {
     if (action === "off") {
       await client.antiraid.deactivateRaidMode(client, config)
       return message.reply({
-        embeds: [buildAntiRaidEmbed("✅", "Mode raid désactivé", "> *Le verrouillage du serveur a été levé.*", colors.yel)],
+        embeds: [buildAntiRaidEmbed("check", "Mode raid désactivé", "> *Le verrouillage du serveur a été levé.*", colors.yel)],
       })
     }
 

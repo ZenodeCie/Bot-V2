@@ -7,6 +7,7 @@ import {
   resolveChannelIdFromArg,
 } from "../../utils/moderation/helpers.js"
 import { createCase, findActiveCase, logModCase } from "../../utils/moderation/cases.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 import type { OverwriteSnapshot } from "./lock.js"
 
 export default {
@@ -79,7 +80,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🔓\` 〃 Salon déverrouillé\n` +
+              `${appEmojiHeading("check", "Salon déverrouillé")}\n` +
               `> ***Salon :** <#${channel.id}>*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Permissions restaurées :** ${restored}*\n` +

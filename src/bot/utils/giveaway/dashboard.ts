@@ -5,7 +5,6 @@ import {
   ChannelSelectMenuBuilder,
   ChannelType,
   ContainerBuilder,
-  EmbedBuilder,
   MessageFlags,
   ModalBuilder,
   RoleSelectMenuBuilder,
@@ -18,7 +17,7 @@ import {
   type Interaction,
   type MessageComponentInteraction,
 } from "discord.js"
-import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import parseTime from "../parseTime.js"
 import {
   cancelGiveaway,
@@ -27,6 +26,7 @@ import {
   rerollGiveaway,
   startGiveaway,
 } from "./engine.js"
+import { COMPONENTS_V2_FLAGS, CONTAINER_ACCENT, noticePayload } from "./notice.js"
 import {
   MAX_WINNERS,
   MIN_WINNERS,
@@ -41,34 +41,7 @@ import {
   type GiveawayRecord,
 } from "./schema.js"
 
-export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
-const CONTAINER_ACCENT = 0x36373e
-
-const EMOJI_IDS = {
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cogUser: "1469692167122325577",
-  disable: "1469692191298556099",
-  duration: "1469692196331458704",
-  loop: "1469692980586872957",
-  notes: "1469692988870623369",
-  party: "1469693039739146435",
-  people: "1469693090280505458",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  disable: "<:Disable:1469692191298556099>",
-  duration: "<:Duration:1469692196331458704>",
-  loop: "<:Loop:1469692980586872957>",
-  notes: "<:Notes:1469692988870623369>",
-  party: "<:Party:1469693039739146435>",
-  people: "<:People:1469693090280505458>",
-} as const
+export { COMPONENTS_V2_FLAGS, buildNoticeContainer, noticePayload } from "./notice.js"
 
 function channelMention(channelId: string | null): string {
   return channelId ? `<#${channelId}>` : "*Aucun*"
@@ -84,27 +57,17 @@ function truncate(value: string, max: number): string {
   return `${trimmed.slice(0, Math.max(0, max - 1))}…`
 }
 
-export function buildGiveawayEmbed(
-  emojiChar: string,
-  title: string,
-  desc: string,
-  color: `#${string}` | null = colors.prime
-): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
-  if (color) embed.setColor(color)
-  return embed
-}
-
 async function requireManageGuild(interaction: Interaction): Promise<boolean> {
   const member = interaction.member
   const memberPermissions =
     member && typeof member.permissions === "object" && member.permissions !== null ? member.permissions : null
   if (!member || !memberPermissions || !memberPermissions.has("ManageGuild")) {
     if (interaction.isRepliable()) {
-      await interaction.reply({
-        content: "> *Cette action nécessite la permission **Gérer le serveur**.*",
-        flags: MessageFlags.Ephemeral,
-      })
+      await interaction.reply(
+        noticePayload("cancel", "Permission manquante", "> *Cette action nécessite la permission **Gérer le serveur**.*", {
+          ephemeral: true,
+        })
+      )
     }
     return false
   }
@@ -116,19 +79,19 @@ function buildManageRow(id: string, state: "active" | "ended" | "cancelled"): Ac
     new ButtonBuilder()
       .setCustomId(`gw_end:${id}`)
       .setLabel("Terminer")
-      .setEmoji(emoji("check"))
+      .setEmoji(appEmojiOrFallback("check"))
       .setStyle(ButtonStyle.Success)
       .setDisabled(state !== "active"),
     new ButtonBuilder()
       .setCustomId(`gw_reroll:${id}`)
       .setLabel("Relancer")
-      .setEmoji(emoji("loop"))
+      .setEmoji(appEmojiOrFallback("loop"))
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state !== "ended"),
     new ButtonBuilder()
       .setCustomId(`gw_cancel:${id}`)
       .setLabel("Annuler")
-      .setEmoji(emoji("disable"))
+      .setEmoji(appEmojiOrFallback("cancel"))
       .setStyle(ButtonStyle.Danger)
       .setDisabled(state !== "active")
   )
@@ -136,7 +99,7 @@ function buildManageRow(id: string, state: "active" | "ended" | "cancelled"): Ac
 
 function formatActiveLine(giveaway: GiveawayRecord): string {
   return (
-    `> ${EMOJI_TAGS.party} **${truncate(giveaway.prize, 48)}** — <#${giveaway.channelId}> — ` +
+    `> ${appEmojiText("add")} **${truncate(giveaway.prize, 48)}** — <#${giveaway.channelId}> — ` +
     `<t:${Math.floor(giveaway.endsAt / 1000)}:R> — \`${giveaway.participants.length}\` participant${giveaway.participants.length > 1 ? "s" : ""}`
   )
 }
@@ -148,25 +111,25 @@ export function buildGiveawayContainer(
   active: GiveawayRecord[]
 ): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.party} 〃 Giveaway`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("add", "Giveaway")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Lancez un giveaway, les membres participent via un bouton. Les tirages et messages sont repris après un redémarrage.*\n\n` +
-        `> ${EMOJI_TAGS.channel} ***Salon par défaut :** ${channelMention(config.defaultChannelId)}*\n` +
-        `> ${EMOJI_TAGS.people} ***Gagnants par défaut :** \`${config.defaultWinnerCount}\`*\n` +
-        `> ${EMOJI_TAGS.cogUser} ***Rôle requis :** ${roleMention(config.requiredRoleId)}*\n` +
-        `> ${EMOJI_TAGS.notes} ***En cours :** \`${active.length}\`*`
+        `> ${appEmojiText("file")} ***Salon par défaut :** ${channelMention(config.defaultChannelId)}*\n` +
+        `> ${appEmojiText("people")} ***Gagnants par défaut :** \`${config.defaultWinnerCount}\`*\n` +
+        `> ${appEmojiText("people")} ***Rôle requis :** ${roleMention(config.requiredRoleId)}*\n` +
+        `> ${appEmojiText("file")} ***En cours :** \`${active.length}\`*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Créer un giveaway**\n> Ouvre un formulaire (prix, durée, gagnants)."))
-      .setButtonAccessory((btn) => btn.setCustomId("gw_create").setEmoji(emoji("party")).setStyle(ButtonStyle.Success))
+      .setButtonAccessory((btn) => btn.setCustomId("gw_create").setEmoji(appEmojiComponent("add")).setStyle(ButtonStyle.Success))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon par défaut**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon par défaut**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -182,13 +145,13 @@ export function buildGiveawayContainer(
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("gw_channel_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!config.defaultChannelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Rôle requis par défaut**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Rôle requis par défaut**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new RoleSelectMenuBuilder().setCustomId("gw_role").setPlaceholder("Choisir le rôle...").setMaxValues(1)
@@ -200,7 +163,7 @@ export function buildGiveawayContainer(
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("gw_role_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!config.requiredRoleId)
       )
@@ -209,17 +172,17 @@ export function buildGiveawayContainer(
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Gagnants par défaut**\n> \`${config.defaultWinnerCount}\``))
-      .setButtonAccessory((btn) => btn.setCustomId("gw_winners").setEmoji(emoji("people")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("gw_winners").setEmoji(appEmojiComponent("people")).setStyle(ButtonStyle.Secondary))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   if (active.length === 0) {
     container.addTextDisplayComponents((t) =>
-      t.setContent(`${EMOJI_TAGS.notes} **Giveaways en cours**\n> *Aucun giveaway actif.*`)
+      t.setContent(`${appEmojiText("file")} **Giveaways en cours**\n> *Aucun giveaway actif.*`)
     )
   } else {
     container.addTextDisplayComponents((t) =>
       t.setContent(
-        `${EMOJI_TAGS.notes} **Giveaways en cours (${active.length})**\n` +
+        `${appEmojiText("file")} **Giveaways en cours (${active.length})**\n` +
           active.slice(0, 8).map(formatActiveLine).join("\n")
       )
     )
@@ -237,7 +200,7 @@ export function buildGiveawayContainer(
                 100
               ),
               value: giveaway.id,
-              emoji: emoji("party"),
+              emoji: appEmojiOrFallback("add"),
             }))
           )
       )
@@ -346,18 +309,22 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
     const id = interaction.values[0]
     const giveaway = id ? await getGiveaway(id) : null
     if (!giveaway || giveaway.guildId !== guild.id || giveaway.ended || giveaway.cancelled) {
-      await interaction.reply({ content: "> *Giveaway introuvable ou déjà terminé.*", flags: MessageFlags.Ephemeral })
+      await interaction.reply(
+        noticePayload("cancel", "Giveaway introuvable", "> *Giveaway introuvable ou déjà terminé.*", { ephemeral: true })
+      )
       return true
     }
-    await interaction.reply({
-      content:
-        `> ${EMOJI_TAGS.party} **${giveaway.prize}**\n` +
-        `> ${EMOJI_TAGS.channel} Salon : <#${giveaway.channelId}>\n` +
-        `> ${EMOJI_TAGS.people} \`${giveaway.participants.length}\` participant${giveaway.participants.length > 1 ? "s" : ""} · \`${giveaway.winnerCount}\` gagnant${giveaway.winnerCount > 1 ? "s" : ""}\n` +
-        `> ${EMOJI_TAGS.duration} Fin <t:${Math.floor(giveaway.endsAt / 1000)}:R>`,
-      components: [buildManageRow(giveaway.id, "active")],
-      flags: MessageFlags.Ephemeral,
-    })
+    const manageBody =
+      `> ${appEmojiText("add")} ***Prix :** ${giveaway.prize}*\n` +
+      `> ${appEmojiText("file")} ***Salon :** <#${giveaway.channelId}>*\n` +
+      `> ${appEmojiText("people")} ***Participants :** \`${giveaway.participants.length}\` — **Gagnants :** \`${giveaway.winnerCount}\`*\n` +
+      `> ${appEmojiText("loop")} ***Fin :** <t:${Math.floor(giveaway.endsAt / 1000)}:R>*`
+    await interaction.reply(
+      noticePayload("people", "Gérer un giveaway", manageBody, {
+        ephemeral: true,
+        rows: [buildManageRow(giveaway.id, "active")],
+      })
+    )
     return true
   }
 
@@ -365,12 +332,13 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
     const id = customId.slice("gw_end:".length)
     const result = await endGiveaway(client, id)
     if (!result.ok) {
-      await interaction.reply({ content: result.error, flags: MessageFlags.Ephemeral })
+      await interaction.reply(noticePayload("cancel", "Action impossible", result.error, { ephemeral: true }))
       return true
     }
     await interaction.update({
-      content: `> *Giveaway **${result.giveaway.prize}** terminé.*`,
-      components: [buildManageRow(id, "ended")],
+      ...noticePayload("check", "Giveaway terminé", `> *Giveaway **${result.giveaway.prize}** terminé.*`, {
+        rows: [buildManageRow(id, "ended")],
+      }),
     })
     return true
   }
@@ -378,7 +346,7 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
   if (interaction.isButton() && customId.startsWith("gw_reroll:")) {
     const result = await rerollGiveaway(client, customId.slice("gw_reroll:".length))
     if (!result.ok) {
-      await interaction.reply({ content: result.error, flags: MessageFlags.Ephemeral })
+      await interaction.reply(noticePayload("cancel", "Action impossible", result.error, { ephemeral: true }))
       return true
     }
     const winners =
@@ -386,8 +354,12 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
         ? result.giveaway.winners.map((userId) => `<@${userId}>`).join(", ")
         : "*Aucun*"
     await interaction.update({
-      content: `> *Nouveau tirage pour **${result.giveaway.prize}** : ${winners}.*`,
-      components: [buildManageRow(result.giveaway.id, "ended")],
+      ...noticePayload(
+        "loop",
+        "Nouveau tirage",
+        `> *Nouveau tirage pour **${result.giveaway.prize}** : ${winners}.*`,
+        { rows: [buildManageRow(result.giveaway.id, "ended")] }
+      ),
     })
     return true
   }
@@ -396,12 +368,13 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
     const id = customId.slice("gw_cancel:".length)
     const result = await cancelGiveaway(client, id)
     if (!result.ok) {
-      await interaction.reply({ content: result.error, flags: MessageFlags.Ephemeral })
+      await interaction.reply(noticePayload("cancel", "Action impossible", result.error, { ephemeral: true }))
       return true
     }
     await interaction.update({
-      content: `> *Giveaway **${result.giveaway.prize}** annulé.*`,
-      components: [buildManageRow(id, "cancelled")],
+      ...noticePayload("cancel", "Giveaway annulé", `> *Giveaway **${result.giveaway.prize}** annulé.*`, {
+        rows: [buildManageRow(id, "cancelled")],
+      }),
     })
     return true
   }
@@ -412,10 +385,14 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
     if (customId === "gw_modal_winners") {
       const raw = Number(interaction.fields.getTextInputValue("winners").trim())
       if (!Number.isInteger(raw) || raw < MIN_WINNERS || raw > MAX_WINNERS) {
-        await interaction.reply({
-          content: `> *Nombre de gagnants invalide. Utilisez un entier entre **${MIN_WINNERS}** et **${MAX_WINNERS}**.*`,
-          flags: MessageFlags.Ephemeral,
-        })
+        await interaction.reply(
+          noticePayload(
+            "cancel",
+            "Valeur invalide",
+            `> *Nombre de gagnants invalide. Utilisez un entier entre **${MIN_WINNERS}** et **${MAX_WINNERS}**.*`,
+            { ephemeral: true }
+          )
+        )
         return true
       }
       await updateConfig(guild.id, { $set: { defaultWinnerCount: clampWinners(raw) } })
@@ -428,14 +405,15 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
       const parsed = parseTime(interaction.fields.getTextInputValue("duration").trim())
       const winnersRaw = interaction.fields.getTextInputValue("winners").trim()
       if (!prize) {
-        await interaction.reply({ content: "> *Indiquez un prix.*", flags: MessageFlags.Ephemeral })
+        await interaction.reply(noticePayload("cancel", "Valeur invalide", "> *Indiquez un prix.*", { ephemeral: true }))
         return true
       }
       if (parsed === null || parsed <= 0) {
-        await interaction.reply({
-          content: "> *Durée invalide. Exemples : `30s`, `5m`, `1h`, `1d`.*",
-          flags: MessageFlags.Ephemeral,
-        })
+        await interaction.reply(
+          noticePayload("cancel", "Durée invalide", "> *Durée invalide. Exemples : `30s`, `5m`, `1h`, `1d`.*", {
+            ephemeral: true,
+          })
+        )
         return true
       }
       const config = await getConfig(guild.id)
@@ -443,20 +421,28 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
       if (winnersRaw) {
         const raw = Number(winnersRaw)
         if (!Number.isInteger(raw) || raw < MIN_WINNERS || raw > MAX_WINNERS) {
-          await interaction.reply({
-            content: `> *Nombre de gagnants invalide. Utilisez un entier entre **${MIN_WINNERS}** et **${MAX_WINNERS}**.*`,
-            flags: MessageFlags.Ephemeral,
-          })
+          await interaction.reply(
+            noticePayload(
+              "cancel",
+              "Valeur invalide",
+              `> *Nombre de gagnants invalide. Utilisez un entier entre **${MIN_WINNERS}** et **${MAX_WINNERS}**.*`,
+              { ephemeral: true }
+            )
+          )
           return true
         }
         winnerCount = clampWinners(raw)
       }
       const channel = await resolveCreateChannel(guild, interaction)
       if (!channel) {
-        await interaction.reply({
-          content: "> *Aucun salon valide. Configurez un salon par défaut ou utilisez la commande dans un salon textuel.*",
-          flags: MessageFlags.Ephemeral,
-        })
+        await interaction.reply(
+          noticePayload(
+            "cancel",
+            "Salon introuvable",
+            "> *Aucun salon valide. Configurez un salon par défaut ou utilisez la commande dans un salon textuel.*",
+            { ephemeral: true }
+          )
+        )
         return true
       }
       const result = await startGiveaway({
@@ -470,15 +456,19 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
         requiredRoleId: config.requiredRoleId,
       })
       if (!result.ok) {
-        await interaction.reply({ content: result.error, flags: MessageFlags.Ephemeral })
+        await interaction.reply(noticePayload("cancel", "Action impossible", result.error, { ephemeral: true }))
         return true
       }
       await refreshPanel(client, interaction, guild)
       await interaction
-        .followUp({
-          content: `> *Giveaway **${result.giveaway.prize}** lancé dans <#${result.giveaway.channelId}>.*`,
-          flags: MessageFlags.Ephemeral,
-        })
+        .followUp(
+          noticePayload(
+            "add",
+            "Giveaway lancé",
+            `> *Giveaway **${result.giveaway.prize}** lancé dans <#${result.giveaway.channelId}>.*`,
+            { ephemeral: true }
+          )
+        )
         .catch(() => undefined)
       return true
     }
@@ -498,7 +488,11 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
     const channelId = interaction.values[0]
     const channel = guild.channels.cache.get(channelId)
     if (!channel || !channel.isTextBased() || channel.isDMBased()) {
-      await interaction.reply({ content: "> *Le salon doit être un salon textuel du serveur.*", flags: MessageFlags.Ephemeral })
+      await interaction.reply(
+        noticePayload("cancel", "Salon invalide", "> *Le salon doit être un salon textuel du serveur.*", {
+          ephemeral: true,
+        })
+      )
       return true
     }
     await updateConfig(guild.id, { $set: { defaultChannelId: channelId } })
@@ -515,7 +509,9 @@ export async function handleGiveawayInteraction(client: Client, interaction: Int
   if (customId === "gw_role" && interaction.isRoleSelectMenu()) {
     const roleId = interaction.values[0]
     if (roleId === guild.id) {
-      await interaction.reply({ content: "> *Le rôle @everyone ne peut pas être utilisé.*", flags: MessageFlags.Ephemeral })
+      await interaction.reply(
+        noticePayload("cancel", "Rôle invalide", "> *Le rôle @everyone ne peut pas être utilisé.*", { ephemeral: true })
+      )
       return true
     }
     await updateConfig(guild.id, { $set: { requiredRoleId: roleId } })

@@ -16,10 +16,9 @@ import {
   type Interaction,
   type MessageComponentInteraction,
 } from "discord.js"
-import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import formatTime from "../formatTime.js"
 import parseTime from "../parseTime.js"
-import { buildAntiRaidEmbed, sendLog } from "./logs.js"
 import {
   AntiRaid,
   MODE_LABELS,
@@ -75,94 +74,22 @@ const separator = (divider = false): SeparatorBuilder => {
   return builder
 }
 
-const EMOJI_IDS = {
-  add: "1469692082107977782",
-  addUser: "1469692085992034387",
-  bot: "1469692094342762526",
-  cancel: "1469692099736895592",
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cog: "1469692155680526427",
-  cogUser: "1469692167122325577",
-  color: "1469692171706962071",
-  disable: "1469692191298556099",
-  duration: "1469692196331458704",
-  electricStar: "1469692210961322025",
-  emoji: "1469692247107965071",
-  enable: "1469692252988116992",
-  eye: "1469692577384235161",
-  file: "1469692584959017070",
-  leave: "1469692941068009686",
-  light: "1469692975096402071",
-  loop: "1469692980586872957",
-  noPaper: "1469692984961536041",
-  notes: "1469692988870623369",
-  paper: "1469692994428080191",
-  party: "1469693039739146435",
-  pause: "1469693044256145610",
-  pen: "1469693057497563160",
-  pending: "1469693062543311044",
-  people: "1469693090280505458",
-  permDisable: "1469693096278229002",
-  pin: "1469696535850651933",
-  plane: "1469696552934183005",
-  heart: "1469692928229245043",
-  gMute: "1469685636217962549",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  add: "<:Add:1469692082107977782>",
-  addUser: "<:AddUser:1469692085992034387>",
-  bot: "<:Bot:1469692094342762526>",
-  cancel: "<:Cancel:1469692099736895592>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cog: "<:Cog:1469692155680526427>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  color: "<:Color:1469692171706962071>",
-  disable: "<:Disable:1469692191298556099>",
-  duration: "<:Duration:1469692196331458704>",
-  electricStar: "<:ElectricStar:1469692210961322025>",
-  emoji: "<:Emoji:1469692247107965071>",
-  enable: "<:Enable:1469692252988116992>",
-  eye: "<:Eye:1469692577384235161>",
-  file: "<:File:1469692584959017070>",
-  heart: "<:Heart:1469692928229245043>",
-  leave: "<:Leave:1469692941068009686>",
-  light: "<:Light:1469692975096402071>",
-  loop: "<:Loop:1469692980586872957>",
-  noPaper: "<:NoPaper:1469692984961536041>",
-  notes: "<:Notes:1469692988870623369>",
-  paper: "<:Paper:1469692994428080191>",
-  party: "<:Party:1469693039739146435>",
-  pause: "<:Pause:1469693044256145610>",
-  pen: "<:Pen:1469693057497563160>",
-  pending: "<:Pending:1469693062543311044>",
-  people: "<:People:1469693090280505458>",
-  permDisable: "<:PermDisable:1469693096278229002>",
-  pin: "<:Pin:1469696535850651933>",
-  plane: "<:Plane:1469696552934183005>",
-  gMute: "<:g_mute:1469685636217962549>",
-} as const
-
 const CONTAINER_ACCENT = 0x36373e
 
-const MODULE_EMOJIS: Record<ModuleName, string> = {
-  spam: EMOJI_TAGS.notes,
-  mentions: EMOJI_TAGS.cogUser,
-  links: EMOJI_TAGS.plane,
-  emojis: EMOJI_TAGS.emoji,
-  joins: EMOJI_TAGS.addUser,
-  bots: EMOJI_TAGS.bot,
-  nuke: EMOJI_TAGS.permDisable,
-  selfbots: EMOJI_TAGS.loop,
-  badword: EMOJI_TAGS.noPaper,
+const MODULE_EMOJIS: Record<ModuleName, AppEmojiName> = {
+  spam: "file",
+  mentions: "people",
+  links: "pin",
+  emojis: "add",
+  joins: "add",
+  bots: "people",
+  nuke: "cancel",
+  selfbots: "loop",
+  badword: "cancel",
 }
 
 function moduleState(module: { enabled: boolean }): string {
-  return module.enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return `${appEmojiText("power")} ${module.enabled ? "Activé" : "Désactivé"}`
 }
 
 async function updatePanel(interaction: MessageComponentInteraction, containers: ContainerBuilder[]) {
@@ -199,16 +126,16 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
       : "`comportement` (sans seuil)"
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${MODULE_EMOJIS[selected]} 〃 ${MODULE_LABELS[selected]}`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading(MODULE_EMOJIS[selected], MODULE_LABELS[selected])))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> ***État:** ${moduleState(module)}*\n` +
-        `> ${EMOJI_TAGS.cog} ***Seuil:** ${threshold}*\n` +
-        `> ${EMOJI_TAGS.gMute} ***Punition:** ${PUNISHMENT_LABELS[module.punishment]}*\n` +
-        `> ${EMOJI_TAGS.duration} ***Durée:** ${module.duration > 0 ? formatTime(module.duration) : "Définitif"}*\n` +
-        (module.maxAge > 0 ? `> ${EMOJI_TAGS.pending} ***Âge max du compte:** ${formatTime(module.maxAge)}*\n` : "") +
-        (module.role ? `> ${EMOJI_TAGS.cogUser} ***Rôle:** <@&${module.role}>*\n` : "")
+        `> ${appEmojiText("cog")} ***Seuil:** ${threshold}*\n` +
+        `> ${appEmojiText("cancel")} ***Punition:** ${PUNISHMENT_LABELS[module.punishment]}*\n` +
+        `> ${appEmojiText("loop")} ***Durée:** ${module.duration > 0 ? formatTime(module.duration) : "Définitif"}*\n` +
+        (module.maxAge > 0 ? `> ${appEmojiText("loop")} ***Âge max du compte:** ${formatTime(module.maxAge)}*\n` : "") +
+        (module.role ? `> ${appEmojiText("people")} ***Rôle:** <@&${module.role}>*\n` : "")
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -219,7 +146,7 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(`ar_mod_toggle_${selected}`)
-          .setEmoji(module.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(module.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
@@ -241,7 +168,7 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.cog} Réglages du seuil`))
+  container.addTextDisplayComponents((t) => t.setContent(`### ${appEmojiText("cog")} Réglages du seuil`))
   container.addSeparatorComponents((s) => s.setDivider(true))
 
   if (module.interval > 0) {
@@ -278,7 +205,7 @@ export function buildModuleContainer(client: Client, guild: Guild, config: AntiR
 
   if (module.duration > 0 || module.punishment === "timeout" || module.punishment === "lockdown") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.duration} **Durée de la punition**`))
+    container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("loop")} **Durée de la punition**`))
     const durationsOpts = ["5m", "10m", "30m", "1h", "6h", "24h"].map((value) => ({
       label: value,
       value,
@@ -304,7 +231,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "mentions") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.cogUser} Options de mention`))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${appEmojiText("people")} Options de mention`))
     container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
@@ -323,11 +250,11 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
     )
     container.addSectionComponents((sectionBuilder) =>
       sectionBuilder
-        .addTextDisplayComponents((t) => t.setContent(`**Autoriser @everyone / @here**\n> ${module.allowEveryone ? `Autorisé ${EMOJI_TAGS.enable}` : `Bloqué ${EMOJI_TAGS.disable}`}`))
+        .addTextDisplayComponents((t) => t.setContent(`**Autoriser @everyone / @here**\n> ${module.allowEveryone ? `Autorisé ${appEmojiText("power")}` : `Bloqué ${appEmojiText("power")}`}`))
         .setButtonAccessory((btn) =>
           btn
             .setCustomId("ar_mentions_everyone")
-            .setEmoji(module.allowEveryone ? emoji("enable") : emoji("disable"))
+            .setEmoji(appEmojiComponent("power"))
             .setStyle(module.allowEveryone ? ButtonStyle.Success : ButtonStyle.Danger)
         )
     )
@@ -335,14 +262,14 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "links") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.plane} Options des liens`))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${appEmojiText("pin")} Options des liens`))
     container.addSectionComponents((sectionBuilder) =>
       sectionBuilder
-        .addTextDisplayComponents((t) => t.setContent(`**Bloquer les invitations Discord**\n> ${module.blockDiscordInvites ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}`))
+        .addTextDisplayComponents((t) => t.setContent(`**Bloquer les invitations Discord**\n> ${module.blockDiscordInvites ? `Activé ${appEmojiText("power")}` : `Désactivé ${appEmojiText("power")}`}`))
         .setButtonAccessory((btn) =>
           btn
             .setCustomId("ar_links_invites")
-            .setEmoji(module.blockDiscordInvites ? emoji("enable") : emoji("disable"))
+            .setEmoji(appEmojiComponent("power"))
             .setStyle(module.blockDiscordInvites ? ButtonStyle.Success : ButtonStyle.Danger)
         )
     )
@@ -379,7 +306,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "nuke") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.permDisable} Seuils destructifs`))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${appEmojiText("cancel")} Seuils destructifs`))
     const thresholdOptions = (current: number) =>
       [1, 2, 3, 4, 5, 6, 8, 10].map((n) => ({ label: `${n} action${n > 1 ? "s" : ""}`, value: String(n), default: current === n }))
     container.addActionRowComponents((row) =>
@@ -410,7 +337,7 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
   if (selected === "badword") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`### ${EMOJI_TAGS.noPaper} Mots interdits (${module.bannedWords.length})`))
+    container.addTextDisplayComponents((t) => t.setContent(`### ${appEmojiText("cancel")} Mots interdits (${module.bannedWords.length})`))
     if (module.bannedWords.length > 0) {
       container.addActionRowComponents((row) =>
         row.setComponents(
@@ -431,23 +358,23 @@ function addModuleSpecific(container: ContainerBuilder, config: AntiRaidConfig, 
 
 export function buildWhitelistContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.people} 〃 Liste blanche`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("people", "Liste blanche")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `### ${EMOJI_TAGS.addUser} Utilisateurs (${config.whitelistedUsers.length})\n` +
+      `### ${appEmojiText("add")} Utilisateurs (${config.whitelistedUsers.length})\n` +
         (config.whitelistedUsers.length > 0
           ? config.whitelistedUsers.map((id) => `> <@${id}>`).join("\n") + "\n"
           : "> *Aucun*\n") +
-        `### ${EMOJI_TAGS.cogUser} Rôles (${config.whitelistedRoles.length})\n` +
+        `### ${appEmojiText("people")} Rôles (${config.whitelistedRoles.length})\n` +
         (config.whitelistedRoles.length > 0
           ? config.whitelistedRoles.map((id) => `> <@&${id}>`).join("\n") + "\n"
           : "> *Aucun*\n") +
-        `### ${EMOJI_TAGS.bot} Bots (${config.whitelistedBots.length})\n` +
+        `### ${appEmojiText("people")} Bots (${config.whitelistedBots.length})\n` +
         (config.whitelistedBots.length > 0
           ? config.whitelistedBots.map((id) => `> <@${id}>`).join("\n") + "\n"
           : "> *Aucun*\n") +
-        `### ${EMOJI_TAGS.channel} Salons (${config.whitelistedChannels.length})\n` +
+        `### ${appEmojiText("file")} Salons (${config.whitelistedChannels.length})\n` +
         (config.whitelistedChannels.length > 0
           ? config.whitelistedChannels.map((id) => `> <#${id}>`).join("\n")
           : "> *Aucun*")
@@ -455,7 +382,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.add} **Ajouter**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("add")} **Ajouter**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new UserSelectMenuBuilder().setCustomId(CUSTOM_ID.wlUserAdd).setPlaceholder("Ajouter des utilisateurs...").setMaxValues(5)
@@ -477,7 +404,7 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
     )
   )
 
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cancel} **Retirer**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("cancel")} **Retirer**`))
 
   const rmUserOptions = config.whitelistedUsers.slice(0, 25).map((id) => ({ label: `Utilisateur ${id}`, value: id }))
   if (rmUserOptions.length > 0) {
@@ -537,44 +464,44 @@ export function buildWhitelistContainer(client: Client, guild: Guild, config: An
 
 export function buildHoneypotContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.eye} 〃 Honeypot`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("pin", "Honeypot")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Système piège : toute interaction avec un salon ou un rôle piège déclenche une punition automatique.*\n\n` +
-        `> ***État:** ${config.honeypot.enabled ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}*\n` +
-        `> ${EMOJI_TAGS.gMute} ***Punition:** ${PUNISHMENT_LABELS[config.honeypot.punishment]}*\n` +
-        `> ${EMOJI_TAGS.channel} ***Salons pièges:** ${config.honeypot.channels.length > 0 ? config.honeypot.channels.map((id) => `<#${id}>`).join(", ") : "*Aucun*"}*\n` +
-        `> ${EMOJI_TAGS.cogUser} ***Rôles pièges:** ${config.honeypot.roles.length > 0 ? config.honeypot.roles.map((id) => `<@&${id}>`).join(", ") : "*Aucun*"}*`
+        `> ***État:** ${config.honeypot.enabled ? `Activé ${appEmojiText("power")}` : `Désactivé ${appEmojiText("power")}`}*\n` +
+        `> ${appEmojiText("cancel")} ***Punition:** ${PUNISHMENT_LABELS[config.honeypot.punishment]}*\n` +
+        `> ${appEmojiText("file")} ***Salons pièges:** ${config.honeypot.channels.length > 0 ? config.honeypot.channels.map((id) => `<#${id}>`).join(", ") : "*Aucun*"}*\n` +
+        `> ${appEmojiText("people")} ***Rôles pièges:** ${config.honeypot.roles.length > 0 ? config.honeypot.roles.map((id) => `<@&${id}>`).join(", ") : "*Aucun*"}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) => t.setContent(`**Activation**\n> ${config.honeypot.enabled ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}`))
+      .addTextDisplayComponents((t) => t.setContent(`**Activation**\n> ${config.honeypot.enabled ? `Activé ${appEmojiText("power")}` : `Désactivé ${appEmojiText("power")}`}`))
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(CUSTOM_ID.hpToggle)
-          .setEmoji(config.honeypot.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.honeypot.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Ajouter un salon piège**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Ajouter un salon piège**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder().setCustomId(CUSTOM_ID.hpChannelAdd).setPlaceholder("Choisir des salons...").setMaxValues(5)
     )
   )
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Ajouter un rôle piège**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Ajouter un rôle piège**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new RoleSelectMenuBuilder().setCustomId(CUSTOM_ID.hpRoleAdd).setPlaceholder("Choisir des rôles...").setMaxValues(5)
     )
   )
 
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.gMute} **Punition appliquée aux intrus**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("cancel")} **Punition appliquée aux intrus**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
@@ -627,7 +554,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
   const slice = filtered.slice(safePage * perPage, (safePage + 1) * perPage)
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.file} 〃 Journal des événements`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("file", "Journal des événements")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
@@ -679,7 +606,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de journalisation**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de journalisation**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -693,7 +620,7 @@ export function buildLogsContainer(client: Client, guild: Guild, config: AntiRai
 
 export function buildModeContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.cog} 〃 Mode automatique`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("cog", "Mode automatique")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
@@ -717,18 +644,18 @@ export function buildModeContainer(client: Client, guild: Guild, config: AntiRai
 
 export function buildQuarantineContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.pause} 〃 Quarantaine`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("power", "Quarantaine")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Les utilisateurs placés en quarantaine perdent leurs rôles et permissions.*\n\n` +
-        `> ***État:** ${config.quarantine.enabled ? `Activée ${EMOJI_TAGS.enable}` : `Désactivée ${EMOJI_TAGS.disable}`}*\n` +
-        `> ${EMOJI_TAGS.cogUser} ***Rôle:** ${config.quarantine.role ? `<@&${config.quarantine.role}>` : "*Auto-créé à la première utilisation*"}*\n` +
-        `> ${EMOJI_TAGS.people} ***Utilisateurs:** ${config.quarantine.users.length}*`
+        `> ***État:** ${config.quarantine.enabled ? `Activée ${appEmojiText("power")}` : `Désactivée ${appEmojiText("power")}`}*\n` +
+        `> ${appEmojiText("people")} ***Rôle:** ${config.quarantine.role ? `<@&${config.quarantine.role}>` : "*Auto-créé à la première utilisation*"}*\n` +
+        `> ${appEmojiText("people")} ***Utilisateurs:** ${config.quarantine.users.length}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.addUser} **Ajouter un utilisateur en quarantaine**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("add")} **Ajouter un utilisateur en quarantaine**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new UserSelectMenuBuilder().setCustomId(CUSTOM_ID.qAdd).setPlaceholder("Choisir des utilisateurs...").setMaxValues(5)
@@ -736,7 +663,7 @@ export function buildQuarantineContainer(client: Client, guild: Guild, config: A
   )
   const rmOptions = config.quarantine.users.slice(0, 25).map((id) => ({ label: `Utilisateur ${id}`, value: id }))
   if (rmOptions.length > 0) {
-    container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cancel} **Retirer de la quarantaine**`))
+    container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("cancel")} **Retirer de la quarantaine**`))
     container.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
@@ -751,7 +678,7 @@ export function buildQuarantineContainer(client: Client, guild: Guild, config: A
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Vider la quarantaine**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.qClear).setEmoji(emoji("loop")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.qClear).setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger))
   )
   return [container]
 }
@@ -759,30 +686,30 @@ export function buildQuarantineContainer(client: Client, guild: Guild, config: A
 export function buildLockdownContainer(client: Client, guild: Guild, config: AntiRaidConfig): ContainerBuilder[] {
   const raidActive = config.raidMode && Date.now() < config.raidEndsAt
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.light} 〃 Lockdown`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("pin", "Lockdown")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `### État\n> ***Lockdown:** ${raidActive ? `Actif ${EMOJI_TAGS.light}` : "Inactif"}*\n` +
+      `### État\n> ***Lockdown:** ${raidActive ? `Actif ${appEmojiText("pin")}` : "Inactif"}*\n` +
         (raidActive ? `> ***Jusqu'à:** <t:${Math.floor(config.raidEndsAt / 1000)}:T>*\n` : "") +
-        `> ${EMOJI_TAGS.duration} ***Slowmode global:** ${config.lockdown.slowmode > 0 ? formatTime(config.lockdown.slowmode) : "Désactivé"}*\n` +
-        `> ${EMOJI_TAGS.noPaper} ***Blocage des messages:** ${config.lockdown.blockMessages ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}*\n` +
-        `> ${EMOJI_TAGS.addUser} ***Blocage des arrivées:** ${config.lockdown.blockJoins ? `Activé ${EMOJI_TAGS.enable}` : `Désactivé ${EMOJI_TAGS.disable}`}*`
+        `> ${appEmojiText("loop")} ***Slowmode global:** ${config.lockdown.slowmode > 0 ? formatTime(config.lockdown.slowmode) : "Désactivé"}*\n` +
+        `> ${appEmojiText("file")} ***Blocage des messages:** ${config.lockdown.blockMessages ? `Activé ${appEmojiText("power")}` : `Désactivé ${appEmojiText("power")}`}*\n` +
+        `> ${appEmojiText("add")} ***Blocage des arrivées:** ${config.lockdown.blockJoins ? `Activé ${appEmojiText("power")}` : `Désactivé ${appEmojiText("power")}`}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Activer le verrouillage**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOn).setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOn).setEmoji(appEmojiComponent("power")).setStyle(ButtonStyle.Success))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Désactiver le verrouillage**"))
-      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId(CUSTOM_ID.lockdownOff).setEmoji(appEmojiComponent("power")).setStyle(ButtonStyle.Danger))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.duration} **Durée du verrouillage**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("loop")} **Durée du verrouillage**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()

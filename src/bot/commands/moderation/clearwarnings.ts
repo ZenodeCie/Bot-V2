@@ -7,6 +7,7 @@ import {
 } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase } from "../../utils/moderation/cases.js"
 import { Warning } from "../../utils/moderation/schema.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export default {
   name: "clearwarnings",
@@ -49,7 +50,7 @@ export default {
         {
           title: " ",
           description:
-            `# \`⚠️\` 〃 Confirmation requise\n` +
+            `${appEmojiHeading("pin", "Confirmation requise")}\n` +
             `> *Vous vous apprêtez à révoquer **${active.length}** avertissement(s) de **${target.username}** (\`${target.id}\`).*\n` +
             `> *Chaque avertissement restera **visible** dans l'historique avec le statut **Révoqué**.*`,
           color: 0xf47c0b,
@@ -81,7 +82,7 @@ export default {
         embeds: [
           {
             title: " ",
-            description: "# `↩️` 〃 Annulé\n> *La suppression des avertissements a été annulée. Aucune modification.*",
+            description: `${appEmojiHeading("cancel", "Annulé")}\n> *La suppression des avertissements a été annulée. Aucune modification.*`,
             color: 0x95a5a6,
           },
         ],
@@ -141,7 +142,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🗑️\` 〃 Avertissements révoqués\n` +
+              `${appEmojiHeading("cancel", "Avertissements révoqués")}\n` +
               `> ***Utilisateur :** <@${userId}>*\n` +
               `> ***Avertissements révoqués :** ${warnings.length}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*\n` +
@@ -157,7 +158,7 @@ export default {
         embeds: [
           {
             title: " ",
-            description: `# \`❌\` 〃 Erreur\n> *Une erreur est survenue : \`${error}\`*`,
+            description: `${appEmojiHeading("cancel", "Erreur")}\n> *Une erreur est survenue : \`${error}\`*`,
             color: 0xe82c20,
           },
         ],

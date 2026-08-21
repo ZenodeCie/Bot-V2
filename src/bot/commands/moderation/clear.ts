@@ -1,6 +1,7 @@
 import { ApplicationCommandOptionType, PermissionFlagsBits, type Client, type Message } from "discord.js"
 import { extractReason, logCommandUse, replyError, requireGuild } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase } from "../../utils/moderation/cases.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export default {
   name: "clear",
@@ -60,7 +61,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🧹\` 〃 Messages supprimés\n` +
+              `${appEmojiHeading("cancel", "Messages supprimés")}\n` +
               `> ***Salon :** <#${channel.id}>*\n` +
               `> ***Demandé :** ${amount} • **Supprimé :** ${deleted}` +
               (failed > 0 ? ` • **Échec (messages > 14 jours) :** ${failed}` : "") +

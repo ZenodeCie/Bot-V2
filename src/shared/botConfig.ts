@@ -16,11 +16,55 @@ export const KNOWN_MODULE_KEYS = [
   "Douane",
   "Message-Horaire",
   "InformationPanel",
+  "Invitations",
   "FactoryPremium",
   "FactoryManager",
 ] as const
 
 export type KnownModuleKey = (typeof KNOWN_MODULE_KEYS)[number]
+
+export const APP_EMOJI_KEYS = [
+  "cancel",
+  "add",
+  "settings",
+  "power",
+  "pin",
+  "people",
+  "loop",
+  "file",
+  "cog",
+  "check",
+] as const
+
+export type AppEmojiName = (typeof APP_EMOJI_KEYS)[number]
+export type ApplicationEmojis = Partial<Record<AppEmojiName, string>>
+
+const SNOWFLAKE_RE = /^\d{17,22}$/
+
+export function parseApplicationEmojis(value: unknown): ApplicationEmojis | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  const out: ApplicationEmojis = {}
+  for (const key of APP_EMOJI_KEYS) {
+    const id = record[key]
+    if (typeof id === "string" && SNOWFLAKE_RE.test(id.trim())) out[key] = id.trim()
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Incoming valid IDs win; missing incoming keys keep existing. Absent/empty incoming keeps existing as-is. */
+export function mergeApplicationEmojis(
+  existing: ApplicationEmojis | undefined,
+  incoming: unknown
+): ApplicationEmojis | undefined {
+  const fromExisting = parseApplicationEmojis(existing) ?? {}
+  if (incoming === undefined || incoming === null) {
+    return Object.keys(fromExisting).length > 0 ? fromExisting : undefined
+  }
+  const fromIncoming = parseApplicationEmojis(incoming) ?? {}
+  const merged: ApplicationEmojis = { ...fromExisting, ...fromIncoming }
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
 
 export interface BotConfig {
   bot_id: string
@@ -42,6 +86,7 @@ export interface BotConfig {
   discord_avatar?: string
   max_memory?: number
   vm_host?: string
+  application_emojis?: ApplicationEmojis
 }
 
 export function isBotConfig(value: unknown): value is BotConfig {
@@ -52,7 +97,11 @@ export function isBotConfig(value: unknown): value is BotConfig {
 
 export function asBotConfig(value: unknown): BotConfig | null {
   if (!isBotConfig(value)) return null
-  return value
+  const record = value as BotConfig
+  const application_emojis = parseApplicationEmojis(record.application_emojis)
+  if (application_emojis) return { ...record, application_emojis }
+  const { application_emojis: _ignored, ...rest } = record
+  return rest
 }
 
 export function parseHexColor(value: unknown, fallback: `#${string}` = "#5865f2"): `#${string}` {

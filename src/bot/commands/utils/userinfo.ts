@@ -9,49 +9,30 @@ import {
   type Guild,
   type Message,
 } from "discord.js"
+import { appEmojiText, type AppEmojiName } from "../../utils/appEmojis.js"
 import { logCommandUse, replyError, requireGuild, resolveTarget } from "../../utils/moderation/helpers.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x2b2d31
 
-const E = {
-  battery: "<:a_battery:1536875424137740300>",
-  bosskey: "<:a_bosskey:1536875422137196675>",
-  chat: "<:a_chat:1536875420824248350>",
-  coffee: "<:a_coffee:1536875419335270470>",
-  compass: "<:a_compass:1536875417879715930>",
-  crown: "<:a_crown:1536875415761854599>",
-  cursor: "<:a_cursor:1536875414507495554>",
-  dpad: "<:a_dpad:1536875412234174516>",
-  flag: "<:a_flag:1536875410363785256>",
-  flame: "<:a_flame:1536875392575737986>",
-  flower: "<:a_flower:1536875394513510490>",
-  goldstar: "<:a_goldstar:1536875396212199527>",
-  hammer: "<:a_hammer:1536875399299203245>",
-  hourglass: "<:a_hourglass:1536875401182191707>",
-  lightbulb: "<:a_lightbulb:1536875403845705858>",
-  pc: "<:a_pc:1536875405229826150>",
-  plug: "<:a_powerplug:1536875406563483762>",
-  present: "<:a_present:1536875408652505159>",
-  reset: "<:a_resetbutton:1536875390734442567>",
-  rocket: "<:a_rocket:1536875388398215290>",
-  skull: "<:a_skull:1536875386653380630>",
-  target: "<:a_target:1536875375743991909>",
-  tools: "<:a_tools:1536875374217265202>",
-  trophy: "<:a_trophy:1536875371503419453>",
-} as const
-
-const STATUS_TAGS: Record<string, string> = {
-  online: `${E.plug} \`En ligne\``,
-  idle: `${E.coffee} \`Inactif\``,
-  dnd: `${E.skull} \`Ne pas déranger\``,
-  offline: `${E.reset} \`Hors ligne\``,
+const STATUS_EMOJIS: Record<string, AppEmojiName> = {
+  online: "check",
+  idle: "loop",
+  dnd: "cancel",
+  offline: "file",
 }
 
-const DEVICE_TAGS: Record<string, string> = {
-  desktop: `${E.pc} Desktop`,
-  mobile: `${E.dpad} Mobile`,
-  web: `${E.cursor} Web`,
+const STATUS_LABELS: Record<string, string> = {
+  online: "En ligne",
+  idle: "Inactif",
+  dnd: "Ne pas déranger",
+  offline: "Hors ligne",
+}
+
+const DEVICE_LABELS: Record<string, string> = {
+  desktop: "Desktop",
+  mobile: "Mobile",
+  web: "Web",
 }
 
 async function renderCard(client: Client, guildId: string, targetId: string): Promise<ContainerBuilder[]> {
@@ -67,14 +48,23 @@ async function renderCard(client: Client, guildId: string, targetId: string): Pr
   const username = user?.username ?? "Utilisateur inconnu"
   const displayName = user?.globalName ?? member?.nickname ?? username
   const statusRaw = member?.presence?.status ?? "offline"
-  const statusTag = STATUS_TAGS[statusRaw] ?? STATUS_TAGS.offline
-  const deviceTag = member?.presence
-    ? (DEVICE_TAGS[member.presence.clientStatus?.desktop ? "desktop" : member.presence.clientStatus?.mobile ? "mobile" : member.presence.clientStatus?.web ? "web" : ""] ?? "—")
-    : "—"
+  const statusName = STATUS_EMOJIS[statusRaw] ?? "file"
+  const statusLabel = STATUS_LABELS[statusRaw] ?? "Hors ligne"
+  const statusTag = `${appEmojiText(statusName)} \`${statusLabel}\``
+  const deviceKey = member?.presence
+    ? member.presence.clientStatus?.desktop
+      ? "desktop"
+      : member.presence.clientStatus?.mobile
+        ? "mobile"
+        : member.presence.clientStatus?.web
+          ? "web"
+          : ""
+    : ""
+  const deviceTag = deviceKey ? `${appEmojiText("cog")} ${DEVICE_LABELS[deviceKey]}` : "—"
 
   const badges: string[] = []
-  if (member?.premiumSince) badges.push(`-# ${E.goldstar} Boost`)
-  if (user?.bot) badges.push(`-# ${E.pc}\n\`BOT\``)
+  if (member?.premiumSince) badges.push(`-# ${appEmojiText("power")} Boost`)
+  if (user?.bot) badges.push(`-# ${appEmojiText("pin")}\n\`BOT\``)
 
   const roles = member
     ? [...member.roles.cache.values()]
@@ -113,27 +103,27 @@ async function renderCard(client: Client, guildId: string, targetId: string): Pr
 
   profile.addTextDisplayComponents((t) =>
     t.setContent(
-      `${E.hourglass} **Création du compte** ${createdTs ? `<t:${createdTs}:d> (<t:${createdTs}:R>)` : "—"}`
+      `${appEmojiText("loop")} **Création du compte** ${createdTs ? `<t:${createdTs}:d> (<t:${createdTs}:R>)` : "—"}`
     )
   )
   profile.addTextDisplayComponents((t) =>
-    t.setContent(`${E.rocket} **Membre depuis** ${joinedTs ? `<t:${joinedTs}:d> (<t:${joinedTs}:R>)` : "*A quitté le serveur*"}`)
+    t.setContent(`${appEmojiText("loop")} **Membre depuis** ${joinedTs ? `<t:${joinedTs}:d> (<t:${joinedTs}:R>)` : "*A quitté le serveur*"}`)
   )
   profile.addTextDisplayComponents((t) =>
     t.setContent(
-      `${E.flag} **Rôles** (**${roles.length}**)\n` +
+      `${appEmojiText("people")} **Rôles** (**${roles.length}**)\n` +
         `> ${rolesText.length > 0 ? rolesText.join(" ") : "*Aucun rôle*"}`
     )
   )
   if (topRole) {
-    profile.addTextDisplayComponents((t) => t.setContent(`${E.crown} **Rôle principal** : ${topRole}`))
+    profile.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Rôle principal** : ${topRole}`))
   }
   if (member?.presence) {
-    profile.addTextDisplayComponents((t) => t.setContent(`${E.battery} **Appareil** : ${deviceTag}`))
+    profile.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("cog")} **Appareil** : ${deviceTag}`))
   }
 
   profile.addSeparatorComponents((s) => s.setSpacing(1))
-  profile.addTextDisplayComponents((t) => t.setContent(`-# ${E.target} \`${targetId}\``))
+  profile.addTextDisplayComponents((t) => t.setContent(`-# ${appEmojiText("file")} \`${targetId}\``))
 
   return [profile]
 }
