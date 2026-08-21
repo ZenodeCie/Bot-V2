@@ -1,24 +1,25 @@
 import { EmbedBuilder, type Client, type ColorResolvable } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiHeading, type AppEmojiName } from "../appEmojis.js"
 import { getConfig } from "./schema.js"
 
 export function buildAntiRaidEmbed(
-  emoji: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.red
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle(" ")
-    .setDescription(`# \`${emoji}\` 〃 ${title}\n${desc}`)
+    .setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color as ColorResolvable)
   return embed
 }
 
-export function buildUserEmbed(emoji: string, title: string, desc: string, color: `#${string}` | null): EmbedBuilder {
+export function buildUserEmbed(name: AppEmojiName, title: string, desc: string, color: `#${string}` | null): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle(" ")
-    .setDescription(`# \`${emoji}\` 〃 ${title}\n${desc}`)
+    .setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color as ColorResolvable)
   return embed
 }

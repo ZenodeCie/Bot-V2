@@ -17,6 +17,7 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import formatTime from "../formatTime.js"
 import parseTime from "../parseTime.js"
 import {
@@ -35,32 +36,6 @@ import {
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 
-const EMOJI_IDS = {
-  bot: "1469692094342762526",
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cog: "1469692155680526427",
-  cogUser: "1469692167122325577",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  notes: "1469692988870623369",
-  people: "1469693090280505458",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  bot: "<:Bot:1469692094342762526>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cog: "<:Cog:1469692155680526427>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  notes: "<:Notes:1469692988870623369>",
-  people: "<:People:1469693090280505458>",
-} as const
-
 function compactDuration(ms: number): string {
   if (ms <= 0) return "off"
   if (ms % 86_400_000 === 0) return `${ms / 86_400_000}d`
@@ -71,7 +46,11 @@ function compactDuration(ms: number): string {
 }
 
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
+}
+
+function yesNo(value: boolean): string {
+  return value ? `${appEmojiText("check")} Oui` : `${appEmojiText("cancel")} Non`
 }
 
 function channelMention(channelId: string | null): string {
@@ -79,7 +58,7 @@ function channelMention(channelId: string | null): string {
 }
 
 function fakeAgeLabel(ms: number): string {
-  return ms <= 0 ? `${EMOJI_TAGS.disable} Désactivé` : `\`${formatTime(ms)}\``
+  return ms <= 0 ? `${appEmojiText("power")} Désactivé` : `\`${formatTime(ms)}\``
 }
 
 function truncate(value: string, max: number): string {
@@ -94,12 +73,12 @@ function rewardLine(guild: Guild, invites: number, roleId: string): string {
 }
 
 export function buildInvitationsEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -122,17 +101,17 @@ async function requireManageGuild(interaction: Interaction): Promise<boolean> {
 
 export function buildInvitationsContainer(_client: Client, guild: Guild, config: InvitationsConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.people} 〃 Invitations`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("people")} 〃 Invitations`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Suivez qui invite qui, via quel lien, et récompensez les meilleurs inviteurs.*\n\n` +
         `> ***État :** ${onOff(config.enabled)}*\n` +
-        `> ${EMOJI_TAGS.channel} ***Salon de logs :** ${channelMention(config.logChannelId)}*\n` +
-        `> ${EMOJI_TAGS.cog} ***Comptes fake :** ${fakeAgeLabel(config.fakeAge)}*\n` +
-        `> ${EMOJI_TAGS.bot} ***Ignorer les bots :** ${config.ignoreBots ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}*\n` +
-        `> ${EMOJI_TAGS.notes} ***Compter les rejoins :** ${config.countRejoins ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}*\n` +
-        `> ${EMOJI_TAGS.people} ***Cumul des rôles :** ${config.stackRoles ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}*`
+        `> ${appEmojiText("file")} ***Salon de logs :** ${channelMention(config.logChannelId)}*\n` +
+        `> ${appEmojiText("cog")} ***Comptes fake :** ${fakeAgeLabel(config.fakeAge)}*\n` +
+        `> ${appEmojiText("people")} ***Ignorer les bots :** ${yesNo(config.ignoreBots)}*\n` +
+        `> ${appEmojiText("loop")} ***Compter les rejoins :** ${yesNo(config.countRejoins)}*\n` +
+        `> ${appEmojiText("people")} ***Cumul des rôles :** ${yesNo(config.stackRoles)}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -142,12 +121,12 @@ export function buildInvitationsContainer(_client: Client, guild: Guild, config:
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("in_toggle")
-          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de logs**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de logs**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -161,28 +140,28 @@ export function buildInvitationsContainer(_client: Client, guild: Guild, config:
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("in_channel_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.logChannelId)
+        btn.setCustomId("in_channel_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.logChannelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Âge des comptes fake**\n> ${fakeAgeLabel(config.fakeAge)}`))
-      .setButtonAccessory((btn) => btn.setCustomId("in_fake").setEmoji(emoji("cog")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("in_fake").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
           `**Ignorer les bots**\n> ${
-            config.ignoreBots ? `Les bots ne sont pas comptés ${EMOJI_TAGS.enable}` : `Les bots sont comptés ${EMOJI_TAGS.disable}`
+            config.ignoreBots ? `Les bots ne sont pas comptés ${appEmojiText("check")}` : `Les bots sont comptés ${appEmojiText("cancel")}`
           }`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("in_bots")
-          .setEmoji(config.ignoreBots ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.ignoreBots ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
@@ -192,15 +171,15 @@ export function buildInvitationsContainer(_client: Client, guild: Guild, config:
         t.setContent(
           `**Compter les rejoins**\n> ${
             config.countRejoins
-              ? `Un membre qui revient donne une nouvelle invite ${EMOJI_TAGS.enable}`
-              : `Un membre qui revient n'est pas recompté ${EMOJI_TAGS.disable}`
+              ? `Un membre qui revient donne une nouvelle invite ${appEmojiText("check")}`
+              : `Un membre qui revient n'est pas recompté ${appEmojiText("cancel")}`
           }`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("in_rejoins")
-          .setEmoji(config.countRejoins ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.countRejoins ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
@@ -210,15 +189,15 @@ export function buildInvitationsContainer(_client: Client, guild: Guild, config:
         t.setContent(
           `**Cumul des rôles**\n> ${
             config.stackRoles
-              ? `Tous les rôles atteints sont conservés ${EMOJI_TAGS.enable}`
-              : `Seul le rôle le plus élevé est conservé ${EMOJI_TAGS.disable}`
+              ? `Tous les rôles atteints sont conservés ${appEmojiText("check")}`
+              : `Seul le rôle le plus élevé est conservé ${appEmojiText("cancel")}`
           }`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("in_stack")
-          .setEmoji(config.stackRoles ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.stackRoles ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
@@ -228,7 +207,7 @@ export function buildInvitationsContainer(_client: Client, guild: Guild, config:
       ? config.rewards.slice(0, 8).map((item) => rewardLine(guild, item.invites, item.roleId)).join("\n")
       : "> *Aucun rôle de récompense.*"
   container.addTextDisplayComponents((t) =>
-    t.setContent(`${EMOJI_TAGS.people} **Rôles de récompense (${config.rewards.length})**\n${rewardLines}`)
+    t.setContent(`${appEmojiText("people")} **Rôles de récompense (${config.rewards.length})**\n${rewardLines}`)
   )
   container.addActionRowComponents((row) =>
     row.setComponents(
@@ -250,7 +229,7 @@ export function buildInvitationsContainer(_client: Client, guild: Guild, config:
                 label: truncate(role?.name ?? item.roleId, 100) || "Rôle",
                 description: `${item.invites} invites`.slice(0, 100),
                 value: item.roleId,
-                emoji: emoji("people"),
+                emoji: appEmojiOrFallback("people"),
               }
             })
           )

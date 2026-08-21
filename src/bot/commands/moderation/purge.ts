@@ -1,6 +1,7 @@
 import { ApplicationCommandOptionType, PermissionFlagsBits, type ChatInputCommandInteraction, type Client, type Message } from "discord.js"
 import { logCommandUse, replyError, requireGuild, resolveTarget } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase } from "../../utils/moderation/cases.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 const PURGE_TYPES = ["all", "user", "contains", "links", "files", "images", "bots"] as const
 type PurgeType = (typeof PURGE_TYPES)[number]
@@ -138,7 +139,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🧹\` 〃 Purge effectuée\n` +
+              `${appEmojiHeading("cancel", "Purge effectuée")}\n` +
               `> ***Filtre :** \`${type}\`${userId ? ` — <@${userId}>` : ""}${text ? ` — "${text}"` : ""}\n` +
               `> ***Salon :** <#${channel.id}>*\n` +
               `> ***Demandé :** ${amount} • **Supprimé :** ${deleted}` +

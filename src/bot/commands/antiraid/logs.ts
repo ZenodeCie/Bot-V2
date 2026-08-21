@@ -1,5 +1,6 @@
 import type { Client, Guild, Message } from "discord.js"
 import { ApplicationCommandOptionType, MessageFlags } from "discord.js"
+import buildErrorEmbed from "../../utils/errorEmbed.js"
 import { buildAntiRaidEmbed } from "../../utils/antiraid/logs.js"
 import { buildLogsContainer, handleLogsInteraction } from "../../utils/antiraid/dashboard.js"
 import { getConfig } from "../../utils/antiraid/schema.js"
@@ -19,7 +20,7 @@ export default {
     console.log(`Command arlogs used by ${message.author.tag} (${message.author.id}) in the guild ${message.guild?.name} (${message.guild?.id}${message.guild?.vanityURLCode ? ` / .gg/${message.guild?.vanityURLCode}` : ""})`)
 
     if (!message.guild) {
-      return message.reply({ embeds: [{ title: " ", description: "# `🛡️` 〃 Erreur\n> *Cette commande doit être exécutée dans un serveur.*", color: 0xe82c20 }] })
+      return message.reply({ embeds: [buildErrorEmbed("Erreur", "> *Cette commande doit être exécutée dans un serveur.*")] })
     }
 
     const filter = args[0]?.toLowerCase()
@@ -34,7 +35,7 @@ export default {
       return message.reply({
         embeds: [
           buildAntiRaidEmbed(
-            "🧾",
+            "file",
             `Journal de sécurité (filtre : \`${filter}\`)`,
             lines + `\n\n> ***Total des événements enregistrés :** ${filtered.length}*`
           ),

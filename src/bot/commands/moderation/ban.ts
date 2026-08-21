@@ -11,6 +11,7 @@ import {
 } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase, notifyUser, recordDenied, recordFailed, updateCaseDm, type DmResult } from "../../utils/moderation/cases.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 export default {
   name: "ban",
@@ -86,12 +87,12 @@ export default {
           {
             title: " ",
             description:
-              `# \`🔨\` 〃 Utilisateur banni\n` +
+              `${appEmojiHeading("cancel", "Utilisateur banni")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Suppression des messages :** ${deleteDays > 0 ? `les ${deleteDays} dernier(s) jour(s)` : "Aucune"}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +
-              (dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${dm.error}*` : ""),
+              (dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${dm.error}*` : ""),
             color: 0x2ecc71,
           },
         ],

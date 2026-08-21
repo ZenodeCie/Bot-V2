@@ -5,6 +5,7 @@ import {
   type Guild,
   type GuildTextBasedChannel,
 } from "discord.js"
+import { appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import {
   FIELD_LABELS,
   getConfig,
@@ -20,25 +21,14 @@ const CONTAINER_ACCENT = 0x36373e
 const MAX_TIMEOUT = 2_147_483_647
 const SWEEP_INTERVAL = 60_000
 
-const EMOJI_TAGS = {
-  notes: "<:Notes:1469692988870623369>",
-  people: "<:People:1469693090280505458>",
-  enable: "<:Enable:1469692252988116992>",
-  party: "<:Party:1469693039739146435>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  duration: "<:Duration:1469692196331458704>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-} as const
-
-const FIELD_EMOJI: Record<FieldKey, string> = {
-  members: EMOJI_TAGS.people,
-  online: EMOJI_TAGS.enable,
-  boosts: EMOJI_TAGS.party,
-  owner: EMOJI_TAGS.cogUser,
-  created: EMOJI_TAGS.duration,
-  channels: EMOJI_TAGS.channel,
-  roles: EMOJI_TAGS.check,
+const FIELD_EMOJI: Record<FieldKey, AppEmojiName> = {
+  members: "people",
+  online: "check",
+  boosts: "pin",
+  owner: "people",
+  created: "loop",
+  channels: "file",
+  roles: "people",
 }
 
 export type PublishResult = { ok: true; config: InformationPanelConfig } | { ok: false; error: string }
@@ -67,30 +57,30 @@ function onlineCount(guild: Guild): number {
 async function buildFieldLines(guild: Guild, config: InformationPanelConfig): Promise<string[]> {
   const lines: string[] = []
   if (config.fields.members) {
-    lines.push(`> ${FIELD_EMOJI.members} **${FIELD_LABELS.members} :** \`${guild.memberCount}\``)
+    lines.push(`> ${appEmojiText(FIELD_EMOJI.members)} **${FIELD_LABELS.members} :** \`${guild.memberCount}\``)
   }
   if (config.fields.online) {
-    lines.push(`> ${FIELD_EMOJI.online} **${FIELD_LABELS.online} :** \`${onlineCount(guild)}\``)
+    lines.push(`> ${appEmojiText(FIELD_EMOJI.online)} **${FIELD_LABELS.online} :** \`${onlineCount(guild)}\``)
   }
   if (config.fields.boosts) {
-    lines.push(`> ${FIELD_EMOJI.boosts} **${FIELD_LABELS.boosts} :** \`${guild.premiumSubscriptionCount ?? 0}\``)
+    lines.push(`> ${appEmojiText(FIELD_EMOJI.boosts)} **${FIELD_LABELS.boosts} :** \`${guild.premiumSubscriptionCount ?? 0}\``)
   }
   if (config.fields.owner) {
     const owner = await guild.fetchOwner().catch(() => null)
     lines.push(
       owner
-        ? `> ${FIELD_EMOJI.owner} **${FIELD_LABELS.owner} :** <@${owner.id}>`
-        : `> ${FIELD_EMOJI.owner} **${FIELD_LABELS.owner} :** *Inconnu*`
+        ? `> ${appEmojiText(FIELD_EMOJI.owner)} **${FIELD_LABELS.owner} :** <@${owner.id}>`
+        : `> ${appEmojiText(FIELD_EMOJI.owner)} **${FIELD_LABELS.owner} :** *Inconnu*`
     )
   }
   if (config.fields.created) {
-    lines.push(`> ${FIELD_EMOJI.created} **${FIELD_LABELS.created} :** <t:${Math.floor(guild.createdTimestamp / 1000)}:D>`)
+    lines.push(`> ${appEmojiText(FIELD_EMOJI.created)} **${FIELD_LABELS.created} :** <t:${Math.floor(guild.createdTimestamp / 1000)}:D>`)
   }
   if (config.fields.channels) {
-    lines.push(`> ${FIELD_EMOJI.channels} **${FIELD_LABELS.channels} :** \`${guild.channels.cache.size}\``)
+    lines.push(`> ${appEmojiText(FIELD_EMOJI.channels)} **${FIELD_LABELS.channels} :** \`${guild.channels.cache.size}\``)
   }
   if (config.fields.roles) {
-    lines.push(`> ${FIELD_EMOJI.roles} **${FIELD_LABELS.roles} :** \`${Math.max(0, guild.roles.cache.size - 1)}\``)
+    lines.push(`> ${appEmojiText(FIELD_EMOJI.roles)} **${FIELD_LABELS.roles} :** \`${Math.max(0, guild.roles.cache.size - 1)}\``)
   }
   return lines
 }
@@ -98,7 +88,7 @@ async function buildFieldLines(guild: Guild, config: InformationPanelConfig): Pr
 export async function buildPublicContainer(guild: Guild, config: InformationPanelConfig): Promise<ContainerBuilder[]> {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   const title = clip(config.title.trim() || guild.name, 256)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 ${title}`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("pin")} 〃 ${title}`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
 
   const blocks: string[] = []

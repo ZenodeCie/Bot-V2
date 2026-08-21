@@ -11,6 +11,7 @@ import {
 import { createCase, findActiveCase, logModCase, recordDenied, recordFailed } from "../../utils/moderation/cases.js"
 import { getMuteRole, removeMuteRole } from "../../utils/moderation/mute.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export default {
   name: "unmute",
@@ -72,7 +73,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🔊\` 〃 Mute retiré\n` +
+              `${appEmojiHeading("check", "Mute retiré")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +

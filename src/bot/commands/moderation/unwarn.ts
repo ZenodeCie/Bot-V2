@@ -10,6 +10,7 @@ import {
 } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase, recordFailed } from "../../utils/moderation/cases.js"
 import { ACTION_LABELS, Warning, formatWarningId } from "../../utils/moderation/schema.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export default {
   name: "unwarn",
@@ -90,7 +91,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`♻️\` 〃 Avertissement révoqué\n` +
+              `${appEmojiHeading("check", "Avertissement révoqué")}\n` +
               `> ***Utilisateur :** <@${target.id}> (\`${target.id}\`)*\n` +
               `> ***Avertissement :** ${formatWarningId(warningId)}*\n` +
               `> ***Raison :** ${reason}*\n` +

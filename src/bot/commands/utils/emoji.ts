@@ -1,7 +1,6 @@
 import { ApplicationCommandOptionType, EmbedBuilder, PermissionFlagsBits, type Client, type Message } from "discord.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
-
-const ADD_TAG = "<:Add:1469692082107977782>"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 const CUSTOM_EMOJI_REGEX = /<a?:\w{2,32}:\d{17,20}>/g
 
@@ -103,13 +102,13 @@ export default {
     const embed = new EmbedBuilder()
       .setTitle(" ")
       .setDescription(
-        `# ${ADD_TAG} 〃 Emojis ajoutés (${added.length}/${custom.length})\n` +
+        `${appEmojiHeading("add", `Emojis ajoutés (${added.length}/${custom.length})`)}\n` +
           `> ***Ajoutés :** ${added.join(" ")}*\n` +
           (failed.length > 0
             ? `> ***Échecs (${failed.length}) :**\n> ${failed.map((f) => `\`${f.name}\` : ${f.error}`).join("\n> ")}`
             : "") +
           (unicodeOnes.length > 0
-            ? `\n> *⚠️ Emojis unicode ignorés (impossible de les ajouter) : ${unicodeOnes.join(" ")}*`
+            ? `\n> *${appEmojiText("cancel")} Emojis unicode ignorés (impossible de les ajouter) : ${unicodeOnes.join(" ")}*`
             : "")
       )
       .setColor(0x2b2d31)

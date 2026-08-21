@@ -253,7 +253,7 @@ export class AntiRaidEngine {
         client,
         guild.id,
         buildAntiRaidEmbed(
-          "🔒",
+          "power",
           "Mode raid",
           `> ***Membre:** <@${member.id}> (${member.user.tag})*\n> *A tenté d'envoyer un message alors que le serveur est verrouillé.*\n> ***Action:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
           colors.orng
@@ -292,7 +292,7 @@ export class AntiRaidEngine {
             client,
             guild.id,
             buildAntiRaidEmbed(
-              "🕳️",
+              "pin",
               "Honeypot",
               `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** message dans un ${inHoneypotChannel ? "salon piège" : "rôle piège"}*\n> ***Action:** Verrouillage du serveur*`,
               colors.red
@@ -306,7 +306,7 @@ export class AntiRaidEngine {
           client,
           guild.id,
           buildAntiRaidEmbed(
-            "🕳️",
+            "pin",
             "Honeypot",
             `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** message dans un ${inHoneypotChannel ? "salon piège" : "rôle piège"}*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
             colors.red
@@ -446,7 +446,7 @@ export class AntiRaidEngine {
           client,
           guild.id,
           buildAntiRaidEmbed(
-            "🚨",
+            "cancel",
             "Anti-Mot Interdit",
             `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Mot interdit:** \`${hit}\`*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
             colors.red
@@ -492,7 +492,7 @@ export class AntiRaidEngine {
         client,
         guild.id,
         buildAntiRaidEmbed(
-          "🚨",
+          "cancel",
           moduleLabel,
           `> ***Déclenché par:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** ${detection}*\n> ***Action:** Verrouillage du serveur*`,
           colors.red
@@ -509,7 +509,7 @@ export class AntiRaidEngine {
       client,
       guild.id,
       buildAntiRaidEmbed(
-        "🚨",
+        "cancel",
         moduleLabel,
         `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** ${detection}*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*\n> ***Raison:** ${reason}*`,
         colors.red
@@ -599,7 +599,7 @@ export class AntiRaidEngine {
         client,
         guild.id,
         buildAntiRaidEmbed(
-          "🚨",
+          "cancel",
           "Raid détecté",
           `> ***${targets.length} membres sont arrivés en ${formatTime(settings.interval)}.***\n> ***Action:** Verrouillage du serveur*`,
           colors.red
@@ -629,7 +629,7 @@ export class AntiRaidEngine {
       client,
       guild.id,
       buildAntiRaidEmbed(
-        "🚨",
+        "cancel",
         "Raid détecté",
         `> ***${targets.length} membres sont arrivés en ${formatTime(settings.interval)}.***\n> ***Punition:** ${PUNISHMENT_LABELS[settings.punishment]}*\n> ***Membres sanctionnés:** ${count}/${targets.length}*`,
         colors.red
@@ -659,7 +659,7 @@ export class AntiRaidEngine {
       client,
       guild.id,
       buildAntiRaidEmbed(
-        "🤖",
+        "people",
         "Anti-Bot",
         `> ***${targets.length} bots sont arrivés en ${formatTime(settings.interval)}.***\n> ***Bots bannis:** ${count}/${targets.length}*`,
         colors.red
@@ -750,7 +750,7 @@ export class AntiRaidEngine {
       client,
       guild.id,
       buildAntiRaidEmbed(
-        "💥",
+        "cancel",
         "Anti-Nuke",
         `> ***Détection:** ${recent.length} actions destructrices en ${formatTime(settings.interval)}*\n> ***Auteur:** ${actorUser ? `<@${actorUser.id}> (${actorUser.tag})` : "Inconnu (sans permission de journal d'audit)"}*\n> ***Mesure:** ${measure}*`,
         colors.red
@@ -1023,7 +1023,7 @@ export class AntiRaidEngine {
         client,
         guild.id,
         buildAntiRaidEmbed(
-          "🕳️",
+          "pin",
           "Honeypot",
           `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** rôle piège attribué*\n> ***Action:** Verrouillage du serveur*`,
           colors.red
@@ -1037,7 +1037,7 @@ export class AntiRaidEngine {
       client,
       guild.id,
       buildAntiRaidEmbed(
-        "🕳️",
+        "pin",
         "Honeypot",
         `> ***Utilisateur:** <@${member.id}> (${member.user.tag})*\n> ***Détection:** rôle piège attribué*\n> ***Punition:** ${result.label}${result.note ? ` — ${result.note}` : ""}*`,
         colors.red
@@ -1065,7 +1065,7 @@ export class AntiRaidEngine {
       client,
       config.guildId,
       buildAntiRaidEmbed(
-        "🔒",
+        "power",
         "Mode raid activé",
         `> *Le serveur est verrouillé jusqu'à <t:${Math.floor(end / 1000)}:T>.*\n> ***Membres placés en exclusion temporaire:** ${count}*`,
         colors.orng
@@ -1082,7 +1082,7 @@ export class AntiRaidEngine {
     await sendLog(
       client,
       config.guildId,
-      buildAntiRaidEmbed("🔓", "Mode raid désactivé", "> *Le verrouillage du serveur a été levé.*", colors.yel)
+      buildAntiRaidEmbed("power", "Mode raid désactivé", "> *Le verrouillage du serveur a été levé.*", colors.yel)
     )
   }
 
@@ -1099,7 +1099,7 @@ export class AntiRaidEngine {
     await sendLog(
       client,
       config.guildId,
-      buildAntiRaidEmbed("🔓", "Mode raid désactivé", "> *Le verrouillage automatique a expiré, le serveur est de nouveau accessible.*", colors.yel)
+      buildAntiRaidEmbed("power", "Mode raid désactivé", "> *Le verrouillage automatique a expiré, le serveur est de nouveau accessible.*", colors.yel)
     )
     return true
   }

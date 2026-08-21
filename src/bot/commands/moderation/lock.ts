@@ -7,6 +7,7 @@ import {
   resolveChannelIdFromArg,
 } from "../../utils/moderation/helpers.js"
 import { createCase, findActiveCase, logModCase } from "../../utils/moderation/cases.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export interface OverwriteSnapshot {
   id: string
@@ -91,7 +92,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🔒\` 〃 Salon verrouillé\n` +
+              `${appEmojiHeading("power", "Salon verrouillé")}\n` +
               `> ***Salon :** <#${channel.id}>*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Case :** ${c.caseIdFormatted}*\n` +

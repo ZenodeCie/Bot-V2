@@ -9,6 +9,7 @@ import {
   type User,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiHeading, type AppEmojiName } from "../appEmojis.js"
 import {
   getConfig,
   type AeroportConfig,
@@ -24,12 +25,12 @@ export interface MessageContext {
 }
 
 export function buildAeroportEmbed(
-  emoji: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emoji}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }

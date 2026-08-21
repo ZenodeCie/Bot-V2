@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import type { AppEmojiName } from "../../../shared/botConfig.js"
 
 export const MOD_ACTIONS = [
   "WARN",
@@ -50,27 +51,27 @@ export const ACTION_LABELS: Record<ModAction, string> = {
   UNLOCK: "Déverrouillage",
 }
 
-export const ACTION_EMOJIS: Record<ModAction, string> = {
-  WARN: "⚠️",
-  UNWARN: "♻️",
-  WARNINGS_CLEARED: "🗑️",
-  KICK: "👢",
-  BAN: "🔨",
-  UNBAN: "🔓",
-  SOFTBAN: "🧹",
-  TIMEOUT: "⏱️",
-  UNTIMEOUT: "⏸️",
-  MUTE: "🔇",
-  UNMUTE: "🔊",
-  TEMPBAN: "⏳",
-  TEMPMUTE: "⌛",
-  TEMP_BAN_EXPIRED: "⏰",
-  TEMP_MUTE_EXPIRED: "⏰",
-  CLEAR: "🧹",
-  PURGE: "🧹",
-  SLOWMODE: "🐢",
-  LOCK: "🔒",
-  UNLOCK: "🔓",
+export const ACTION_EMOJIS: Record<ModAction, AppEmojiName> = {
+  WARN: "cancel",
+  UNWARN: "check",
+  WARNINGS_CLEARED: "cancel",
+  KICK: "cancel",
+  BAN: "cancel",
+  UNBAN: "check",
+  SOFTBAN: "cancel",
+  TIMEOUT: "loop",
+  UNTIMEOUT: "check",
+  MUTE: "cancel",
+  UNMUTE: "check",
+  TEMPBAN: "loop",
+  TEMPMUTE: "loop",
+  TEMP_BAN_EXPIRED: "loop",
+  TEMP_MUTE_EXPIRED: "loop",
+  CLEAR: "cancel",
+  PURGE: "cancel",
+  SLOWMODE: "cog",
+  LOCK: "power",
+  UNLOCK: "check",
 }
 
 export const STATUS_LABELS: Record<CaseStatus, string> = {

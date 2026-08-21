@@ -9,18 +9,11 @@ import {
   type Interaction,
 } from "discord.js"
 import { getConfig, updateConfig, type RulesConfig } from "./schema.js"
+import { appEmojiOrFallback, appEmojiText } from "../appEmojis.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 const TEXT_LIMIT = 4000
-
-const EMOJI_IDS = {
-  check: "1469692151251341425",
-} as const
-
-const EMOJI_TAGS = {
-  notes: "<:Notes:1469692988870623369>",
-} as const
 
 export type PublishResult = { ok: true; config: RulesConfig } | { ok: false; error: string }
 
@@ -51,7 +44,7 @@ function packText(value: string): string[] {
 export function buildPublicContainer(config: RulesConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   const title = clip(config.title.trim() || "Règlement", 256)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 ${title}`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("file")} 〃 ${title}`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
 
   const body = config.description.trim()
@@ -71,7 +64,7 @@ export function buildPublicContainer(config: RulesConfig): ContainerBuilder[] {
         new ButtonBuilder()
           .setCustomId("rl_accept")
           .setLabel("J'accepte")
-          .setEmoji({ id: EMOJI_IDS.check })
+          .setEmoji(appEmojiOrFallback("check"))
           .setStyle(ButtonStyle.Success)
       )
     )

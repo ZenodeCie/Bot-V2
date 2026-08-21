@@ -17,6 +17,7 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import formatTime from "../formatTime.js"
 import parseTime from "../parseTime.js"
 import {
@@ -40,30 +41,6 @@ import {
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 
-const EMOJI_IDS = {
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cog: "1469692155680526427",
-  cogUser: "1469692167122325577",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  notes: "1469692988870623369",
-  people: "1469693090280505458",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cog: "<:Cog:1469692155680526427>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  notes: "<:Notes:1469692988870623369>",
-  people: "<:People:1469693090280505458>",
-} as const
-
 function compactDuration(ms: number): string {
   if (ms % 3_600_000 === 0) return `${ms / 3_600_000}h`
   if (ms % 60_000 === 0) return `${ms / 60_000}m`
@@ -72,7 +49,11 @@ function compactDuration(ms: number): string {
 }
 
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
+}
+
+function yesNo(value: boolean): string {
+  return value ? `${appEmojiText("check")} Oui` : `${appEmojiText("cancel")} Non`
 }
 
 function channelMention(channelId: string | null): string {
@@ -91,12 +72,12 @@ function rewardLine(guild: Guild, level: number, roleId: string): string {
 }
 
 export function buildLevelsEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# ${emojiChar} 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -119,22 +100,22 @@ async function requireManageGuild(interaction: Interaction): Promise<boolean> {
 
 export function buildLevelsContainer(_client: Client, guild: Guild, config: LevelsConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.check} 〃 Niveaux`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("people")} 〃 Niveaux`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Encouragez l'activité sur votre serveur avec un système de niveaux complet.*\n\n` +
         `> ***État :** ${onOff(config.enabled)}*\n` +
-        `> ${EMOJI_TAGS.notes} ***XP :** \`${config.xpMin}\`–\`${config.xpMax}\`*\n` +
-        `> ${EMOJI_TAGS.cog} ***Cooldown :** \`${formatTime(config.cooldown)}\`*\n` +
-        `> ${EMOJI_TAGS.channel} ***Notifications :** ${
-          config.notifyEnabled ? `${EMOJI_TAGS.enable} ${channelMention(config.notifyChannelId)}` : `${EMOJI_TAGS.disable} Désactivées`
+        `> ${appEmojiText("cog")} ***XP :** \`${config.xpMin}\`–\`${config.xpMax}\`*\n` +
+        `> ${appEmojiText("cog")} ***Cooldown :** \`${formatTime(config.cooldown)}\`*\n` +
+        `> ${appEmojiText("file")} ***Notifications :** ${
+          config.notifyEnabled ? `${appEmojiText("power")} ${channelMention(config.notifyChannelId)}` : `${appEmojiText("power")} Désactivées`
         }*\n` +
-        `> ${EMOJI_TAGS.people} ***Cumul des rôles :** ${config.stackRoles ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}*\n` +
-        `> ${EMOJI_TAGS.cog} ***Salons ignorés :** ${
+        `> ${appEmojiText("people")} ***Cumul des rôles :** ${yesNo(config.stackRoles)}*\n` +
+        `> ${appEmojiText("file")} ***Salons ignorés :** ${
           config.ignoredChannels.length > 0 ? config.ignoredChannels.map((id) => `<#${id}>`).join(" ") : "*Aucun*"
         }*\n` +
-        `> ${EMOJI_TAGS.cogUser} ***Rôles ignorés :** ${
+        `> ${appEmojiText("people")} ***Rôles ignorés :** ${
           config.ignoredRoles.length > 0 ? config.ignoredRoles.map((id) => `<@&${id}>`).join(" ") : "*Aucun*"
         }*`
     )
@@ -146,7 +127,7 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lv_toggle")
-          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
@@ -154,12 +135,12 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**XP par message**\n> \`${config.xpMin}\`–\`${config.xpMax}\``))
-      .setButtonAccessory((btn) => btn.setCustomId("lv_xp").setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("lv_xp").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Cooldown**\n> \`${formatTime(config.cooldown)}\``))
-      .setButtonAccessory((btn) => btn.setCustomId("lv_cooldown").setEmoji(emoji("cog")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("lv_cooldown").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
@@ -167,18 +148,18 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
       .addTextDisplayComponents((t) =>
         t.setContent(
           `**Notifications de level-up**\n> ${
-            config.notifyEnabled ? `Un message est envoyé ${EMOJI_TAGS.enable}` : `Aucun message n'est envoyé ${EMOJI_TAGS.disable}`
+            config.notifyEnabled ? `Un message est envoyé ${appEmojiText("check")}` : `Aucun message n'est envoyé ${appEmojiText("cancel")}`
           }`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lv_notify")
-          .setEmoji(config.notifyEnabled ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.notifyEnabled ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de notification**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de notification**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -194,7 +175,7 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lv_channel_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!config.notifyChannelId)
       )
@@ -202,7 +183,7 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Message**\n> ${truncate(config.notifyMessage, 80)}`))
-      .setButtonAccessory((btn) => btn.setCustomId("lv_message").setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("lv_message").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
@@ -211,20 +192,20 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
         t.setContent(
           `**Cumul des rôles**\n> ${
             config.stackRoles
-              ? `Tous les rôles atteints sont conservés ${EMOJI_TAGS.enable}`
-              : `Seul le rôle le plus élevé est conservé ${EMOJI_TAGS.disable}`
+              ? `Tous les rôles atteints sont conservés ${appEmojiText("check")}`
+              : `Seul le rôle le plus élevé est conservé ${appEmojiText("cancel")}`
           }`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lv_stack")
-          .setEmoji(config.stackRoles ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.stackRoles ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cog} **Salons ignorés**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salons ignorés**`))
   container.addActionRowComponents((row) => {
     const select = new ChannelSelectMenuBuilder()
       .setCustomId("lv_ignore")
@@ -240,13 +221,13 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lv_ignore_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(config.ignoredChannels.length === 0)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Rôles ignorés**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Rôles ignorés**`))
   container.addActionRowComponents((row) => {
     const select = new RoleSelectMenuBuilder()
       .setCustomId("lv_ignore_roles")
@@ -262,7 +243,7 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lv_ignore_roles_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(config.ignoredRoles.length === 0)
       )
@@ -273,7 +254,7 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
       ? config.rewards.slice(0, 8).map((item) => rewardLine(guild, item.level, item.roleId)).join("\n")
       : "> *Aucun rôle de récompense.*"
   container.addTextDisplayComponents((t) =>
-    t.setContent(`${EMOJI_TAGS.people} **Rôles de récompense (${config.rewards.length})**\n${rewardLines}`)
+    t.setContent(`${appEmojiText("people")} **Rôles de récompense (${config.rewards.length})**\n${rewardLines}`)
   )
   container.addActionRowComponents((row) =>
     row.setComponents(
@@ -295,7 +276,7 @@ export function buildLevelsContainer(_client: Client, guild: Guild, config: Leve
                 label: truncate(role?.name ?? item.roleId, 100) || "Rôle",
                 description: `Niveau ${item.level}`.slice(0, 100),
                 value: item.roleId,
-                emoji: emoji("people"),
+                emoji: appEmojiOrFallback("people"),
               }
             })
           )

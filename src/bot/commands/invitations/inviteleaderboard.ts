@@ -3,8 +3,6 @@ import buildErrorEmbed from "../../utils/errorEmbed.js"
 import { buildInvitationsEmbed } from "../../utils/invitations/dashboard.js"
 import { listLeaderboard } from "../../utils/invitations/schema.js"
 
-const RANK_EMOJI = "<:People:1469693090280505458>"
-
 export default {
   name: "inviteleaderboard",
   description: "Affiche le classement des invitations du serveur.",
@@ -27,7 +25,7 @@ export default {
     const top = await listLeaderboard(message.guild.id, 10)
     if (top.length === 0) {
       return message.reply({
-        embeds: [buildInvitationsEmbed(RANK_EMOJI, "Classement", "> *Aucun membre n'a encore d'invitations.*")],
+        embeds: [buildInvitationsEmbed("people", "Classement", "> *Aucun membre n'a encore d'invitations.*")],
       })
     }
 
@@ -36,7 +34,7 @@ export default {
     })
 
     return message.reply({
-      embeds: [buildInvitationsEmbed(RANK_EMOJI, `Classement (${top.length})`, lines.join("\n"))],
+      embeds: [buildInvitationsEmbed("people", `Classement (${top.length})`, lines.join("\n"))],
     })
   },
 }

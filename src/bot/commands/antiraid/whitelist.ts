@@ -4,6 +4,7 @@ import buildErrorEmbed from "../../utils/errorEmbed.js"
 import { buildAntiRaidEmbed } from "../../utils/antiraid/logs.js"
 import { buildWhitelistContainer, handleWhitelistInteraction } from "../../utils/antiraid/dashboard.js"
 import { AntiRaid, getConfig } from "../../utils/antiraid/schema.js"
+import { appEmojiText } from "../../utils/appEmojis.js"
 
 const FIELDS: Record<string, string> = {
   user: "whitelistedUsers",
@@ -96,7 +97,7 @@ export default {
       return message.reply({
         embeds: [
           buildAntiRaidEmbed(
-            "✅",
+            "check",
             "Liste blanche mise à jour",
             `> ***Type:** ${label}*\n> ***Cible:** ${mention}*\n> ***Action:** ${action === "add" ? "Ajouté" : "Retiré"}*`
           ),
@@ -109,21 +110,21 @@ export default {
       return message.reply({
         embeds: [
           buildAntiRaidEmbed(
-            "🧍",
+            "people",
             "Liste blanche",
-            `### \`👥\` Utilisateurs (${config.whitelistedUsers.length})\n` +
+            `### ${appEmojiText("people")} Utilisateurs (${config.whitelistedUsers.length})\n` +
               (config.whitelistedUsers.length > 0
                 ? `> ${config.whitelistedUsers.map((id) => `<@${id}>`).join(", ")}`
                 : "> *Aucun*") +
-              `\n\n### \`🎭\` Rôles (${config.whitelistedRoles.length})\n` +
+              `\n\n### ${appEmojiText("people")} Rôles (${config.whitelistedRoles.length})\n` +
               (config.whitelistedRoles.length > 0
                 ? `> ${config.whitelistedRoles.map((id) => `<@&${id}>`).join(", ")}`
                 : "> *Aucun*") +
-              `\n\n### \`🤖\` Bots (${config.whitelistedBots.length})\n` +
+              `\n\n### ${appEmojiText("people")} Bots (${config.whitelistedBots.length})\n` +
               (config.whitelistedBots.length > 0
                 ? `> ${config.whitelistedBots.map((id) => `<@${id}>`).join(", ")}`
                 : "> *Aucun*") +
-              `\n\n### \`📁\` Salons (${config.whitelistedChannels.length})\n` +
+              `\n\n### ${appEmojiText("file")} Salons (${config.whitelistedChannels.length})\n` +
               (config.whitelistedChannels.length > 0
                 ? `> ${config.whitelistedChannels.map((id) => `<#${id}>`).join(", ")}`
                 : "> *Aucun*")

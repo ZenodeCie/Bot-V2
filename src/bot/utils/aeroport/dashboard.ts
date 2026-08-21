@@ -35,42 +35,10 @@ import {
   type TemplateTarget,
 } from "./schema.js"
 import { buildMessagePayload, contextFromMember, parseOptionalColor } from "./messages.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
-
-const EMOJI_IDS = {
-  addUser: "1469692085992034387",
-  bot: "1469692094342762526",
-  channel: "1469692104589705376",
-  color: "1469692171706962071",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  eye: "1469692577384235161",
-  leave: "1469692941068009686",
-  notes: "1469692988870623369",
-  pen: "1469693057497563160",
-  people: "1469693090280505458",
-  plane: "1469696552934183005",
-  cogUser: "1469692167122325577",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  addUser: "<:AddUser:1469692085992034387>",
-  bot: "<:Bot:1469692094342762526>",
-  channel: "<:Channel:1469692104589705376>",
-  color: "<:Color:1469692171706962071>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  eye: "<:Eye:1469692577384235161>",
-  leave: "<:Leave:1469692941068009686>",
-  notes: "<:Notes:1469692988870623369>",
-  people: "<:People:1469693090280505458>",
-  plane: "<:Plane:1469696552934183005>",
-  cogUser: "<:CogUser:1469692167122325577>",
-} as const
 
 const VIEW_LABELS: Record<AeroportView, string> = {
   home: "Accueil",
@@ -81,7 +49,7 @@ const VIEW_LABELS: Record<AeroportView, string> = {
 }
 
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return `${appEmojiText("power")} ${enabled ? "Activé" : "Désactivé"}`
 }
 
 function previewText(value: string, max = 80): string {
@@ -133,16 +101,16 @@ function addViewSelect(container: ContainerBuilder, view: AeroportView): void {
 
 function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.plane} 〃 Aéroport`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("people", "Aéroport")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Messages d'arrivée et de départ des membres, message privé et autoroles.*\n\n` +
-        `> ${EMOJI_TAGS.addUser} **Arrivée :** ${onOff(config.arrival.enabled)} — ${channelMention(config.arrival.channelId)}\n` +
-        `> ${EMOJI_TAGS.leave} **Départ :** ${onOff(config.departure.enabled)} — ${channelMention(config.departure.channelId)}\n` +
-        `> ${EMOJI_TAGS.notes} **MP :** ${onOff(config.dm.enabled)}\n` +
-        `> ${EMOJI_TAGS.people} **Autoroles :** ${config.autoroles.length} rôle${config.autoroles.length > 1 ? "s" : ""}\n` +
-        `> ${EMOJI_TAGS.bot} **Ignorer les bots :** ${config.ignoreBots ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}`
+        `> ${appEmojiText("add")} **Arrivée :** ${onOff(config.arrival.enabled)} — ${channelMention(config.arrival.channelId)}\n` +
+        `> ${appEmojiText("cancel")} **Départ :** ${onOff(config.departure.enabled)} — ${channelMention(config.departure.channelId)}\n` +
+        `> ${appEmojiText("file")} **MP :** ${onOff(config.dm.enabled)}\n` +
+        `> ${appEmojiText("people")} **Autoroles :** ${config.autoroles.length} rôle${config.autoroles.length > 1 ? "s" : ""}\n` +
+        `> ${appEmojiText("people")} **Ignorer les bots :** ${config.ignoreBots ? `${appEmojiText("power")} Oui` : `${appEmojiText("power")} Non`}`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -154,7 +122,7 @@ function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("ap_toggle_enabled_arrival")
-          .setEmoji(config.arrival.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.arrival.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
@@ -164,7 +132,7 @@ function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("ap_toggle_enabled_departure")
-          .setEmoji(config.departure.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.departure.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
@@ -174,7 +142,7 @@ function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("ap_toggle_enabled_dm")
-          .setEmoji(config.dm.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.dm.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
@@ -182,18 +150,18 @@ function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
-          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots ne déclenchent pas l'aéroport ${EMOJI_TAGS.enable}` : `Les bots déclenchent l'aéroport ${EMOJI_TAGS.disable}`}`
+          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots ne déclenchent pas l'aéroport ${appEmojiText("power")}` : `Les bots déclenchent l'aéroport ${appEmojiText("power")}`}`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("ap_toggle_bots")
-          .setEmoji(config.ignoreBots ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.ignoreBots ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon d'arrivée**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon d'arrivée**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -209,12 +177,12 @@ function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("ap_channel_clear_arrival")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!config.arrival.channelId)
       )
   )
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de départ**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de départ**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -230,7 +198,7 @@ function buildHomeContainer(config: AeroportConfig): ContainerBuilder[] {
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("ap_channel_clear_departure")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!config.departure.channelId)
       )
@@ -242,16 +210,16 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
   const template = getTemplate(config, target)
   const channelId = target === "dm" ? null : config[target].channelId
   const enabled = target === "dm" ? config.dm.enabled : config[target].enabled
-  const titleEmoji = target === "arrival" ? EMOJI_TAGS.addUser : target === "departure" ? EMOJI_TAGS.leave : EMOJI_TAGS.notes
+  const titleEmoji: AppEmojiName = target === "arrival" ? "add" : target === "departure" ? "cancel" : "file"
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${titleEmoji} 〃 ${TARGET_LABELS[target]}`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading(titleEmoji, TARGET_LABELS[target])))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> **État :** ${onOff(enabled)}\n` +
-        (target !== "dm" ? `> ${EMOJI_TAGS.channel} **Salon :** ${channelMention(channelId)}\n` : "") +
-        `> ${EMOJI_TAGS.color} **Embed :** ${onOff(template.embed.enabled)}\n` +
+        (target !== "dm" ? `> ${appEmojiText("file")} **Salon :** ${channelMention(channelId)}\n` : "") +
+        `> ${appEmojiText("cog")} **Embed :** ${onOff(template.embed.enabled)}\n` +
         `> **Titre :** ${previewText(template.embed.title)}\n` +
         `> **Description :** ${previewText(template.embed.description)}`
     )
@@ -265,14 +233,14 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(`ap_toggle_enabled_${target}`)
-          .setEmoji(enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
 
   if (target !== "dm") {
     container.addSeparatorComponents((s) => s.setDivider(true))
-    container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon**`))
+    container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon**`))
     container.addActionRowComponents((row) =>
       row.setComponents(
         new ChannelSelectMenuBuilder()
@@ -286,7 +254,7 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
       sectionBuilder
         .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
         .setButtonAccessory((btn) =>
-          btn.setCustomId(`ap_channel_clear_${target}`).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!channelId)
+          btn.setCustomId(`ap_channel_clear_${target}`).setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!channelId)
         )
     )
   }
@@ -294,9 +262,9 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addActionRowComponents((row) =>
     row.setComponents(
-      new ButtonBuilder().setCustomId(`ap_edit_msg_${target}`).setEmoji(emoji("pen")).setLabel("Message").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`ap_edit_style_${target}`).setEmoji(emoji("color")).setLabel("Style").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`ap_preview_${target}`).setEmoji(emoji("eye")).setLabel("Aperçu").setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId(`ap_edit_msg_${target}`).setEmoji(appEmojiOrFallback("cog")).setLabel("Message").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`ap_edit_style_${target}`).setEmoji(appEmojiOrFallback("cog")).setLabel("Style").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`ap_preview_${target}`).setEmoji(appEmojiOrFallback("pin")).setLabel("Aperçu").setStyle(ButtonStyle.Primary)
     )
   )
   container.addActionRowComponents((row) =>
@@ -304,7 +272,7 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
       new ButtonBuilder()
         .setCustomId(`ap_toggle_embed_${target}`)
         .setLabel(template.embed.enabled ? "Embed activé" : "Embed désactivé")
-        .setEmoji(template.embed.enabled ? emoji("enable") : emoji("disable"))
+        .setEmoji(appEmojiOrFallback("power"))
         .setStyle(template.embed.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`ap_toggle_author_${target}`)
@@ -317,7 +285,7 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.color} **Médias de l'embed**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("cog")} **Médias de l'embed**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
@@ -365,7 +333,7 @@ function buildFlightContainer(config: AeroportConfig, target: TemplateTarget): C
 
 function buildAutorolesContainer(guild: Guild, config: AeroportConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.people} 〃 Autoroles`))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("people", "Autoroles")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   const lines =
     config.autoroles.length > 0
@@ -380,7 +348,7 @@ function buildAutorolesContainer(guild: Guild, config: AeroportConfig): Containe
   container.addSeparatorComponents((s) => s.setDivider(true))
   addViewSelect(container, "autoroles")
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Ajouter des rôles**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Ajouter des rôles**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new RoleSelectMenuBuilder().setCustomId("ap_autorole_add").setPlaceholder("Ajouter des rôles...").setMinValues(1).setMaxValues(5)

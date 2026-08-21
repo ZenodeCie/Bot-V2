@@ -16,6 +16,7 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import formatTime from "../formatTime.js"
 import parseTime from "../parseTime.js"
 import { handleChallengeInteraction } from "./engine.js"
@@ -28,32 +29,6 @@ const MAX_TIMEOUT = 24 * 60 * 60 * 1000
 const MIN_ATTEMPTS = 1
 const MAX_ATTEMPTS = 10
 
-const EMOJI_IDS = {
-  bot: "1469692094342762526",
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cog: "1469692155680526427",
-  cogUser: "1469692167122325577",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  leave: "1469692941068009686",
-  notes: "1469692988870623369",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  bot: "<:Bot:1469692094342762526>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cog: "<:Cog:1469692155680526427>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  leave: "<:Leave:1469692941068009686>",
-  notes: "<:Notes:1469692988870623369>",
-} as const
-
 function compactDuration(ms: number): string {
   if (ms % 3_600_000 === 0) return `${ms / 3_600_000}h`
   if (ms % 60_000 === 0) return `${ms / 60_000}m`
@@ -62,7 +37,11 @@ function compactDuration(ms: number): string {
 }
 
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
+}
+
+function yesNo(value: boolean): string {
+  return value ? `${appEmojiText("check")} Oui` : `${appEmojiText("cancel")} Non`
 }
 
 function channelMention(channelId: string | null): string {
@@ -74,12 +53,12 @@ function roleMention(roleId: string | null): string {
 }
 
 export function buildCaptchaEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -102,18 +81,18 @@ async function requireManageGuild(interaction: Interaction): Promise<boolean> {
 
 export function buildCaptchaContainer(_client: Client, _guild: Guild, config: CaptchaConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.check} 〃 Captcha`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("check")} 〃 Captcha`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *À l'arrivée, un code est envoyé dans le salon de vérification. Le rôle est donné après succès.*\n\n` +
         `> **État :** ${onOff(config.enabled)}\n` +
-        `> ${EMOJI_TAGS.channel} **Salon :** ${channelMention(config.channelId)}\n` +
-        `> ${EMOJI_TAGS.cogUser} **Rôle :** ${roleMention(config.roleId)}\n` +
-        `> ${EMOJI_TAGS.cog} **Délai :** \`${formatTime(config.timeout)}\`\n` +
-        `> ${EMOJI_TAGS.notes} **Essais :** \`${config.maxAttempts}\`\n` +
-        `> ${EMOJI_TAGS.leave} **Expulsion :** ${config.kickOnFail ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}\n` +
-        `> ${EMOJI_TAGS.bot} **Ignorer les bots :** ${config.ignoreBots ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}`
+        `> ${appEmojiText("file")} **Salon :** ${channelMention(config.channelId)}\n` +
+        `> ${appEmojiText("people")} **Rôle :** ${roleMention(config.roleId)}\n` +
+        `> ${appEmojiText("cog")} **Délai :** \`${formatTime(config.timeout)}\`\n` +
+        `> ${appEmojiText("cog")} **Essais :** \`${config.maxAttempts}\`\n` +
+        `> ${appEmojiText("cancel")} **Expulsion :** ${yesNo(config.kickOnFail)}\n` +
+        `> ${appEmojiText("people")} **Ignorer les bots :** ${yesNo(config.ignoreBots)}`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -123,12 +102,12 @@ export function buildCaptchaContainer(_client: Client, _guild: Guild, config: Ca
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("cp_toggle")
-          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de vérification**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de vérification**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -142,11 +121,11 @@ export function buildCaptchaContainer(_client: Client, _guild: Guild, config: Ca
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("cp_channel_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
+        btn.setCustomId("cp_channel_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Rôle vérifié**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Rôle vérifié**`))
   container.addActionRowComponents((row) =>
     row.setComponents(new RoleSelectMenuBuilder().setCustomId("cp_role").setPlaceholder("Choisir le rôle...").setMaxValues(1))
   )
@@ -154,31 +133,31 @@ export function buildCaptchaContainer(_client: Client, _guild: Guild, config: Ca
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le rôle**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("cp_role_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.roleId)
+        btn.setCustomId("cp_role_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.roleId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Délai**\n> \`${formatTime(config.timeout)}\``))
-      .setButtonAccessory((btn) => btn.setCustomId("cp_timeout").setEmoji(emoji("cog")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("cp_timeout").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Essais**\n> \`${config.maxAttempts}\``))
-      .setButtonAccessory((btn) => btn.setCustomId("cp_attempts").setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("cp_attempts").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
-          `**Expulsion en cas d'échec**\n> ${config.kickOnFail ? `Le membre est expulsé ${EMOJI_TAGS.enable}` : `Le membre reste sans le rôle ${EMOJI_TAGS.disable}`}`
+          `**Expulsion en cas d'échec**\n> ${config.kickOnFail ? `Le membre est expulsé ${appEmojiText("check")}` : `Le membre reste sans le rôle ${appEmojiText("cancel")}`}`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("cp_kick")
-          .setEmoji(config.kickOnFail ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.kickOnFail ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
@@ -186,13 +165,13 @@ export function buildCaptchaContainer(_client: Client, _guild: Guild, config: Ca
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
-          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots ne déclenchent pas le captcha ${EMOJI_TAGS.enable}` : `Les bots déclenchent le captcha ${EMOJI_TAGS.disable}`}`
+          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots ne déclenchent pas le captcha ${appEmojiText("check")}` : `Les bots déclenchent le captcha ${appEmojiText("cancel")}`}`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("cp_bots")
-          .setEmoji(config.ignoreBots ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.ignoreBots ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )

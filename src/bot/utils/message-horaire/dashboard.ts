@@ -17,6 +17,7 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import formatTime from "../formatTime.js"
 import parseTime from "../parseTime.js"
 import {
@@ -46,32 +47,6 @@ import {
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 
-const EMOJI_IDS = {
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cog: "1469692155680526427",
-  color: "1469692171706962071",
-  disable: "1469692191298556099",
-  duration: "1469692196331458704",
-  enable: "1469692252988116992",
-  eye: "1469692577384235161",
-  notes: "1469692988870623369",
-  pen: "1469693057497563160",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cog: "<:Cog:1469692155680526427>",
-  disable: "<:Disable:1469692191298556099>",
-  duration: "<:Duration:1469692196331458704>",
-  enable: "<:Enable:1469692252988116992>",
-  eye: "<:Eye:1469692577384235161>",
-  notes: "<:Notes:1469692988870623369>",
-} as const
-
 function compactDuration(ms: number): string {
   if (ms % 86_400_000 === 0) return `${ms / 86_400_000}d`
   if (ms % 3_600_000 === 0) return `${ms / 3_600_000}h`
@@ -81,7 +56,7 @@ function compactDuration(ms: number): string {
 }
 
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
 }
 
 function channelMention(channelId: string | null): string {
@@ -112,18 +87,18 @@ function jobLabel(job: MessageHoraireJob): string {
 
 function formatJobLine(job: MessageHoraireJob): string {
   return (
-    `> ${job.enabled ? EMOJI_TAGS.enable : EMOJI_TAGS.disable} **${truncate(jobLabel(job), 48)}** — <#${job.channelId}> — ` +
+    `> ${onOff(job.enabled)} **${truncate(jobLabel(job), 48)}** — <#${job.channelId}> — ` +
     `\`${formatTime(job.interval)}\` — <t:${Math.floor(job.nextAt / 1000)}:R>`
   )
 }
 
 export function buildMessageHoraireEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -146,23 +121,23 @@ async function requireManageGuild(interaction: Interaction): Promise<boolean> {
 
 function buildHomeContainer(config: MessageHoraireConfig, jobs: MessageHoraireJob[]): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.duration} 〃 Messages horaires`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("loop")} 〃 Messages horaires`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Programmez vos messages (ou embeds) pour qu'ils soient envoyés régulièrement dans un salon.*\n\n` +
-        `> ${EMOJI_TAGS.channel} ***Salon par défaut :** ${channelMention(config.defaultChannelId)}*\n` +
-        `> ${EMOJI_TAGS.notes} ***Messages :** \`${jobs.length}\`*`
+        `> ${appEmojiText("file")} ***Salon par défaut :** ${channelMention(config.defaultChannelId)}*\n` +
+        `> ${appEmojiText("file")} ***Messages :** \`${jobs.length}\`*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Créer un message**\n> Ouvre un formulaire (contenu, intervalle)."))
-      .setButtonAccessory((btn) => btn.setCustomId("mh_create").setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
+      .setButtonAccessory((btn) => btn.setCustomId("mh_create").setEmoji(appEmojiComponent("add")).setStyle(ButtonStyle.Success))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon par défaut**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon par défaut**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -178,7 +153,7 @@ function buildHomeContainer(config: MessageHoraireConfig, jobs: MessageHoraireJo
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("mh_channel_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(!config.defaultChannelId)
       )
@@ -186,11 +161,11 @@ function buildHomeContainer(config: MessageHoraireConfig, jobs: MessageHoraireJo
   container.addSeparatorComponents((s) => s.setDivider(true))
   if (jobs.length === 0) {
     container.addTextDisplayComponents((t) =>
-      t.setContent(`${EMOJI_TAGS.notes} **Messages programmés**\n> *Aucun message horaire.*`)
+      t.setContent(`${appEmojiText("file")} **Messages programmés**\n> *Aucun message horaire.*`)
     )
   } else {
     container.addTextDisplayComponents((t) =>
-      t.setContent(`${EMOJI_TAGS.notes} **Messages programmés (${jobs.length})**\n` + jobs.map(formatJobLine).join("\n"))
+      t.setContent(`${appEmojiText("file")} **Messages programmés (${jobs.length})**\n` + jobs.map(formatJobLine).join("\n"))
     )
     container.addActionRowComponents((row) =>
       row.setComponents(
@@ -206,7 +181,7 @@ function buildHomeContainer(config: MessageHoraireConfig, jobs: MessageHoraireJo
                 100
               ),
               value: job.id,
-              emoji: job.enabled ? emoji("enable") : emoji("disable"),
+              emoji: appEmojiOrFallback("power"),
             }))
           )
       )
@@ -217,16 +192,16 @@ function buildHomeContainer(config: MessageHoraireConfig, jobs: MessageHoraireJo
 
 function buildJobContainer(job: MessageHoraireJob): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.duration} 〃 Message horaire`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("loop")} 〃 Message horaire`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> **État :** ${onOff(job.enabled)}\n` +
-        `> ${EMOJI_TAGS.channel} **Salon :** <#${job.channelId}>\n` +
-        `> ${EMOJI_TAGS.cog} **Intervalle :** \`${formatTime(job.interval)}\`\n` +
-        `> ${EMOJI_TAGS.duration} **Prochain envoi :** <t:${Math.floor(job.nextAt / 1000)}:R>\n` +
-        `> ${EMOJI_TAGS.notes} **Contenu :** ${previewText(job.content)}\n` +
-        `> **Embed :** ${job.embed.enabled ? `${EMOJI_TAGS.enable} ${previewText(job.embed.title || job.embed.description)}` : onOff(false)}`
+        `> ${appEmojiText("file")} **Salon :** <#${job.channelId}>\n` +
+        `> ${appEmojiText("cog")} **Intervalle :** \`${formatTime(job.interval)}\`\n` +
+        `> ${appEmojiText("loop")} **Prochain envoi :** <t:${Math.floor(job.nextAt / 1000)}:R>\n` +
+        `> ${appEmojiText("file")} **Contenu :** ${previewText(job.content)}\n` +
+        `> **Embed :** ${job.embed.enabled ? `${appEmojiText("power")} ${previewText(job.embed.title || job.embed.description)}` : onOff(false)}`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -236,11 +211,11 @@ function buildJobContainer(job: MessageHoraireJob): ContainerBuilder[] {
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(`mh_toggle:${job.id}`)
-          .setEmoji(job.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(job.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -254,27 +229,23 @@ function buildJobContainer(job: MessageHoraireJob): ContainerBuilder[] {
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Intervalle**\n> \`${formatTime(job.interval)}\``))
       .setButtonAccessory((btn) =>
-        btn.setCustomId(`mh_interval:${job.id}`).setEmoji(emoji("cog")).setStyle(ButtonStyle.Secondary)
+        btn.setCustomId(`mh_interval:${job.id}`).setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary)
       )
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent(`**Contenu**\n> ${previewText(job.content)}`))
       .setButtonAccessory((btn) =>
-        btn.setCustomId(`mh_content:${job.id}`).setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary)
+        btn.setCustomId(`mh_content:${job.id}`).setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary)
       )
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
-      .addTextDisplayComponents((t) =>
-        t.setContent(
-          `**Embed**\n> ${job.embed.enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`}`
-        )
-      )
+      .addTextDisplayComponents((t) => t.setContent(`**Embed**\n> ${onOff(job.embed.enabled)}`))
       .setButtonAccessory((btn) =>
         btn
           .setCustomId(`mh_embed_toggle:${job.id}`)
-          .setEmoji(job.embed.enabled ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(job.embed.enabled ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
@@ -282,27 +253,27 @@ function buildJobContainer(job: MessageHoraireJob): ContainerBuilder[] {
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Modifier l'embed**\n> Titre, description et couleur."))
       .setButtonAccessory((btn) =>
-        btn.setCustomId(`mh_embed_edit:${job.id}`).setEmoji(emoji("color")).setStyle(ButtonStyle.Secondary)
+        btn.setCustomId(`mh_embed_edit:${job.id}`).setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary)
       )
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Aperçu**\n> Envoie un aperçu éphémère."))
       .setButtonAccessory((btn) =>
-        btn.setCustomId(`mh_preview:${job.id}`).setEmoji(emoji("eye")).setStyle(ButtonStyle.Secondary)
+        btn.setCustomId(`mh_preview:${job.id}`).setEmoji(appEmojiComponent("pin")).setStyle(ButtonStyle.Secondary)
       )
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Supprimer**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId(`mh_delete:${job.id}`).setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger)
+        btn.setCustomId(`mh_delete:${job.id}`).setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger)
       )
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retour**"))
-      .setButtonAccessory((btn) => btn.setCustomId("mh_back").setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("mh_back").setEmoji(appEmojiComponent("file")).setStyle(ButtonStyle.Secondary))
   )
   return [container]
 }

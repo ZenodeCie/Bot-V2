@@ -10,6 +10,7 @@ import {
   StringSelectMenuBuilder,
 } from "discord.js"
 import config from "../../config.js"
+import { appEmojiComponent, appEmojiText } from "../../utils/appEmojis.js"
 import buildErrorEmbed from "../../utils/errorEmbed.js"
 import {
   getPremiumConfig,
@@ -22,21 +23,6 @@ import {
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 const RESET_VALUE = "__reset__"
-
-const EMOJI_TAGS = {
-  cog: "<:Cog:1469692155680526427>",
-  channel: "<:Channel:1469692104589705376>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  check: "<:Check:1469692151251341425>",
-  disable: "<:Disable:1469692191298556099>",
-} as const
-
-const EMOJI_IDS = {
-  pen: "1469693057497563160",
-  loop: "1469692980586872957",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
 
 function roleToId(arg: string): string | null {
   const trimmed = arg.trim()
@@ -51,11 +37,11 @@ function replyError(message: Message, title: string, desc: string) {
 }
 
 function statusText(cfg: PremiumConfigDoc, guild: { id: string } | null, role: { id: string } | null): string {
-  if (guild && role) return `${EMOJI_TAGS.check} Actif`
-  if (!cfg.premiumServerId) return `${EMOJI_TAGS.disable} Inactif — aucun serveur premium défini`
-  if (!guild) return `${EMOJI_TAGS.disable} Inactif — serveur premium introuvable (le bot n'y est plus ?)`
-  if (!cfg.boosterRoleId) return `${EMOJI_TAGS.disable} Inactif — aucun rôle boosteur défini`
-  return `${EMOJI_TAGS.disable} Inactif — rôle boosteur introuvable`
+  if (guild && role) return `${appEmojiText("check")} Actif`
+  if (!cfg.premiumServerId) return `${appEmojiText("cancel")} Inactif — aucun serveur premium défini`
+  if (!guild) return `${appEmojiText("cancel")} Inactif — serveur premium introuvable (le bot n'y est plus ?)`
+  if (!cfg.boosterRoleId) return `${appEmojiText("cancel")} Inactif — aucun rôle boosteur défini`
+  return `${appEmojiText("cancel")} Inactif — rôle boosteur introuvable`
 }
 
 export function buildPremiumContainer(client: Client, cfg: PremiumConfigDoc): ContainerBuilder[] {
@@ -63,19 +49,19 @@ export function buildPremiumContainer(client: Client, cfg: PremiumConfigDoc): Co
   const role = guild && cfg.boosterRoleId ? (guild.roles.cache.get(cfg.boosterRoleId) ?? null) : null
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.cog} 〃 Configuration premium`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("cog")} 〃 Configuration premium`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Les membres **premium** sont les personnes possédant le rôle boosteur sur le serveur premium.*\n\n` +
-        `> ${EMOJI_TAGS.channel} ***Serveur premium :** ${guild ? `${guild.name} (\`${guild.id}\`)` : "*Aucun*"}*\n` +
-        `> ${EMOJI_TAGS.cogUser} ***Rôle boosteur :** ${role ? `${role.name} ${role}` : "*Aucun*"}*\n` +
+        `> ${appEmojiText("pin")} ***Serveur premium :** ${guild ? `${guild.name} (\`${guild.id}\`)` : "*Aucun*"}*\n` +
+        `> ${appEmojiText("people")} ***Rôle boosteur :** ${role ? `${role.name} ${role}` : "*Aucun*"}*\n` +
         `> ***Statut :** ${statusText(cfg, guild, role)}*`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Choisir le serveur premium**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("pin")} **Choisir le serveur premium**`))
   const guildOptions = [...client.guilds.cache.values()]
     .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, 25)
@@ -98,7 +84,7 @@ export function buildPremiumContainer(client: Client, cfg: PremiumConfigDoc): Co
   }
   container.addSeparatorComponents((s) => s.setDivider(true))
 
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Rôle boosteur**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Rôle boosteur**`))
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) =>
@@ -117,7 +103,7 @@ export function buildPremiumContainer(client: Client, cfg: PremiumConfigDoc): Co
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("oc_role_btn")
-          .setEmoji(emoji("pen"))
+          .setEmoji(appEmojiComponent("cog"))
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(!cfg.premiumServerId)
       )
@@ -126,7 +112,7 @@ export function buildPremiumContainer(client: Client, cfg: PremiumConfigDoc): Co
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Réinitialiser toute la configuration**"))
-      .setButtonAccessory((btn) => btn.setCustomId("oc_reset_btn").setEmoji(emoji("loop")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId("oc_reset_btn").setEmoji(appEmojiComponent("loop")).setStyle(ButtonStyle.Danger))
   )
 
   return [container]
@@ -339,7 +325,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`<:Check:1469692151251341425>\` 〃 Serveur premium défini\n` +
+              `# ${appEmojiText("check")} 〃 Serveur premium défini\n` +
               `> ***Serveur :** ${guild.name} (\`${guild.id}\`)*\n` +
               `> *Le rôle boosteur a été réinitialisé, définissez-le depuis le panneau \`${config.prefix}oc\`.*`,
             color: 0x2b2d31,
@@ -369,7 +355,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`<:Check:1469692151251341425>\` 〃 Rôle boosteur défini\n` +
+              `# ${appEmojiText("check")} 〃 Rôle boosteur défini\n` +
               `> ***Serveur premium :** ${guild?.name} (\`${guild?.id}\`)*\n` +
               `> ***Rôle boosteur :** ${role.name} ${role}*\n` +
               `> *Le système premium est désormais **actif** : les membres avec ce rôle sont premium.*`,
@@ -387,7 +373,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`<:Check:1469692151251341425>\` 〃 Configuration premium réinitialisée\n` +
+              `# ${appEmojiText("check")} 〃 Configuration premium réinitialisée\n` +
               `> *Serveur premium et rôle boosteur ont été effacés.*`,
             color: 0x2b2d31,
           },

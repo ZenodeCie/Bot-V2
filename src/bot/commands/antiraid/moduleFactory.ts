@@ -41,7 +41,7 @@ async function runCommonModuleAction(
     await AntiRaid.findOneAndUpdate({ guildId }, { $set: { [`modules.${moduleName}.enabled`]: true, mode: "custom" } }, { upsert: true })
     client.antiraid.invalidateConfig(guildId)
     return message.reply({
-      embeds: [buildAntiRaidEmbed("✅", "Module activé", `> ***Module:** ${label} (\`${moduleName}\`)*\n> *La protection est maintenant **activée**.*`)],
+      embeds: [buildAntiRaidEmbed("check", "Module activé", `> ***Module:** ${label} (\`${moduleName}\`)*\n> *La protection est maintenant **activée**.*`)],
     })
   }
 
@@ -49,7 +49,7 @@ async function runCommonModuleAction(
     await AntiRaid.findOneAndUpdate({ guildId }, { $set: { [`modules.${moduleName}.enabled`]: false, mode: "custom" } }, { upsert: true })
     client.antiraid.invalidateConfig(guildId)
     return message.reply({
-      embeds: [buildAntiRaidEmbed("⏹️", "Module désactivé", `> ***Module:** ${label} (\`${moduleName}\`)*\n> *La protection est maintenant **désactivée**.*`)],
+      embeds: [buildAntiRaidEmbed("power", "Module désactivé", `> ***Module:** ${label} (\`${moduleName}\`)*\n> *La protection est maintenant **désactivée**.*`)],
     })
   }
 
@@ -61,7 +61,7 @@ async function runCommonModuleAction(
     await AntiRaid.findOneAndUpdate({ guildId }, { $set: { [`modules.${moduleName}.limit`]: count, mode: "custom" } }, { upsert: true })
     client.antiraid.invalidateConfig(guildId)
     return message.reply({
-      embeds: [buildAntiRaidEmbed("✅", "Seuil mis à jour", `> ***Module:** ${label}*\n> ***Seuil:** \`${count}\` actions*`)],
+      embeds: [buildAntiRaidEmbed("check", "Seuil mis à jour", `> ***Module:** ${label}*\n> ***Seuil:** \`${count}\` actions*`)],
     })
   }
 
@@ -73,7 +73,7 @@ async function runCommonModuleAction(
     await AntiRaid.findOneAndUpdate({ guildId }, { $set: { [`modules.${moduleName}.interval`]: interval, mode: "custom" } }, { upsert: true })
     client.antiraid.invalidateConfig(guildId)
     return message.reply({
-      embeds: [buildAntiRaidEmbed("✅", "Intervalle mis à jour", `> ***Module:** ${label}*\n> ***Intervalle:** \`${formatTime(interval)}\`*`)],
+      embeds: [buildAntiRaidEmbed("check", "Intervalle mis à jour", `> ***Module:** ${label}*\n> ***Intervalle:** \`${formatTime(interval)}\`*`)],
     })
   }
 
@@ -98,7 +98,7 @@ async function runCommonModuleAction(
     return message.reply({
       embeds: [
         buildAntiRaidEmbed(
-          "✅",
+          "check",
           "Punition mise à jour",
           `> ***Module:** ${label}*\n> ***Punition:** **${PUNISHMENT_LABELS[punishment]}**${durationText}*`
         ),
@@ -126,13 +126,7 @@ export function createModuleCommand(options: ModuleCommandOptions) {
 
       if (!message.guild) {
         return message.reply({
-          embeds: [
-            {
-              title: " ",
-              description: "# `🛡️` 〃 Erreur\n> *Cette commande doit être exécutée dans un serveur.*",
-              color: 0xe82c20,
-            },
-          ],
+          embeds: [buildErrorEmbed("Erreur", "> *Cette commande doit être exécutée dans un serveur.*")],
         })
       }
 

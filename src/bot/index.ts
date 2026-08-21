@@ -8,7 +8,7 @@ import {
   GatewayIntentBits,
   Partials,
 } from "discord.js"
-import config, { botRuntime, colors } from "./config.js"
+import config, { botRuntime, colors, startApplicationEmojiWatcher } from "./config.js"
 import { filesForModules, resolveEnabledModules } from "./modules.js"
 import {
   snapshotFromClient,
@@ -47,6 +47,7 @@ client.dataDir = botRuntime.dataDir
 client.enabledModules = enabledModules
 
 let stopHeartbeat: (() => void) | undefined
+let stopEmojiWatcher: (() => void) | undefined
 let shuttingDown = false
 
 function applyPresence(): void {
@@ -150,6 +151,7 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true
   console.log(`Received ${signal}, shutting down gracefully`)
   stopHeartbeat?.()
+  stopEmojiWatcher?.()
   try {
     await writeRuntimeFile(botRuntime.dataDir, snapshotFromClient(client, false))
   } catch {
@@ -206,6 +208,7 @@ async function start(): Promise<void> {
   for (const file of files.events) await loadEventFile(file)
 
   stopHeartbeat = startHeartbeat(client, botRuntime.dataDir)
+  stopEmojiWatcher = startApplicationEmojiWatcher()
 
   try {
     await client.login(config.token)

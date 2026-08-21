@@ -13,6 +13,7 @@ import { createCase, findActiveCase, logModCase, notifyUser, recordDenied, recor
 import { addMuteRole } from "../../utils/moderation/mute.js"
 import { registerTempSanction } from "../../utils/moderation/temp.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 const MIN_TEMP_DURATION = 30_000
 const MAX_TEMP_DURATION = 365 * 86_400_000
@@ -107,12 +108,12 @@ export default {
           {
             title: " ",
             description:
-              `# \`⌛\` 〃 Mute temporaire\n` +
+              `${appEmojiHeading("loop", "Mute temporaire")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Durée :** ${duration / 1000}s (retrait automatique le <t:${Math.floor(endAt / 1000)}:T>)*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +
-              (dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${dm.error}*` : ""),
+              (dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${dm.error}*` : ""),
             color: 0x2ecc71,
           },
         ],

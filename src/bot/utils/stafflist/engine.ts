@@ -10,25 +10,18 @@ import {
   type Role,
 } from "discord.js"
 import { getConfig, listEnabledLists, MAX_ROLES, updateConfig, type StaffListConfig } from "./schema.js"
+import { appEmojiText, type AppEmojiName } from "../appEmojis.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 const EDIT_DEBOUNCE = 3_000
 const TEXT_LIMIT = 4000
 
-const EMOJI_TAGS = {
-  people: "<:People:1469693090280505458>",
-  enable: "<:Enable:1469692252988116992>",
-  duration: "<:Duration:1469692196331458704>",
-  disable: "<:Disable:1469692191298556099>",
-  notes: "<:Notes:1469692988870623369>",
-} as const
-
-const STATUS_EMOJI: Record<string, string> = {
-  online: EMOJI_TAGS.enable,
-  idle: EMOJI_TAGS.duration,
-  dnd: EMOJI_TAGS.disable,
-  offline: EMOJI_TAGS.notes,
+const STATUS_EMOJI: Record<string, AppEmojiName> = {
+  online: "check",
+  idle: "loop",
+  dnd: "cancel",
+  offline: "file",
 }
 
 export type PublishResult = { ok: true; config: StaffListConfig } | { ok: false; error: string }
@@ -53,7 +46,7 @@ function statusRank(member: GuildMember): number {
 }
 
 function statusEmoji(member: GuildMember): string {
-  return STATUS_EMOJI[statusOf(member)] ?? STATUS_EMOJI.offline
+  return appEmojiText(STATUS_EMOJI[statusOf(member)] ?? STATUS_EMOJI.offline)
 }
 
 function touchesStaffRoles(roleIds: string[], ...members: Array<GuildMember | PartialGuildMember | null | undefined>): boolean {
@@ -127,7 +120,7 @@ export async function buildPublicContainer(guild: Guild, config: StaffListConfig
 
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
   const title = clip(config.title.trim() || "Liste du Staff", 256)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.people} 〃 ${title}`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("people")} 〃 ${title}`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
 
   if (config.description.trim()) {

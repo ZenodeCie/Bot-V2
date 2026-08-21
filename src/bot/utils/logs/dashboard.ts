@@ -12,6 +12,7 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import {
   EVENT_HINTS,
   EVENT_KEYS,
@@ -25,30 +26,12 @@ import {
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 
-const EMOJI_IDS = {
-  bot: "1469692094342762526",
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cog: "1469692155680526427",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  notes: "1469692988870623369",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  bot: "<:Bot:1469692094342762526>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cog: "<:Cog:1469692155680526427>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  notes: "<:Notes:1469692988870623369>",
-} as const
-
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
+}
+
+function yesNo(value: boolean): string {
+  return value ? `${appEmojiText("check")} Oui` : `${appEmojiText("cancel")} Non`
 }
 
 function channelMention(channelId: string | null): string {
@@ -56,12 +39,12 @@ function channelMention(channelId: string | null): string {
 }
 
 export function buildLogsEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -91,16 +74,16 @@ function eventSummary(config: LogsConfig): string {
 
 export function buildGuildLogsContainer(_client: Client, _guild: Guild, config: LogsConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Logs`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("file")} 〃 Logs`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Les événements du serveur sont envoyés dans un salon. Choisissez les catégories à journaliser.*\n\n` +
         `> ***État :** ${onOff(config.enabled)}*\n` +
-        `> ${EMOJI_TAGS.channel} ***Salon :** ${channelMention(config.channelId)}*\n` +
-        `> ${EMOJI_TAGS.notes} ***Catégories :** ${eventSummary(config)}*\n` +
-        `> ${EMOJI_TAGS.bot} ***Ignorer les bots :** ${config.ignoreBots ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}*\n` +
-        `> ${EMOJI_TAGS.cog} ***Salons ignorés :** ${
+        `> ${appEmojiText("file")} ***Salon :** ${channelMention(config.channelId)}*\n` +
+        `> ${appEmojiText("file")} ***Catégories :** ${eventSummary(config)}*\n` +
+        `> ${appEmojiText("people")} ***Ignorer les bots :** ${yesNo(config.ignoreBots)}*\n` +
+        `> ${appEmojiText("file")} ***Salons ignorés :** ${
           config.ignoredChannels.length > 0 ? config.ignoredChannels.map((id) => `<#${id}>`).join(" ") : "*Aucun*"
         }*`
     )
@@ -112,12 +95,12 @@ export function buildGuildLogsContainer(_client: Client, _guild: Guild, config: 
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lg_toggle")
-          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de logs**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de logs**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -131,11 +114,11 @@ export function buildGuildLogsContainer(_client: Client, _guild: Guild, config: 
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("lg_channel_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
+        btn.setCustomId("lg_channel_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.notes} **Catégories à journaliser**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Catégories à journaliser**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
@@ -156,12 +139,12 @@ export function buildGuildLogsContainer(_client: Client, _guild: Guild, config: 
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Tout activer**"))
-      .setButtonAccessory((btn) => btn.setCustomId("lg_all_on").setEmoji(emoji("enable")).setStyle(ButtonStyle.Success))
+      .setButtonAccessory((btn) => btn.setCustomId("lg_all_on").setEmoji(appEmojiComponent("power")).setStyle(ButtonStyle.Success))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Tout désactiver**"))
-      .setButtonAccessory((btn) => btn.setCustomId("lg_all_off").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger))
+      .setButtonAccessory((btn) => btn.setCustomId("lg_all_off").setEmoji(appEmojiComponent("power")).setStyle(ButtonStyle.Danger))
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
   container.addSectionComponents((sectionBuilder) =>
@@ -170,20 +153,20 @@ export function buildGuildLogsContainer(_client: Client, _guild: Guild, config: 
         t.setContent(
           `**Ignorer les bots**\n> ${
             config.ignoreBots
-              ? `Les actions des bots ne sont pas journalisées ${EMOJI_TAGS.enable}`
-              : `Les actions des bots sont journalisées ${EMOJI_TAGS.disable}`
+              ? `Les actions des bots ne sont pas journalisées ${appEmojiText("check")}`
+              : `Les actions des bots sont journalisées ${appEmojiText("cancel")}`
           }`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lg_bots")
-          .setEmoji(config.ignoreBots ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.ignoreBots ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cog} **Salons ignorés**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salons ignorés**`))
   container.addActionRowComponents((row) => {
     const select = new ChannelSelectMenuBuilder()
       .setCustomId("lg_ignore")
@@ -199,7 +182,7 @@ export function buildGuildLogsContainer(_client: Client, _guild: Guild, config: 
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("lg_ignore_clear")
-          .setEmoji(emoji("disable"))
+          .setEmoji(appEmojiComponent("cancel"))
           .setStyle(ButtonStyle.Danger)
           .setDisabled(config.ignoredChannels.length === 0)
       )
