@@ -4,6 +4,7 @@ import {
   PermissionsBitField,
   type ChatInputCommandInteraction,
   type Client,
+  type Guild,
   type InteractionReplyOptions,
   type Message,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
@@ -15,8 +16,8 @@ export const ROOT_SLASH_NAMES = new Set(["help", "ping", "prefix"])
 
 export const SLASH_GROUPS: Record<string, { name: string; description: string }> = {
   antiraid: { name: "anti-raid", description: "Configuration et outils anti-raid" },
-  moderation: { name: "moderation", description: "Commandes de modération" },
-  utils: { name: "utilities", description: "Utilitaires" },
+  moderation: { name: "mods", description: "Commandes de modération" },
+  utils: { name: "use", description: "Utilitaires" },
   dev: { name: "dev", description: "Commandes développeur" },
   tickets: { name: "ticket", description: "Système de tickets" },
   captcha: { name: "captcha", description: "Vérification anti-bot" },
@@ -28,7 +29,7 @@ export const SLASH_GROUPS: Record<string, { name: string; description: string }>
   stafflist: { name: "stafflist", description: "Liste du staff" },
   informationpanel: { name: "infopanel", description: "Panneau d'informations" },
   invitations: { name: "invitations", description: "Suivi des invitations" },
-  "message-horaire": { name: "message-horaire", description: "Messages programmés" },
+  "message-horaire": { name: "time-message", description: "Messages programmés" },
 }
 
 export function slashSubcommandName(command: Command): string {
@@ -200,12 +201,17 @@ export function buildSlashBody(commands: Command[]): RESTPostAPIChatInputApplica
   return body
 }
 
+export async function registerGuildSlashCommands(client: Client, guild: Guild): Promise<void> {
+  await guild.commands.set(buildSlashBody([...client.commands.values()]))
+}
+
 export async function registerSlashCommands(client: Client): Promise<void> {
   if (!client.application) return
   const body = buildSlashBody([...client.commands.values()])
-  await client.application.commands.set(body)
+  // Guild-only: global + guild registration makes Discord show every command twice.
+  await client.application.commands.set([])
   for (const guild of client.guilds.cache.values()) {
     await guild.commands.set(body)
   }
-  console.log(`Slash commands registered (${body.length})`)
+  console.log(`Slash commands registered (${body.length}) on ${client.guilds.cache.size} guild(s)`)
 }
