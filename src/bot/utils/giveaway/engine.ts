@@ -19,6 +19,7 @@ import {
   normalizeGiveaway,
   type GiveawayRecord,
 } from "./schema.js"
+import { noticePayload } from "./notice.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
@@ -364,18 +365,24 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
   const id = interaction.customId.slice("gw_enter:".length)
   const giveaway = await getGiveaway(id)
   if (!giveaway || giveaway.guildId !== interaction.guild.id) {
-    await interaction.reply({ content: "> *Ce giveaway n'est plus disponible.*", flags: MessageFlags.Ephemeral })
+    await interaction.reply(
+      noticePayload("disable", "Giveaway indisponible", "> *Ce giveaway n'est plus disponible.*", { ephemeral: true })
+    )
     return true
   }
   if (giveaway.cancelled || giveaway.ended) {
-    await interaction.reply({
-      content: giveaway.cancelled ? "> *Ce giveaway a été annulé.*" : "> *Ce giveaway est terminé.*",
-      flags: MessageFlags.Ephemeral,
-    })
+    await interaction.reply(
+      noticePayload(
+        "disable",
+        "Giveaway indisponible",
+        giveaway.cancelled ? "> *Ce giveaway a été annulé.*" : "> *Ce giveaway est terminé.*",
+        { ephemeral: true }
+      )
+    )
     return true
   }
   if (interaction.user.bot) {
-    await interaction.reply({ content: "> *Les bots ne peuvent pas participer.*", flags: MessageFlags.Ephemeral })
+    await interaction.reply(noticePayload("disable", "Participation refusée", "> *Les bots ne peuvent pas participer.*", { ephemeral: true }))
     return true
   }
 
@@ -383,14 +390,18 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
     interaction.guild.members.cache.get(interaction.user.id) ??
     (await interaction.guild.members.fetch(interaction.user.id).catch(() => null))
   if (!member) {
-    await interaction.reply({ content: "> *Membre introuvable.*", flags: MessageFlags.Ephemeral })
+    await interaction.reply(noticePayload("disable", "Erreur", "> *Membre introuvable.*", { ephemeral: true }))
     return true
   }
   if (giveaway.requiredRoleId && !member.roles.cache.has(giveaway.requiredRoleId)) {
-    await interaction.reply({
-      content: `> *Vous devez avoir le rôle <@&${giveaway.requiredRoleId}> pour participer.*`,
-      flags: MessageFlags.Ephemeral,
-    })
+    await interaction.reply(
+      noticePayload(
+        "disable",
+        "Rôle requis",
+        `> *Vous devez avoir le rôle <@&${giveaway.requiredRoleId}> pour participer.*`,
+        { ephemeral: true }
+      )
+    )
     return true
   }
 
@@ -403,10 +414,11 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
 
   if (added) {
     scheduleMessageRefresh(client, id)
-    await interaction.reply({
-      content: `> *Vous participez au giveaway **${giveaway.prize}**.*`,
-      flags: MessageFlags.Ephemeral,
-    })
+    await interaction.reply(
+      noticePayload("party", "Participation confirmée", `> *Vous participez au giveaway **${giveaway.prize}**.*`, {
+        ephemeral: true,
+      })
+    )
     return true
   }
 
@@ -418,14 +430,17 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
 
   if (removed) {
     scheduleMessageRefresh(client, id)
-    await interaction.reply({
-      content: `> *Vous ne participez plus au giveaway **${giveaway.prize}**.*`,
-      flags: MessageFlags.Ephemeral,
-    })
+    await interaction.reply(
+      noticePayload("disable", "Participation retirée", `> *Vous ne participez plus au giveaway **${giveaway.prize}**.*`, {
+        ephemeral: true,
+      })
+    )
     return true
   }
 
-  await interaction.reply({ content: "> *Ce giveaway n'est plus disponible.*", flags: MessageFlags.Ephemeral })
+  await interaction.reply(
+    noticePayload("disable", "Giveaway indisponible", "> *Ce giveaway n'est plus disponible.*", { ephemeral: true })
+  )
   return true
 }
 
