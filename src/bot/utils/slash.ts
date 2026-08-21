@@ -10,6 +10,7 @@ import {
 } from "discord.js"
 import type { Command, SlashOption } from "../types.js"
 
+/** Standalone slash commands (not nested under a module). */
 export const ROOT_SLASH_NAMES = new Set(["help", "ping", "prefix"])
 
 export const SLASH_GROUPS: Record<string, { name: string; description: string }> = {
@@ -17,6 +18,17 @@ export const SLASH_GROUPS: Record<string, { name: string; description: string }>
   moderation: { name: "moderation", description: "Commandes de modération" },
   utils: { name: "utilities", description: "Utilitaires" },
   dev: { name: "dev", description: "Commandes développeur" },
+  tickets: { name: "ticket", description: "Système de tickets" },
+  captcha: { name: "captcha", description: "Vérification anti-bot" },
+  logs: { name: "logs", description: "Journal des événements" },
+  giveaway: { name: "giveaway", description: "Giveaways" },
+  levels: { name: "levels", description: "Niveaux et XP" },
+  aeroport: { name: "aeroport", description: "Messages d'arrivée et de départ" },
+  rules: { name: "rules", description: "Règlement interactif" },
+  stafflist: { name: "stafflist", description: "Liste du staff" },
+  informationpanel: { name: "infopanel", description: "Panneau d'informations" },
+  invitations: { name: "invitations", description: "Suivi des invitations" },
+  "message-horaire": { name: "message-horaire", description: "Messages programmés" },
 }
 
 export function slashSubcommandName(command: Command): string {
@@ -147,28 +159,21 @@ function partitionCommands(commands: Command[]): { root: Command[]; grouped: Map
     grouped.set(command.category, bucket)
   }
 
-  for (const [category, bucket] of grouped) {
-    if (bucket.length >= 2) continue
-    root.push(...bucket)
-    grouped.delete(category)
-  }
-
   return { root, grouped }
 }
 
 export function resolveSlashCommand(client: Client, interaction: ChatInputCommandInteraction): Command | undefined {
-  const direct = client.commands.get(interaction.commandName)
-  if (direct) return direct
-
   const sub = interaction.options.getSubcommand(false)
-  if (!sub) return undefined
-
-  return [...client.commands.values()].find((command) => {
-    if (ROOT_SLASH_NAMES.has(command.name)) return false
-    const group = SLASH_GROUPS[command.category]
-    if (!group) return false
-    return group.name === interaction.commandName && slashSubcommandName(command) === sub
-  })
+  if (sub) {
+    const grouped = [...client.commands.values()].find((command) => {
+      if (ROOT_SLASH_NAMES.has(command.name)) return false
+      const group = SLASH_GROUPS[command.category]
+      if (!group) return false
+      return group.name === interaction.commandName && slashSubcommandName(command) === sub
+    })
+    if (grouped) return grouped
+  }
+  return client.commands.get(interaction.commandName)
 }
 
 export function buildSlashBody(commands: Command[]): RESTPostAPIChatInputApplicationCommandsJSONBody[] {

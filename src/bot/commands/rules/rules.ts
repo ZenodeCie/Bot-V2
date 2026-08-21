@@ -56,6 +56,7 @@ export default {
   name: "rules",
   description: "Configure le règlement interactif du serveur.",
   category: "rules",
+  slashName: "config",
   aliases: ["reglement", "regles"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|role|bots|titre|publish|reset]",

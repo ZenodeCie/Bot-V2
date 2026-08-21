@@ -59,6 +59,7 @@ export default {
   name: "logs",
   description: "Configure le journal des événements du serveur.",
   category: "logs",
+  slashName: "config",
   aliases: ["serverlogs", "slog"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|events|bots|ignore|reset]",

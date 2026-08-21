@@ -57,6 +57,7 @@ export default {
   name: "stafflist",
   description: "Configure la liste automatique du staff.",
   category: "stafflist",
+  slashName: "config",
   aliases: ["staff", "listestaff"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|role|statut|bots|titre|publish|reset]",

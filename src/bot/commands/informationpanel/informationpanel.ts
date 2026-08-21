@@ -55,6 +55,7 @@ export default {
   name: "infopanel",
   description: "Configure le panneau d'informations du serveur.",
   category: "informationpanel",
+  slashName: "config",
   aliases: ["information", "panneau", "infoserveur"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|interval|titre|publish|reset]",

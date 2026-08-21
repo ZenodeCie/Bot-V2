@@ -281,6 +281,7 @@ export default {
   name: "own-config",
   description: "Panneau de configuration premium : serveur boosté et rôle boosteur. [OWNER]",
   category: "dev",
+  slashName: "config",
   aliases: ["ownconfig", "oc"],
   permissions: [],
   usage: "[panel|server <id>|role <id|@rôle>|reset]",

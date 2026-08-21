@@ -134,6 +134,7 @@ export default {
   name: "giveaway",
   description: "Lance et gère les giveaways du serveur.",
   category: "giveaway",
+  slashName: "config",
   aliases: ["giveaways", "gw"],
   permissions: ["ManageGuild"],
   usage: "[start|end|reroll|cancel|list|salon|gagnants|role|reset]",

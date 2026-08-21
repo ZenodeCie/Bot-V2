@@ -57,6 +57,7 @@ export default {
   name: "captcha",
   description: "Configure la vérification anti-bot à l'arrivée.",
   category: "captcha",
+  slashName: "config",
   aliases: ["verify", "verification"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|role|timeout|attempts|kick|bots|reset]",

@@ -7,6 +7,7 @@ export default {
   name: "inviteleaderboard",
   description: "Affiche le classement des invitations du serveur.",
   category: "invitations",
+  slashName: "leaderboard",
   aliases: ["invitestop", "ilb", "topinvites"],
   permissions: [],
   usage: "",

@@ -9,6 +9,7 @@ export default {
   name: "ticket",
   description: "Configure le système de tickets du serveur.",
   category: "tickets",
+  slashName: "config",
   aliases: ["tickets"],
   permissions: ["ManageGuild"],
   usage: "[panel]",

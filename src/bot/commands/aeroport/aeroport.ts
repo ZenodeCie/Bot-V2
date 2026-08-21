@@ -69,6 +69,7 @@ export default {
   name: "aeroport",
   description: "Configure les messages d'arrivée et de départ, le MP et les autoroles.",
   category: "aeroport",
+  slashName: "config",
   aliases: ["airport", "welcome", "goodbye", "arrivee", "depart"],
   permissions: ["ManageGuild"],
   usage: "[arrivee|depart|dm|bots|autorole|preview|reset]",
