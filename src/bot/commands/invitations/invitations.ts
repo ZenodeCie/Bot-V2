@@ -163,7 +163,7 @@ export default {
       return message.reply({
         embeds: [
           buildInvitationsEmbed(
-            "✅",
+            "check",
             enabled ? "Invitations activées" : "Invitations désactivées",
             enabled
               ? `> *Le suivi des invitations est maintenant **activé**.*` +
@@ -186,7 +186,7 @@ export default {
         return message.reply({
           embeds: [
             buildInvitationsEmbed(
-              "✅",
+              "check",
               "Invitations réinitialisées",
               `> *Les invitations de <@${resolved.target.id}> ont été **effacées**.*`
             ),
@@ -207,7 +207,7 @@ export default {
       })
       return message.reply({
         embeds: [
-          buildInvitationsEmbed("✅", "Invitations réinitialisées", "> *Tous les paramètres ont été remis aux valeurs par défaut.*"),
+          buildInvitationsEmbed("check", "Invitations réinitialisées", "> *Tous les paramètres ont été remis aux valeurs par défaut.*"),
         ],
       })
     }
@@ -217,7 +217,7 @@ export default {
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { logChannelId: null } })
         return message.reply({
-          embeds: [buildInvitationsEmbed("📁", "Salon retiré", "> *Aucun salon de logs n'est configuré.*", colors.prime)],
+          embeds: [buildInvitationsEmbed("file", "Salon retiré", "> *Aucun salon de logs n'est configuré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -231,7 +231,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { logChannelId: channel.id } })
       return message.reply({
-        embeds: [buildInvitationsEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildInvitationsEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -241,7 +241,7 @@ export default {
         await updateConfig(guild.id, { $set: { fakeAge: 0 } })
         return message.reply({
           embeds: [
-            buildInvitationsEmbed("📁", "Comptes fake", "> *Aucun compte n'est marqué fake selon son âge.*", colors.prime),
+            buildInvitationsEmbed("file", "Comptes fake", "> *Aucun compte n'est marqué fake selon son âge.*", colors.prime),
           ],
         })
       }
@@ -256,7 +256,7 @@ export default {
       return message.reply({
         embeds: [
           buildInvitationsEmbed(
-            "✅",
+            "check",
             "Comptes fake",
             fakeAge > 0
               ? `> *Les comptes de moins de \`${formatTime(fakeAge)}\` sont comptés comme **fake**.*`
@@ -279,7 +279,7 @@ export default {
       return message.reply({
         embeds: [
           buildInvitationsEmbed(
-            "✅",
+            "check",
             "Bots",
             enabled
               ? "> *Les bots **ne sont plus** comptés dans les invitations.*"
@@ -302,7 +302,7 @@ export default {
       return message.reply({
         embeds: [
           buildInvitationsEmbed(
-            "✅",
+            "check",
             "Rejoins",
             enabled
               ? "> *Un membre qui **revient** donne une nouvelle invitation.*"
@@ -325,7 +325,7 @@ export default {
       return message.reply({
         embeds: [
           buildInvitationsEmbed(
-            "✅",
+            "check",
             "Cumul des rôles",
             enabled
               ? "> *Tous les rôles de récompense atteints sont **conservés**.*"
@@ -372,7 +372,7 @@ export default {
         const config = await getConfig(guild.id)
         await updateConfig(guild.id, { $set: { rewards: removeReward(config.rewards, role.id) } })
         return message.reply({
-          embeds: [buildInvitationsEmbed("📁", "Rôle retiré", `> *Le rôle ${role} n'est plus une récompense.*`, colors.prime)],
+          embeds: [buildInvitationsEmbed("file", "Rôle retiré", `> *Le rôle ${role} n'est plus une récompense.*`, colors.prime)],
         })
       }
 
@@ -401,7 +401,7 @@ export default {
       const invites = clampRewardInvites(rawInvites)
       await updateConfig(guild.id, { $set: { rewards: upsertReward(config.rewards, role.id, invites) } })
       return message.reply({
-        embeds: [buildInvitationsEmbed("📁", "Rôle configuré", `> ***Récompense :** ${role} à \`${invites}\` invites*`)],
+        embeds: [buildInvitationsEmbed("file", "Rôle configuré", `> ***Récompense :** ${role} à \`${invites}\` invites*`)],
       })
     }
 
@@ -426,7 +426,7 @@ export default {
       return message.reply({
         embeds: [
           buildInvitationsEmbed(
-            "✅",
+            "check",
             head === "add" ? "Bonus ajouté" : "Bonus retiré",
             `> ***Membre :** <@${resolved.target.id}>*\n> ***Bonus :** \`${stats.bonus}\`*`
           ),

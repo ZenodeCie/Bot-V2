@@ -56,7 +56,7 @@ export default {
         })
       }
       return message.reply({
-        embeds: [buildAntiRaidEmbed("🛂", "Quarantaine", `> *<@${id}> a été placé en **quarantaine** (rôles retirés, permissions bloquées).*`, colors.orng)],
+        embeds: [buildAntiRaidEmbed("power", "Quarantaine", `> *<@${id}> a été placé en **quarantaine** (rôles retirés, permissions bloquées).*`, colors.orng)],
       })
     }
 
@@ -67,7 +67,7 @@ export default {
         return message.reply({ embeds: [buildErrorEmbed("400 Bad Request", "> *Mentionnez un utilisateur : `quarantine remove <@user>`.*")] })
       }
       await client.antiraid.unquarantineUser(client, message.guild, id)
-      return message.reply({ embeds: [buildAntiRaidEmbed("🛂", "Quarantaine", `> *<@${id}> a été retiré de la quarantaine.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("power", "Quarantaine", `> *<@${id}> a été retiré de la quarantaine.*`)] })
     }
 
     if (action === "list") {
@@ -76,7 +76,7 @@ export default {
       return message.reply({
         embeds: [
           buildAntiRaidEmbed(
-            "🛂",
+            "power",
             "Quarantaine",
             users.length > 0
               ? `> ***Utilisateurs en quarantaine (${users.length}) :***\n` + users.map((id) => `> <@${id}>`).join("\n")
@@ -90,7 +90,7 @@ export default {
       for (const id of (await getConfig(message.guild.id)).quarantine.users) {
         await client.antiraid.unquarantineUser(client, message.guild, id)
       }
-      return message.reply({ embeds: [buildAntiRaidEmbed("🛂", "Quarantaine vidée", "> *Tous les utilisateurs ont été retirés de la quarantaine (rôles conservés).*")] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("power", "Quarantaine vidée", "> *Tous les utilisateurs ont été retirés de la quarantaine (rôles conservés).*")] })
     }
 
     const config = await getConfig(message.guild.id)

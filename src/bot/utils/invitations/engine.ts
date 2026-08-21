@@ -1,5 +1,6 @@
 import { EmbedBuilder, type Client, type Guild, type GuildMember, type Invite, type PartialGuildMember } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiHeading, type AppEmojiName } from "../appEmojis.js"
 import {
   VANITY_CODE,
   getConfig,
@@ -13,12 +14,12 @@ import {
 } from "./schema.js"
 
 function buildLogEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -309,7 +310,7 @@ export async function handleMemberJoin(client: Client, member: GuildMember): Pro
       const inviterLabel =
         used?.code === VANITY_CODE ? "*URL vanity*" : used?.inviterId ? `<@${used.inviterId}>` : "*Inconnu*"
       const embed = buildLogEmbed(
-        "📥",
+        "add",
         "Membre arrivé",
         `> ***Membre :** ${userLine(member.id)}*\n` +
           `> ***Invité par :** ${inviterLabel}*\n` +
@@ -353,7 +354,7 @@ export async function handleMemberLeave(client: Client, member: GuildMember | Pa
       const inviterLabel =
         existing.code === VANITY_CODE ? "*URL vanity*" : existing.inviterId ? `<@${existing.inviterId}>` : "*Inconnu*"
       const embed = buildLogEmbed(
-        "📤",
+        "cancel",
         "Membre parti",
         `> ***Membre :** ${userLine(member.id)}*\n` +
           `> ***Invité par :** ${inviterLabel}*\n` +

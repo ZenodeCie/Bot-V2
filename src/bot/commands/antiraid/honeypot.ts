@@ -65,13 +65,13 @@ export default {
     if (action === "enable" || action === "on") {
       await AntiRaid.findOneAndUpdate({ guildId }, { $set: { "honeypot.enabled": true } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Honeypot activé", "> *Le système piège est maintenant **activé**.*")] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Honeypot activé", "> *Le système piège est maintenant **activé**.*")] })
     }
 
     if (action === "disable" || action === "off") {
       await AntiRaid.findOneAndUpdate({ guildId }, { $set: { "honeypot.enabled": false } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("⏹️", "Honeypot désactivé", "> *Le système piège est maintenant **désactivé**.*")] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("power", "Honeypot désactivé", "> *Le système piège est maintenant **désactivé**.*")] })
     }
 
     if (action === "add" && target === "channel") {
@@ -82,7 +82,7 @@ export default {
       }
       await AntiRaid.findOneAndUpdate({ guildId }, { $addToSet: { "honeypot.channels": id } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Salon piège ajouté", `> *<#${id}> est maintenant un **salon piège**.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Salon piège ajouté", `> *<#${id}> est maintenant un **salon piège**.*`)] })
     }
 
     if (action === "add" && target === "role") {
@@ -93,7 +93,7 @@ export default {
       }
       await AntiRaid.findOneAndUpdate({ guildId }, { $addToSet: { "honeypot.roles": id } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Rôle piège ajouté", `> *<@&${id}> est maintenant un **rôle piège**.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Rôle piège ajouté", `> *<@&${id}> est maintenant un **rôle piège**.*`)] })
     }
 
     if (action === "remove" && target === "channel") {
@@ -104,7 +104,7 @@ export default {
       }
       await AntiRaid.findOneAndUpdate({ guildId }, { $pull: { "honeypot.channels": id } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Salon piège retiré", "> *Ce salon n'est plus un piège.*")] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Salon piège retiré", "> *Ce salon n'est plus un piège.*")] })
     }
 
     if (action === "remove" && target === "role") {
@@ -115,7 +115,7 @@ export default {
       }
       await AntiRaid.findOneAndUpdate({ guildId }, { $pull: { "honeypot.roles": id } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Rôle piège retiré", "> *Ce rôle n'est plus un piège.*")] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Rôle piège retiré", "> *Ce rôle n'est plus un piège.*")] })
     }
 
     if (action === "action" || action === "punish") {
@@ -131,7 +131,7 @@ export default {
       if (punishment !== "timeout") duration = 0
       await AntiRaid.findOneAndUpdate({ guildId }, { $set: { "honeypot.punishment": punishment, "honeypot.duration": duration } }, { upsert: true })
       client.antiraid.invalidateConfig(guildId)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Punition honeypot", `> *Les intrus seront sanctionnés : **${PUNISHMENT_LABELS[punishment]}**.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Punition honeypot", `> *Les intrus seront sanctionnés : **${PUNISHMENT_LABELS[punishment]}**.*`)] })
     }
 
     const config = await getConfig(guildId)

@@ -1,5 +1,6 @@
 import { EmbedBuilder, type Client, type Guild, type GuildMember, type Message } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiHeading, type AppEmojiName } from "../appEmojis.js"
 import buildErrorEmbed from "../errorEmbed.js"
 
 export function logCommandUse(name: string, message: Message): void {
@@ -21,12 +22,12 @@ export function replyError(message: Message, title: string, desc: string) {
 }
 
 export function buildModEmbed(
-  emoji: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.red
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emoji}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }

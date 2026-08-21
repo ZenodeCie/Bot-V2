@@ -1,7 +1,13 @@
-import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { readFileSync, watch, type FSWatcher } from "node:fs"
+import { basename, dirname, resolve } from "node:path"
 import { config as loadDotenv } from "dotenv"
-import { parseHexColor, KNOWN_MODULE_KEYS, type BotConfig } from "../shared/botConfig.js"
+import {
+  KNOWN_MODULE_KEYS,
+  mergeApplicationEmojis,
+  parseApplicationEmojis,
+  parseHexColor,
+  type BotConfig,
+} from "../shared/botConfig.js"
 
 loadDotenv()
 
@@ -48,7 +54,11 @@ function loadBotJson(path: string): BotConfig {
     console.error(`Invalid Discord token in ${path} (unauthorized): token missing.`)
     process.exit(1)
   }
-  return { ...(record as unknown as BotConfig), bot_id: botId, token }
+  const application_emojis = parseApplicationEmojis(record.application_emojis)
+  const loaded: BotConfig = { ...(record as unknown as BotConfig), bot_id: botId, token }
+  if (application_emojis) loaded.application_emojis = application_emojis
+  else delete loaded.application_emojis
+  return loaded
 }
 
 function loadStandaloneBot(): BotConfig {
@@ -132,6 +142,43 @@ const config = {
   ownerId: botRuntime.ownerId,
   botId: botRuntime.botId,
   dataDir: botRuntime.dataDir,
+}
+
+export function startApplicationEmojiWatcher(): () => void {
+  if (!configPath) return () => undefined
+  const dir = dirname(configPath)
+  const file = basename(configPath)
+  let debounce: NodeJS.Timeout | undefined
+  let watcher: FSWatcher | undefined
+
+  const reload = (): void => {
+    try {
+      const raw: unknown = JSON.parse(readFileSync(configPath, "utf8"))
+      if (!raw || typeof raw !== "object") return
+      const merged = mergeApplicationEmojis(
+        botRuntime.raw.application_emojis,
+        (raw as Record<string, unknown>).application_emojis
+      )
+      if (merged) botRuntime.raw.application_emojis = merged
+    } catch {
+      /* tmp/rename race — ignore */
+    }
+  }
+
+  try {
+    watcher = watch(dir, (_event, filename) => {
+      if (typeof filename === "string" && filename !== file && filename !== `${file}.tmp`) return
+      if (debounce) clearTimeout(debounce)
+      debounce = setTimeout(reload, 150)
+    })
+  } catch {
+    /* watch unavailable (standalone / restricted fs) */
+  }
+
+  return () => {
+    if (debounce) clearTimeout(debounce)
+    watcher?.close()
+  }
 }
 
 export default config

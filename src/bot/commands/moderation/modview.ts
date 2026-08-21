@@ -30,40 +30,25 @@ import { logModEvent, type CaseActor, type CaseTarget } from "../../utils/modera
 import { formatDate, logCommandUse, replyError, requireGuild, resolveTarget } from "../../utils/moderation/helpers.js"
 import { getUserNote, setUserNote } from "../../utils/moderation/notes.js"
 import { ACTION_EMOJIS, ACTION_LABELS, ModCase, STATUS_LABELS, type ModCaseDoc } from "../../utils/moderation/schema.js"
+import {
+  appEmojiHeading,
+  appEmojiOrFallback,
+  appEmojiText,
+  type AppEmojiName,
+} from "../../utils/appEmojis.js"
 
 const PER_PAGE = 3
 
 const CARD_COLOR = 0x2b2d31
 
-const EMOJI = {
-  cogUser: "<:CogUser:1469692167122325577>",
-  people: "<:People:1469693090280505458>",
-  eye: "<:Eye:1469692577384235161>",
-  addUser: "<:AddUser:1469692085992034387>",
-  notes: "<:Notes:1469692988870623369>",
-  file: "<:File:1469692584959017070>",
-  pen: "<:Pen:1469693057497563160>",
-  check: "<:Check:1469692151251341425>",
-  cancel: "<:Cancel:1469692099736895592>",
-  pending: "<:Pending:1469693062543311044>",
-  disable: "<:Disable:1469692191298556099>",
-  bot: "<:Bot:1469692094342762526>",
-  add: "<:Add:1469692082107977782>",
-  leave: "<:Leave:1469692941068009686>",
-  pause: "<:Pause:1469693044256145610>",
-  gMute: "<:g_mute:1469685636217962549>",
-  duration: "<:Duration:1469692196331458704>",
-  loop: "<:Loop:1469692980586872957>",
-} as const
-
-const SELECT_EMOJIS: Record<CardAction, string> = {
-  WARN: EMOJI.add,
-  KICK: EMOJI.leave,
-  BAN: EMOJI.cancel,
-  TIMEOUT: EMOJI.pause,
-  MUTE: EMOJI.gMute,
-  TEMPBAN: EMOJI.duration,
-  TEMPMUTE: EMOJI.loop,
+const SELECT_EMOJIS: Record<CardAction, AppEmojiName> = {
+  WARN: "cancel",
+  KICK: "cancel",
+  BAN: "cancel",
+  TIMEOUT: "loop",
+  MUTE: "cancel",
+  TEMPBAN: "loop",
+  TEMPMUTE: "loop",
 }
 
 const STATUS_LABELS_MAP: Record<string, string> = {
@@ -73,11 +58,11 @@ const STATUS_LABELS_MAP: Record<string, string> = {
   offline: "Hors ligne",
 }
 
-const STATUS_EMOJIS: Record<string, string> = {
-  online: EMOJI.check,
-  idle: EMOJI.pending,
-  dnd: EMOJI.cancel,
-  offline: EMOJI.disable,
+const STATUS_EMOJIS: Record<string, AppEmojiName> = {
+  online: "check",
+  idle: "loop",
+  dnd: "cancel",
+  offline: "file",
 }
 
 interface PendingSanction {
@@ -103,7 +88,7 @@ function buildSanctionLines(cases: ModCaseDoc[]): string {
     .map((c) => {
       const duration = c.duration ? ` • **Durée :** ${formatTime(c.duration)}` : ""
       return (
-        `> **${c.caseIdFormatted}** — ${ACTION_EMOJIS[c.action]} **${ACTION_LABELS[c.action]}** — \`${STATUS_LABELS[c.status]}\`${duration}\n` +
+        `> **${c.caseIdFormatted}** — ${appEmojiText(ACTION_EMOJIS[c.action])} **${ACTION_LABELS[c.action]}** — \`${STATUS_LABELS[c.status]}\`${duration}\n` +
         `> ***Raison :** ${c.reason}*\n` +
         `> ***Modérateur :** ${c.moderatorUsername} • ${formatDate(c.startedAt)} (<t:${Math.floor(c.startedAt / 1000)}:R>)*`
       )
@@ -130,25 +115,25 @@ async function renderCard(
 
   const statusRaw = member?.presence?.status ?? "offline"
   const status = STATUS_LABELS_MAP[statusRaw] ?? "Hors ligne"
-  const statusEmoji = STATUS_EMOJIS[statusRaw] ?? EMOJI.disable
+  const statusEmoji = appEmojiText(STATUS_EMOJIS[statusRaw] ?? "cancel")
 
   const joinedTs = member?.joinedTimestamp ? Math.floor(member.joinedTimestamp / 1000) : null
   const createdTs = user ? Math.floor(user.createdTimestamp / 1000) : null
 
   const description =
-    `# ${EMOJI.cogUser} 〃 Fiche de <@${targetId}> ${user?.bot ? EMOJI.bot : ""}\n\n` +
+    `# ${appEmojiText("people")} 〃 Fiche de <@${targetId}> ${user?.bot ? appEmojiText("people") : ""}\n\n` +
     `**Pseudo** : <@${targetId}> (\`${targetId}\`)\n` +
     `**Surnom** : ${member?.nickname ?? "—"}\n` +
     `**Statut** : ${statusEmoji} ${status}\n` +
     `**Rôle principal** : ${member ? (member.roles.highest.id === member.guild.id ? "@everyone" : member.roles.highest.toString()) : "—"}\n\n` +
     `**Compte créé le** : ${createdTs ? `<t:${createdTs}:F> (<t:${createdTs}:R>)` : "—"}\n` +
     `**A rejoint le** : ${joinedTs ? `<t:${joinedTs}:F> (<t:${joinedTs}:R>)` : "—"}\n\n` +
-    `## ${EMOJI.notes} 〃 Note interne\n` +
+    `## ${appEmojiText("file")} 〃 Note interne\n` +
     `> ${note ? note.content : "*Aucune note définie.*"}\n` +
     (note
-      ? `> *${EMOJI.pen} 〃 Écrite par **${note.authorName}** • Modifiée par **${note.lastEditorName}** (<t:${Math.floor(note.updatedAt / 1000)}:R>)*`
+      ? `> *${appEmojiText("cog")} 〃 Écrite par **${note.authorName}** • Modifiée par **${note.lastEditorName}** (<t:${Math.floor(note.updatedAt / 1000)}:R>)*`
       : "") +
-    `\n\n## ${EMOJI.file} 〃 Dernières sanctions (${slice.length}/${all.length})\n` +
+    `\n\n## ${appEmojiText("file")} 〃 Dernières sanctions (${slice.length}/${all.length})\n` +
     (slice.length ? buildSanctionLines(slice) : "> *Aucune sanction enregistrée.*") +
     `\n\n> ***Page :** ${safe + 1}/${totalPages}*`
 
@@ -163,7 +148,7 @@ async function renderCard(
     new ButtonBuilder()
       .setCustomId(`modcard_note_${guildId}_${targetId}_${requesterId}`)
       .setLabel("Note")
-      .setEmoji(EMOJI.pen)
+      .setEmoji(appEmojiOrFallback("cog"))
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`modcard_nav_${guildId}_${targetId}_${requesterId}_${safe}_prev`)
@@ -184,7 +169,7 @@ async function renderCard(
       CARD_ACTIONS.map((action) => ({
         label: CARD_ACTION_LABELS[action],
         description: ACTION_REQUIRES_DURATION[action] ? "Nécessite une durée" : "Sans durée",
-        emoji: SELECT_EMOJIS[action],
+        emoji: appEmojiOrFallback(SELECT_EMOJIS[action]),
         value: action,
       }))
     )
@@ -299,7 +284,7 @@ export default {
       new EmbedBuilder()
         .setTitle(" ")
         .setDescription(
-          `# \`${EMOJI.eye}\` 〃 Fiche de modération consultée\n` +
+          `${appEmojiHeading("pin", "Fiche de modération consultée")}\n` +
             `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
             `> ***Consultée par :** ${_message.author.username} (\`${_message.author.id}\`)*`
         )
@@ -383,7 +368,7 @@ export default {
           new EmbedBuilder()
             .setTitle(" ")
             .setDescription(
-              `# \`${EMOJI.notes}\` 〃 Note de modération ${note.createdAt === note.updatedAt ? "ajoutée" : "modifiée"}\n` +
+              `# ${appEmojiText("file")} 〃 Note de modération ${note.createdAt === note.updatedAt ? "ajoutée" : "modifiée"}\n` +
                 `> ***Utilisateur :** <@${targetId}> (\`${targetId}\`)*\n` +
                 `> ***Auteur :** ${note.authorName} (\`${note.authorId}\`)*\n` +
                 `> ***Contenu :** ${content}*`
@@ -396,7 +381,7 @@ export default {
             {
               title: " ",
               description:
-                `# \`${EMOJI.check}\` 〃 Note enregistrée\n` +
+                `# ${appEmojiText("check")} 〃 Note enregistrée\n` +
                 `> *La note interne de <@${targetId}> a été ${note.createdAt === note.updatedAt ? "ajoutée" : "mise à jour"}.*`,
               color: CARD_COLOR,
             },
@@ -456,12 +441,12 @@ export default {
           new ButtonBuilder()
             .setCustomId(`modcard_pend_${token}_confirm`)
             .setLabel("Confirmer")
-            .setEmoji(EMOJI.check)
+            .setEmoji(appEmojiOrFallback("check"))
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId(`modcard_pend_${token}_cancel`)
             .setLabel("Annuler")
-            .setEmoji(EMOJI.cancel)
+            .setEmoji(appEmojiOrFallback("cancel"))
             .setStyle(ButtonStyle.Secondary)
         )
 
@@ -470,7 +455,7 @@ export default {
             {
               title: " ",
               description:
-                `# \`${EMOJI.pending}\` 〃 Confirmation de sanction\n` +
+                `${appEmojiHeading("loop", "Confirmation de sanction")}\n` +
                 `> ***Action :** ${CARD_ACTION_LABELS[action]}*\n` +
                 `> ***Utilisateur :** <@${targetId}>*\n` +
                 `> ***Raison :** ${reason}*\n` +
@@ -514,7 +499,7 @@ async function handlePendingButton(
       embeds: [
         {
           title: " ",
-          description: `# \`${EMOJI.cancel}\` 〃 Sanction annulée\n> *Aucune modification n'a été appliquée.*`,
+          description: `${appEmojiHeading("cancel", "Sanction annulée")}\n> *Aucune modification n'a été appliquée.*`,
           color: CARD_COLOR,
         },
       ],
@@ -530,7 +515,7 @@ async function handlePendingButton(
       embeds: [
         {
           title: " ",
-          description: "# \`❌\` 〃 Erreur\n> *Serveur introuvable.*",
+          description: `${appEmojiHeading("cancel", "Erreur")}\n> *Serveur introuvable.*`,
           color: 0xe82c20,
         },
       ],
@@ -555,7 +540,7 @@ async function handlePendingButton(
         {
           title: " ",
           description:
-            `# \`${EMOJI.cancel}\` 〃 Sanction refusée\n` +
+            `${appEmojiHeading("cancel", "Sanction refusée")}\n` +
             `> ***Action :** ${CARD_ACTION_LABELS[pending.action]}*\n` +
             `> ***Utilisateur :** <@${pending.targetId}>*\n` +
             `> *${result.error}*`,
@@ -571,12 +556,12 @@ async function handlePendingButton(
         {
           title: " ",
           description:
-            `# \`${EMOJI.check}\` 〃 ${CARD_ACTION_LABELS[pending.action]} effectuée\n` +
+            `${appEmojiHeading("check", `${CARD_ACTION_LABELS[pending.action]} effectuée`)}\n` +
             `> ***Utilisateur :** <@${pending.targetId}> (\`${pending.targetId}\`)*\n` +
             `> ***Raison :** ${pending.reason}*\n` +
             (pending.duration ? `> ***Durée :** ${formatTime(pending.duration)}*\n` : "") +
             `> ***Case :** ${c.caseIdFormatted}*` +
-            (result.result.dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${result.result.dm.error}*` : ""),
+            (result.result.dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${result.result.dm.error}*` : ""),
           color: CARD_COLOR,
         },
       ],

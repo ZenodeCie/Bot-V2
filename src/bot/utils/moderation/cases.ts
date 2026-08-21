@@ -1,5 +1,6 @@
 import { EmbedBuilder, type Client, type ColorResolvable, type Guild, type User } from "discord.js"
 import formatTime from "../formatTime.js"
+import { appEmojiHeading } from "../appEmojis.js"
 import { formatDate } from "./helpers.js"
 import {
   ACTION_EMOJIS,
@@ -95,7 +96,7 @@ export async function notifyUser(
   const embed = new EmbedBuilder()
     .setTitle(" ")
     .setDescription(
-      `# \`⚠️\` 〃 Sanction\n` +
+      `${appEmojiHeading("cancel", "Sanction")}\n` +
         `> *Vous avez été sanctionné(e) sur **${guildName}**.*\n` +
         `> ***Action :** ${actionLabel}*\n` +
         `> ***Raison :** ${reason}*\n` +
@@ -122,10 +123,10 @@ const STATUS_COLORS: Record<CaseStatus, ColorResolvable> = {
 
 export function buildCaseLogEmbed(c: ModCaseDoc): EmbedBuilder {
   const failed = c.status === "FAILED" || c.status === "DENIED"
-  const emoji = failed ? "❌" : ACTION_EMOJIS[c.action]
+  const heading = appEmojiHeading(failed ? "cancel" : ACTION_EMOJIS[c.action], ACTION_LABELS[c.action])
   const embed = new EmbedBuilder()
     .setTitle(" ")
-    .setDescription(`# \`${emoji}\` 〃 ${ACTION_LABELS[c.action]}`)
+    .setDescription(heading)
     .setColor(STATUS_COLORS[c.status])
 
   embed.addFields(

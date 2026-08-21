@@ -8,6 +8,8 @@ import {
   type GuildTextBasedChannel,
   type Interaction,
 } from "discord.js"
+import { appEmojiHeading, appEmojiOrFallback, appEmojiText } from "../appEmojis.js"
+import { noticePayload } from "./notice.js"
 import {
   Giveaway,
   clampDuration,
@@ -19,29 +21,12 @@ import {
   normalizeGiveaway,
   type GiveawayRecord,
 } from "./schema.js"
-import { noticePayload } from "./notice.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 const MAX_TIMEOUT = 2_147_483_647
 const SWEEP_INTERVAL = 60_000
 const EDIT_DEBOUNCE = 3_000
-
-const EMOJI_IDS = {
-  check: "1469692151251341425",
-  disable: "1469692191298556099",
-  party: "1469693039739146435",
-  people: "1469693090280505458",
-} as const
-
-const EMOJI_TAGS = {
-  check: "<:Check:1469692151251341425>",
-  disable: "<:Disable:1469692191298556099>",
-  duration: "<:Duration:1469692196331458704>",
-  party: "<:Party:1469693039739146435>",
-  people: "<:People:1469693090280505458>",
-  cogUser: "<:CogUser:1469692167122325577>",
-} as const
 
 export type GiveawayActionResult =
   | { ok: true; giveaway: GiveawayRecord }
@@ -91,37 +76,37 @@ export function buildGiveawayComponents(giveaway: GiveawayRecord): ContainerBuil
   const participantCount = giveaway.participants.length
 
   if (giveaway.cancelled) {
-    container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.disable} 〃 Giveaway annulé`))
+    container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("cancel", "Giveaway annulé")))
   } else if (giveaway.ended) {
-    container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.check} 〃 Giveaway terminé`))
+    container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("check", "Giveaway terminé")))
   } else {
-    container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.party} 〃 Giveaway`))
+    container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("add", "Giveaway")))
   }
 
   container.addSeparatorComponents((s) => s.setSpacing(1))
 
   const lines = [
     `> ***Prix :** ${giveaway.prize}*`,
-    `> ${EMOJI_TAGS.people} ***Gagnants :** \`${giveaway.winnerCount}\`*`,
-    `> ${EMOJI_TAGS.cogUser} ***Hôte :** <@${giveaway.hostId}>*`,
+    `> ${appEmojiText("people")} ***Gagnants :** \`${giveaway.winnerCount}\`*`,
+    `> ${appEmojiText("people")} ***Hôte :** <@${giveaway.hostId}>*`,
   ]
   if (giveaway.requiredRoleId) {
-    lines.push(`> ${EMOJI_TAGS.people} ***Rôle requis :** <@&${giveaway.requiredRoleId}>*`)
+    lines.push(`> ${appEmojiText("people")} ***Rôle requis :** <@&${giveaway.requiredRoleId}>*`)
   }
   if (giveaway.cancelled) {
-    lines.push(`> ${EMOJI_TAGS.disable} ***Statut :** Annulé*`)
+    lines.push(`> ${appEmojiText("cancel")} ***Statut :** Annulé*`)
   } else if (giveaway.ended) {
     lines.push(
       giveaway.winners.length > 0
-        ? `> ${EMOJI_TAGS.party} ***Gagnant${giveaway.winners.length > 1 ? "s" : ""} :** ${mentionUsers(giveaway.winners)}*`
-        : `> ${EMOJI_TAGS.disable} ***Gagnants :** Aucun participant*`
+        ? `> ${appEmojiText("add")} ***Gagnant${giveaway.winners.length > 1 ? "s" : ""} :** ${mentionUsers(giveaway.winners)}*`
+        : `> ${appEmojiText("cancel")} ***Gagnants :** Aucun participant*`
     )
-    lines.push(`> ${EMOJI_TAGS.people} ***Participants :** \`${participantCount}\`*`)
+    lines.push(`> ${appEmojiText("people")} ***Participants :** \`${participantCount}\`*`)
   } else {
     lines.push(
-      `> ${EMOJI_TAGS.duration} ***Fin :** <t:${unix(giveaway.endsAt)}:F> (<t:${unix(giveaway.endsAt)}:R>)*`
+      `> ${appEmojiText("loop")} ***Fin :** <t:${unix(giveaway.endsAt)}:F> (<t:${unix(giveaway.endsAt)}:R>)*`
     )
-    lines.push(`> ${EMOJI_TAGS.people} ***Participants :** \`${participantCount}\`*`)
+    lines.push(`> ${appEmojiText("people")} ***Participants :** \`${participantCount}\`*`)
   }
 
   container.addTextDisplayComponents((t) => t.setContent(lines.join("\n")))
@@ -137,7 +122,7 @@ export function buildGiveawayComponents(giveaway: GiveawayRecord): ContainerBuil
               : "Terminé"
             : `Participer (${participantCount})`.slice(0, 80)
         )
-        .setEmoji({ id: ended ? EMOJI_IDS.disable : EMOJI_IDS.party })
+        .setEmoji(appEmojiOrFallback(ended ? "cancel" : "add"))
         .setStyle(ended ? ButtonStyle.Secondary : ButtonStyle.Success)
         .setDisabled(ended)
     )
@@ -366,14 +351,14 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
   const giveaway = await getGiveaway(id)
   if (!giveaway || giveaway.guildId !== interaction.guild.id) {
     await interaction.reply(
-      noticePayload("disable", "Giveaway indisponible", "> *Ce giveaway n'est plus disponible.*", { ephemeral: true })
+      noticePayload("cancel", "Giveaway indisponible", "> *Ce giveaway n'est plus disponible.*", { ephemeral: true })
     )
     return true
   }
   if (giveaway.cancelled || giveaway.ended) {
     await interaction.reply(
       noticePayload(
-        "disable",
+        "cancel",
         "Giveaway indisponible",
         giveaway.cancelled ? "> *Ce giveaway a été annulé.*" : "> *Ce giveaway est terminé.*",
         { ephemeral: true }
@@ -382,7 +367,7 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
     return true
   }
   if (interaction.user.bot) {
-    await interaction.reply(noticePayload("disable", "Participation refusée", "> *Les bots ne peuvent pas participer.*", { ephemeral: true }))
+    await interaction.reply(noticePayload("cancel", "Participation refusée", "> *Les bots ne peuvent pas participer.*", { ephemeral: true }))
     return true
   }
 
@@ -390,13 +375,13 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
     interaction.guild.members.cache.get(interaction.user.id) ??
     (await interaction.guild.members.fetch(interaction.user.id).catch(() => null))
   if (!member) {
-    await interaction.reply(noticePayload("disable", "Erreur", "> *Membre introuvable.*", { ephemeral: true }))
+    await interaction.reply(noticePayload("cancel", "Erreur", "> *Membre introuvable.*", { ephemeral: true }))
     return true
   }
   if (giveaway.requiredRoleId && !member.roles.cache.has(giveaway.requiredRoleId)) {
     await interaction.reply(
       noticePayload(
-        "disable",
+        "cancel",
         "Rôle requis",
         `> *Vous devez avoir le rôle <@&${giveaway.requiredRoleId}> pour participer.*`,
         { ephemeral: true }
@@ -415,7 +400,7 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
   if (added) {
     scheduleMessageRefresh(client, id)
     await interaction.reply(
-      noticePayload("party", "Participation confirmée", `> *Vous participez au giveaway **${giveaway.prize}**.*`, {
+      noticePayload("add", "Participation confirmée", `> *Vous participez au giveaway **${giveaway.prize}**.*`, {
         ephemeral: true,
       })
     )
@@ -431,7 +416,7 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
   if (removed) {
     scheduleMessageRefresh(client, id)
     await interaction.reply(
-      noticePayload("disable", "Participation retirée", `> *Vous ne participez plus au giveaway **${giveaway.prize}**.*`, {
+      noticePayload("cancel", "Participation retirée", `> *Vous ne participez plus au giveaway **${giveaway.prize}**.*`, {
         ephemeral: true,
       })
     )
@@ -439,7 +424,7 @@ export async function handleEnterInteraction(client: Client, interaction: Intera
   }
 
   await interaction.reply(
-    noticePayload("disable", "Giveaway indisponible", "> *Ce giveaway n'est plus disponible.*", { ephemeral: true })
+    noticePayload("cancel", "Giveaway indisponible", "> *Ce giveaway n'est plus disponible.*", { ephemeral: true })
   )
   return true
 }

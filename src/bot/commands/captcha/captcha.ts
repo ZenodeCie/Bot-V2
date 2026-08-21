@@ -124,7 +124,7 @@ export default {
       return message.reply({
         embeds: [
           buildCaptchaEmbed(
-            "✅",
+            "check",
             enabled ? "Captcha activé" : "Captcha désactivé",
             enabled
               ? `> *La vérification à l'arrivée est maintenant **activée**.*` +
@@ -149,7 +149,7 @@ export default {
         },
       })
       return message.reply({
-        embeds: [buildCaptchaEmbed("✅", "Captcha réinitialisé", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
+        embeds: [buildCaptchaEmbed("check", "Captcha réinitialisé", "> *Tous les paramètres ont été remis aux valeurs par défaut.*")],
       })
     }
 
@@ -158,7 +158,7 @@ export default {
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { channelId: null } })
         return message.reply({
-          embeds: [buildCaptchaEmbed("📁", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
+          embeds: [buildCaptchaEmbed("file", "Salon retiré", "> *Aucun salon n'est configuré.*", colors.prime)],
         })
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
@@ -172,7 +172,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { channelId: channel.id } })
       return message.reply({
-        embeds: [buildCaptchaEmbed("📁", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
+        embeds: [buildCaptchaEmbed("file", "Salon configuré", `> ***Salon :** <#${channel.id}>*`)],
       })
     }
 
@@ -181,7 +181,7 @@ export default {
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { roleId: null } })
         return message.reply({
-          embeds: [buildCaptchaEmbed("📁", "Rôle retiré", "> *Aucun rôle n'est configuré.*", colors.prime)],
+          embeds: [buildCaptchaEmbed("file", "Rôle retiré", "> *Aucun rôle n'est configuré.*", colors.prime)],
         })
       }
       const id = message.mentions.roles.first()?.id ?? resolveIdFromArg(raw)
@@ -201,7 +201,7 @@ export default {
       }
       await updateConfig(guild.id, { $set: { roleId: role.id } })
       return message.reply({
-        embeds: [buildCaptchaEmbed("📁", "Rôle configuré", `> ***Rôle :** ${role}*`)]
+        embeds: [buildCaptchaEmbed("file", "Rôle configuré", `> ***Rôle :** ${role}*`)]
       })
     }
 
@@ -215,7 +215,7 @@ export default {
       const timeout = clampTimeout(parsed)
       await updateConfig(guild.id, { $set: { timeout } })
       return message.reply({
-        embeds: [buildCaptchaEmbed("✅", "Délai mis à jour", `> ***Délai :** \`${formatTime(timeout)}\`*`)],
+        embeds: [buildCaptchaEmbed("check", "Délai mis à jour", `> ***Délai :** \`${formatTime(timeout)}\`*`)],
       })
     }
 
@@ -229,7 +229,7 @@ export default {
       const maxAttempts = clampAttempts(raw)
       await updateConfig(guild.id, { $set: { maxAttempts } })
       return message.reply({
-        embeds: [buildCaptchaEmbed("✅", "Essais mis à jour", `> ***Essais :** \`${maxAttempts}\`*`)],
+        embeds: [buildCaptchaEmbed("check", "Essais mis à jour", `> ***Essais :** \`${maxAttempts}\`*`)],
       })
     }
 
@@ -246,7 +246,7 @@ export default {
       return message.reply({
         embeds: [
           buildCaptchaEmbed(
-            "✅",
+            "check",
             "Expulsion",
             enabled
               ? "> *Les membres seront **expulsés** en cas d'échec ou d'expiration.*"
@@ -269,7 +269,7 @@ export default {
       return message.reply({
         embeds: [
           buildCaptchaEmbed(
-            "✅",
+            "check",
             "Bots",
             enabled
               ? "> *Les bots **ne déclenchent plus** le captcha.*"

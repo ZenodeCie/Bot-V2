@@ -5,8 +5,6 @@ import { resolveTarget } from "../../utils/moderation/helpers.js"
 import { buildInvitationsEmbed } from "../../utils/invitations/dashboard.js"
 import { getMemberInvites, getMemberRank, inviteTotal } from "../../utils/invitations/schema.js"
 
-const RANK_EMOJI = "<:People:1469693090280505458>"
-
 export default {
   name: "invites",
   description: "Affiche les invitations d'un membre.",
@@ -49,7 +47,7 @@ export default {
     return message.reply({
       embeds: [
         buildInvitationsEmbed(
-          RANK_EMOJI,
+          "people",
           "Invitations",
           `> ***Membre :** <@${userId}>*\n` +
             `> ***Total :** \`${total}\`*\n` +

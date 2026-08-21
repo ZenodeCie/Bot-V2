@@ -221,7 +221,7 @@ export default {
 
     if (!message.guild) {
       return message.reply(
-        noticePayload("disable", "Contexte invalide", "> *Cette commande doit être exécutée dans un serveur.*")
+        noticePayload("cancel", "Contexte invalide", "> *Cette commande doit être exécutée dans un serveur.*")
       )
     }
 
@@ -250,18 +250,18 @@ export default {
       const raw = args[1] ?? ""
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { defaultChannelId: null } })
-        return message.reply(noticePayload("disable", "Salon retiré", "> *Aucun salon par défaut n'est configuré.*"))
+        return message.reply(noticePayload("cancel", "Salon retiré", "> *Aucun salon par défaut n'est configuré.*"))
       }
       const channelId = message.mentions.channels.first()?.id ?? resolveChannelIdFromArg(raw)
       const channel = await resolveTextChannel(guild, channelId)
       if (!channel) {
         return message.reply(
-          noticePayload("disable", "Salon invalide", "> *Salon invalide. Utilisez : `giveaway salon <#salon|off>`.*")
+          noticePayload("cancel", "Salon invalide", "> *Salon invalide. Utilisez : `giveaway salon <#salon|off>`.*")
         )
       }
       await updateConfig(guild.id, { $set: { defaultChannelId: channel.id } })
       return message.reply(
-        noticePayload("channel", "Salon configuré", `> ***Salon par défaut :** <#${channel.id}>*`)
+        noticePayload("file", "Salon configuré", `> ***Salon par défaut :** <#${channel.id}>*`)
       )
     }
 
@@ -269,23 +269,23 @@ export default {
       const raw = args[1] ?? ""
       if (isOffArg(raw)) {
         await updateConfig(guild.id, { $set: { requiredRoleId: null } })
-        return message.reply(noticePayload("disable", "Rôle retiré", "> *Aucun rôle n'est requis pour participer.*"))
+        return message.reply(noticePayload("cancel", "Rôle retiré", "> *Aucun rôle n'est requis pour participer.*"))
       }
       const id = message.mentions.roles.first()?.id ?? resolveIdFromArg(raw)
       if (!id) {
-        return message.reply(noticePayload("disable", "Rôle invalide", "> *Utilisation : `giveaway role <@rôle|id|off>`.*"))
+        return message.reply(noticePayload("cancel", "Rôle invalide", "> *Utilisation : `giveaway role <@rôle|id|off>`.*"))
       }
       if (id === guild.id) {
         return message.reply(
-          noticePayload("disable", "Rôle invalide", "> *Le rôle @everyone ne peut pas être utilisé.*")
+          noticePayload("cancel", "Rôle invalide", "> *Le rôle @everyone ne peut pas être utilisé.*")
         )
       }
       const role = guild.roles.cache.get(id) ?? (await guild.roles.fetch(id).catch(() => null))
       if (!role) {
-        return message.reply(noticePayload("disable", "Rôle introuvable", "> *Rôle introuvable.*"))
+        return message.reply(noticePayload("cancel", "Rôle introuvable", "> *Rôle introuvable.*"))
       }
       await updateConfig(guild.id, { $set: { requiredRoleId: role.id } })
-      return message.reply(noticePayload("cogUser", "Rôle configuré", `> ***Rôle requis :** ${role}*`))
+      return message.reply(noticePayload("people", "Rôle configuré", `> ***Rôle requis :** ${role}*`))
     }
 
     if (head === "gagnants") {
@@ -293,7 +293,7 @@ export default {
       if (!Number.isInteger(raw) || raw < MIN_WINNERS || raw > MAX_WINNERS) {
         return message.reply(
           noticePayload(
-            "disable",
+            "cancel",
             "Valeur invalide",
             `> *Utilisation : \`giveaway gagnants <n>\` (${MIN_WINNERS}–${MAX_WINNERS}).*`
           )
@@ -309,7 +309,7 @@ export default {
     if (head === "list") {
       const active = await listActiveGiveaways(guild.id, 25)
       if (active.length === 0) {
-        return message.reply(noticePayload("notes", "Giveaways", "> *Aucun giveaway en cours.*"))
+        return message.reply(noticePayload("file", "Giveaways", "> *Aucun giveaway en cours.*"))
       }
       const lines = active.map((giveaway) => {
         const jump = giveaway.messageId
@@ -321,14 +321,14 @@ export default {
         )
       })
       return message.reply(
-        noticePayload("notes", `Giveaways en cours (${active.length})`, lines.join("\n"))
+        noticePayload("file", `Giveaways en cours (${active.length})`, lines.join("\n"))
       )
     }
 
     if (head === "start") {
       const parsed = await parseStartArgs(guild, args.slice(1))
       if ("error" in parsed) {
-        return message.reply(noticePayload("disable", "Utilisation incorrecte", parsed.error))
+        return message.reply(noticePayload("cancel", "Utilisation incorrecte", parsed.error))
       }
       const config = await getConfig(guild.id)
       const channelId = parsed.channelId ?? config.defaultChannelId ?? message.channel?.id ?? message.channelId
@@ -336,7 +336,7 @@ export default {
       if (!channel) {
         return message.reply(
           noticePayload(
-            "disable",
+            "cancel",
             "Salon invalide",
             "> *Salon invalide. Configurez un salon par défaut ou précisez un salon textuel.*"
           )
@@ -353,12 +353,12 @@ export default {
         requiredRoleId: parsed.roleId ?? config.requiredRoleId,
       })
       if (!result.ok) {
-        return message.reply(noticePayload("disable", "Action impossible", result.error))
+        return message.reply(noticePayload("cancel", "Action impossible", result.error))
       }
       const remaining = result.giveaway.endsAt - Date.now()
       return message.reply(
         noticePayload(
-          "party",
+          "add",
           "Giveaway lancé",
           `> ***Prix :** ${result.giveaway.prize}*\n` +
             `> ***Salon :** <#${result.giveaway.channelId}>*\n` +
@@ -375,7 +375,7 @@ export default {
       if (!target) {
         return message.reply(
           noticePayload(
-            "disable",
+            "cancel",
             "Giveaway introuvable",
             head === "reroll"
               ? "> *Aucun giveaway terminé à relancer. Précisez l'ID ou le lien du message.*"
@@ -390,10 +390,10 @@ export default {
             ? await rerollGiveaway(client, target.id)
             : await cancelGiveaway(client, target.id)
       if (!result.ok) {
-        return message.reply(noticePayload("disable", "Action impossible", result.error))
+        return message.reply(noticePayload("cancel", "Action impossible", result.error))
       }
       const title = head === "end" ? "Giveaway terminé" : head === "reroll" ? "Giveaway relancé" : "Giveaway annulé"
-      const emojiKey = head === "end" ? ("check" as const) : head === "reroll" ? ("loop" as const) : ("disable" as const)
+      const emojiKey = head === "end" ? ("check" as const) : head === "reroll" ? ("loop" as const) : ("cancel" as const)
       const winners =
         result.giveaway.winners.length > 0
           ? result.giveaway.winners.map((id) => `<@${id}>`).join(", ")

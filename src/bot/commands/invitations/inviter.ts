@@ -5,8 +5,6 @@ import { resolveTarget } from "../../utils/moderation/helpers.js"
 import { buildInvitationsEmbed } from "../../utils/invitations/dashboard.js"
 import { VANITY_CODE, getJoinRecord } from "../../utils/invitations/schema.js"
 
-const RANK_EMOJI = "<:People:1469693090280505458>"
-
 export default {
   name: "inviter",
   description: "Affiche qui a invité un membre.",
@@ -44,7 +42,7 @@ export default {
     if (!record) {
       return message.reply({
         embeds: [
-          buildInvitationsEmbed(RANK_EMOJI, "Inviteur", `> *Aucun enregistrement d'invitation pour <@${userId}>.*`),
+          buildInvitationsEmbed("people", "Inviteur", `> *Aucun enregistrement d'invitation pour <@${userId}>.*`),
         ],
       })
     }
@@ -57,7 +55,7 @@ export default {
     return message.reply({
       embeds: [
         buildInvitationsEmbed(
-          RANK_EMOJI,
+          "people",
           "Inviteur",
           `> ***Membre :** <@${userId}>*\n` +
             `> ***Invité par :** ${inviterLabel}*\n` +

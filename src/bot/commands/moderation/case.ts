@@ -10,6 +10,7 @@ import {
   metaNumber,
   metaString,
 } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 export default {
   name: "case",
@@ -41,7 +42,7 @@ export default {
     const previous = c.linkedCaseId ? await getCaseByNumber(guild.id, c.linkedCaseId) : null
 
     const lines: string[] = [
-      `> ***Action :** ${ACTION_EMOJIS[c.action]} ${ACTION_LABELS[c.action]}*`,
+      `> ***Action :** ${appEmojiText(ACTION_EMOJIS[c.action])} ${ACTION_LABELS[c.action]}*`,
       `> ***Utilisateur :** ${c.username} (\`${c.userId ?? "—"}\`)*`,
       `> ***Modérateur :** ${c.moderatorUsername} (\`${c.moderatorId ?? "—"}\`)*`,
       `> ***Raison :** ${c.reason}*`,
@@ -94,7 +95,7 @@ export default {
       embeds: [
         {
           title: " ",
-          description: `# \`🔍\` 〃 ${c.caseIdFormatted}\n\n${lines.join("\n")}`,
+          description: `${appEmojiHeading("pin", c.caseIdFormatted)}\n\n${lines.join("\n")}`,
           color: 0xf47c0b,
           footer: { text: `Guild : ${c.guildName}` },
         },

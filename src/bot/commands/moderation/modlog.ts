@@ -2,6 +2,7 @@ import type { Client, Message } from "discord.js"
 import { ApplicationCommandOptionType, type ChatInputCommandInteraction } from "discord.js"
 import { logCommandUse, replyError, requireGuild } from "../../utils/moderation/helpers.js"
 import { ModerationConfig } from "../../utils/moderation/schema.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 export default {
   name: "modlog",
@@ -44,7 +45,7 @@ export default {
         embeds: [
           {
             title: " ",
-            description: "# `📁` 〃 Logs de modération désactivés\n> *Aucune action de modération ne sera plus envoyée dans un salon de logs.*",
+            description: `${appEmojiHeading("file", "Logs de modération désactivés")}\n> *Aucune action de modération ne sera plus envoyée dans un salon de logs.*`,
             color: 0x95a5a6,
           },
         ],
@@ -62,7 +63,7 @@ export default {
             {
               title: " ",
               description:
-                `# \`📁\` 〃 Salon de logs\n` +
+                `${appEmojiHeading("file", "Salon de logs")}\n` +
                 `> ***Salon actuel :** <#${current.logChannelId}>*\n` +
                 `> *Utilisez \`modlog <#salon>\` pour le changer ou \`modlog off\` pour le désactiver.*`,
               color: 0xf4e00b,
@@ -88,7 +89,7 @@ export default {
         {
           title: " ",
           description:
-            `# \`📁\` 〃 Salon de logs configuré\n` +
+            `${appEmojiHeading("file", "Salon de logs configuré")}\n` +
             `> ***Salon :** <#${channel.id}>*\n` +
             `> *Toutes les actions de modération (réussies, refusées, échouées) y seront envoyées.*`,
           color: 0x2ecc71,

@@ -3,6 +3,7 @@ import { ApplicationCommandOptionType } from "discord.js"
 import parseTime from "../../utils/parseTime.js"
 import { extractReason, logCommandUse, replyError, requireGuild } from "../../utils/moderation/helpers.js"
 import { createCase, logModCase } from "../../utils/moderation/cases.js"
+import { appEmojiHeading } from "../../utils/appEmojis.js"
 
 const MAX_SLOWMODE_SECONDS = 21_600
 
@@ -63,7 +64,7 @@ export default {
           {
             title: " ",
             description:
-              `# \`🐢\` 〃 Slowmode modifié\n` +
+              `${appEmojiHeading("cog", "Slowmode modifié")}\n` +
               `> ***Salon :** <#${channel.id}>*\n` +
               `> ***Ancien :** ${oldSlowmode > 0 ? `${oldSlowmode}s` : "Désactivé"} → **Nouveau :** ${seconds > 0 ? `${seconds}s` : "Désactivé"}*\n` +
               `> ***Raison :** ${reason}*\n` +

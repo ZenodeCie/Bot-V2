@@ -17,7 +17,7 @@ export default createModuleCommand({
       }
       await AntiRaid.findOneAndUpdate({ guildId: message.guild!.id }, { $addToSet: { "modules.badword.bannedWords": word } }, { upsert: true })
       _client.antiraid.invalidateConfig(message.guild!.id)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Mot interdit", `> *\`${word}\` a été ajouté à la liste des mots interdits.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Mot interdit", `> *\`${word}\` a été ajouté à la liste des mots interdits.*`)] })
     },
     async remove(_client, message, args) {
       const word = args.slice(1).join(" ").toLowerCase()
@@ -26,14 +26,14 @@ export default createModuleCommand({
       }
       await AntiRaid.findOneAndUpdate({ guildId: message.guild!.id }, { $pull: { "modules.badword.bannedWords": word } }, { upsert: true })
       _client.antiraid.invalidateConfig(message.guild!.id)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Mot interdit", `> *\`${word}\` a été retiré de la liste des mots interdits.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Mot interdit", `> *\`${word}\` a été retiré de la liste des mots interdits.*`)] })
     },
     async list(_client, message, _args, config) {
       const words = config.modules.badword.bannedWords
       return message.reply({
         embeds: [
           buildAntiRaidEmbed(
-            "🚫",
+            "cancel",
             "Mots interdits",
             words.length > 0
               ? `> *Liste (${words.length}) :*\n> ${words.map((w) => `\`${w}\``).join(", ")}`

@@ -17,6 +17,7 @@ import {
   type MessageComponentInteraction,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
 import { publishStaffList, republishIfPublished } from "./engine.js"
 import {
   MAX_ROLES,
@@ -30,33 +31,12 @@ import {
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 
-const EMOJI_IDS = {
-  bot: "1469692094342762526",
-  channel: "1469692104589705376",
-  check: "1469692151251341425",
-  cogUser: "1469692167122325577",
-  disable: "1469692191298556099",
-  enable: "1469692252988116992",
-  notes: "1469692988870623369",
-  pen: "1469693057497563160",
-  people: "1469693090280505458",
-} as const
-
-const emoji = (key: keyof typeof EMOJI_IDS): { id: string } => ({ id: EMOJI_IDS[key] })
-
-const EMOJI_TAGS = {
-  bot: "<:Bot:1469692094342762526>",
-  channel: "<:Channel:1469692104589705376>",
-  check: "<:Check:1469692151251341425>",
-  cogUser: "<:CogUser:1469692167122325577>",
-  disable: "<:Disable:1469692191298556099>",
-  enable: "<:Enable:1469692252988116992>",
-  notes: "<:Notes:1469692988870623369>",
-  people: "<:People:1469693090280505458>",
-} as const
-
 function onOff(enabled: boolean): string {
-  return enabled ? `${EMOJI_TAGS.enable} Activé` : `${EMOJI_TAGS.disable} Désactivé`
+  return enabled ? `${appEmojiText("power")} Activé` : `${appEmojiText("power")} Désactivé`
+}
+
+function yesNo(value: boolean): string {
+  return value ? `${appEmojiText("check")} Oui` : `${appEmojiText("cancel")} Non`
 }
 
 function channelMention(channelId: string | null): string {
@@ -84,12 +64,12 @@ function roleSummary(guild: Guild, config: StaffListConfig): string {
 }
 
 export function buildStaffListEmbed(
-  emojiChar: string,
+  name: AppEmojiName,
   title: string,
   desc: string,
   color: `#${string}` | null = colors.prime
 ): EmbedBuilder {
-  const embed = new EmbedBuilder().setTitle(" ").setDescription(`# \`${emojiChar}\` 〃 ${title}\n${desc}`)
+  const embed = new EmbedBuilder().setTitle(" ").setDescription(`${appEmojiHeading(name, title)}\n${desc}`)
   if (color) embed.setColor(color)
   return embed
 }
@@ -112,17 +92,17 @@ async function requireManageGuild(interaction: Interaction): Promise<boolean> {
 
 export function buildStaffListContainer(_client: Client, guild: Guild, config: StaffListConfig): ContainerBuilder[] {
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.people} 〃 Liste du Staff`))
+  container.addTextDisplayComponents((t) => t.setContent(`# ${appEmojiText("people")} 〃 Liste du Staff`))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
       `> *Liste automatique du staff, groupée par rôle et actualisée en temps réel.*\n\n` +
         `> **État :** ${onOff(config.enabled)}\n` +
-        `> ${EMOJI_TAGS.channel} **Salon :** ${channelMention(config.channelId)}\n` +
-        `> ${EMOJI_TAGS.cogUser} **Rôles :** ${roleSummary(guild, config)}\n` +
-        `> ${EMOJI_TAGS.enable} **Statut :** ${config.showStatus ? `${EMOJI_TAGS.enable} Affiché` : `${EMOJI_TAGS.disable} Masqué`}\n` +
-        `> ${EMOJI_TAGS.bot} **Ignorer les bots :** ${config.ignoreBots ? `${EMOJI_TAGS.enable} Oui` : `${EMOJI_TAGS.disable} Non`}\n` +
-        `> ${EMOJI_TAGS.notes} **Titre :** ${previewText(config.title || "Liste du Staff")}`
+        `> ${appEmojiText("file")} **Salon :** ${channelMention(config.channelId)}\n` +
+        `> ${appEmojiText("people")} **Rôles :** ${roleSummary(guild, config)}\n` +
+        `> ${appEmojiText("power")} **Statut :** ${config.showStatus ? `${appEmojiText("check")} Affiché` : `${appEmojiText("cancel")} Masqué`}\n` +
+        `> ${appEmojiText("people")} **Ignorer les bots :** ${yesNo(config.ignoreBots)}\n` +
+        `> ${appEmojiText("file")} **Titre :** ${previewText(config.title || "Liste du Staff")}`
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -132,12 +112,12 @@ export function buildStaffListContainer(_client: Client, guild: Guild, config: S
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("sl_toggle")
-          .setEmoji(config.enabled ? emoji("disable") : emoji("enable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.channel} **Salon de la liste**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de la liste**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
@@ -151,11 +131,11 @@ export function buildStaffListContainer(_client: Client, guild: Guild, config: S
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Retirer le salon**"))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("sl_channel_clear").setEmoji(emoji("disable")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
+        btn.setCustomId("sl_channel_clear").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Danger).setDisabled(!config.channelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`${EMOJI_TAGS.cogUser} **Ajouter des rôles staff**`))
+  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("people")} **Ajouter des rôles staff**`))
   container.addActionRowComponents((row) =>
     row.setComponents(
       new RoleSelectMenuBuilder()
@@ -190,13 +170,13 @@ export function buildStaffListContainer(_client: Client, guild: Guild, config: S
       .addTextDisplayComponents((t) =>
         t.setContent(`**Titre et description**\n> ${previewText(config.title || "Liste du Staff")}`)
       )
-      .setButtonAccessory((btn) => btn.setCustomId("sl_text").setEmoji(emoji("pen")).setStyle(ButtonStyle.Secondary))
+      .setButtonAccessory((btn) => btn.setCustomId("sl_text").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary))
   )
   container.addSectionComponents((sectionBuilder) =>
     sectionBuilder
       .addTextDisplayComponents((t) => t.setContent("**Publier / actualiser**\n> Envoie ou met à jour le message dans le salon."))
       .setButtonAccessory((btn) =>
-        btn.setCustomId("sl_publish").setEmoji(emoji("check")).setStyle(ButtonStyle.Success).setDisabled(!config.channelId)
+        btn.setCustomId("sl_publish").setEmoji(appEmojiComponent("check")).setStyle(ButtonStyle.Success).setDisabled(!config.channelId)
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -204,13 +184,13 @@ export function buildStaffListContainer(_client: Client, guild: Guild, config: S
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
-          `**Statut en ligne**\n> ${config.showStatus ? `Affiché à côté de chaque membre ${EMOJI_TAGS.enable}` : `Masqué ${EMOJI_TAGS.disable}`}`
+          `**Statut en ligne**\n> ${config.showStatus ? `Affiché à côté de chaque membre ${appEmojiText("check")}` : `Masqué ${appEmojiText("cancel")}`}`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("sl_status")
-          .setEmoji(config.showStatus ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.showStatus ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )
@@ -218,13 +198,13 @@ export function buildStaffListContainer(_client: Client, guild: Guild, config: S
     sectionBuilder
       .addTextDisplayComponents((t) =>
         t.setContent(
-          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots n'apparaissent pas ${EMOJI_TAGS.enable}` : `Les bots apparaissent ${EMOJI_TAGS.disable}`}`
+          `**Ignorer les bots**\n> ${config.ignoreBots ? `Les bots n'apparaissent pas ${appEmojiText("check")}` : `Les bots apparaissent ${appEmojiText("cancel")}`}`
         )
       )
       .setButtonAccessory((btn) =>
         btn
           .setCustomId("sl_bots")
-          .setEmoji(config.ignoreBots ? emoji("enable") : emoji("disable"))
+          .setEmoji(appEmojiComponent("power"))
           .setStyle(config.ignoreBots ? ButtonStyle.Success : ButtonStyle.Danger)
       )
   )

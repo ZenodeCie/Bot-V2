@@ -12,6 +12,7 @@ import {
 import { createCase, findActiveCase, logModCase, notifyUser, recordDenied, recordFailed, updateCaseDm, type DmResult } from "../../utils/moderation/cases.js"
 import { addMuteRole } from "../../utils/moderation/mute.js"
 import { ACTION_LABELS } from "../../utils/moderation/schema.js"
+import { appEmojiHeading, appEmojiText } from "../../utils/appEmojis.js"
 
 const MAX_MUTE_MS = 365 * 86_400_000
 
@@ -103,12 +104,12 @@ export default {
           {
             title: " ",
             description:
-              `# \`🔇\` 〃 Membre muté\n` +
+              `${appEmojiHeading("cancel", "Membre muté")}\n` +
               `> ***Utilisateur :** ${target.username} (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*\n` +
               `> ***Durée :** ${duration / 1000}s (fin prévue : <t:${Math.floor(endAt / 1000)}:T>)*\n` +
               `> ***Case :** ${c.caseIdFormatted}*` +
-              (dm.status === "failed" ? `\n> *⚠️ DM impossible à envoyer : ${dm.error}*` : ""),
+              (dm.status === "failed" ? `\n> *${appEmojiText("cancel")} DM impossible à envoyer : ${dm.error}*` : ""),
             color: 0x2ecc71,
           },
         ],

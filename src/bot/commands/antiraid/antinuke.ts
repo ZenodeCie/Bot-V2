@@ -17,7 +17,7 @@ export default createModuleCommand({
       }
       await AntiRaid.findOneAndUpdate({ guildId: message.guild!.id }, { $set: { "modules.nuke.channelThreshold": count, mode: "custom" } }, { upsert: true })
       _client.antiraid.invalidateConfig(message.guild!.id)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Anti-nuke", `> ***Suppressions de salons :** seuil \`${count}\`.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Anti-nuke", `> ***Suppressions de salons :** seuil \`${count}\`.*`)] })
     },
     async role(_client, message, args) {
       const count = Number(args[1])
@@ -26,7 +26,7 @@ export default createModuleCommand({
       }
       await AntiRaid.findOneAndUpdate({ guildId: message.guild!.id }, { $set: { "modules.nuke.roleThreshold": count, mode: "custom" } }, { upsert: true })
       _client.antiraid.invalidateConfig(message.guild!.id)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Anti-nuke", `> ***Suppressions de rôles :** seuil \`${count}\`.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Anti-nuke", `> ***Suppressions de rôles :** seuil \`${count}\`.*`)] })
     },
     async webhook(_client, message, args) {
       const count = Number(args[1])
@@ -35,7 +35,7 @@ export default createModuleCommand({
       }
       await AntiRaid.findOneAndUpdate({ guildId: message.guild!.id }, { $set: { "modules.nuke.webhookThreshold": count, mode: "custom" } }, { upsert: true })
       _client.antiraid.invalidateConfig(message.guild!.id)
-      return message.reply({ embeds: [buildAntiRaidEmbed("✅", "Anti-nuke", `> ***Créations de webhooks :** seuil \`${count}\`.*`)] })
+      return message.reply({ embeds: [buildAntiRaidEmbed("check", "Anti-nuke", `> ***Créations de webhooks :** seuil \`${count}\`.*`)] })
     },
   },
 })
