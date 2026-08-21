@@ -61,6 +61,10 @@ export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
     commandGlobs: ["commands/rules"],
     eventGlobs: [],
   },
+  Invitations: {
+    commandGlobs: ["commands/invitations"],
+    eventGlobs: ["events/invitations"],
+  },
 }
 
 export function resolveEnabledModules(requested: string[]): { enabled: Set<string>; unknown: string[] } {

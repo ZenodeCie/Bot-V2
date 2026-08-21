@@ -16,6 +16,7 @@ export const KNOWN_MODULE_KEYS = [
   "Douane",
   "Message-Horaire",
   "InformationPanel",
+  "Invitations",
   "FactoryPremium",
   "FactoryManager",
 ] as const

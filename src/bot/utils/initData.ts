@@ -35,6 +35,9 @@ const COLLECTIONS = [
   "messagehoraires",
   "stafflist",
   "rules",
+  "invitations",
+  "invitations_users",
+  "invitations_joins",
 ]
 
 export default async function initData() {

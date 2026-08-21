@@ -45,6 +45,7 @@ const CATEGORY_EMOJIS: Record<string, { id: string; name: string; tag: string }>
   "message-horaire": E.duration,
   stafflist: E.cogUser,
   rules: E.file,
+  invitations: E.people,
 }
 
 const FALLBACK_EMOJI = E.channel
@@ -64,6 +65,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   "message-horaire": "Messages horaires",
   stafflist: "Liste du staff",
   rules: "Règlement",
+  invitations: "Invitations",
 }
 
 function capitalize(value: string): string {
