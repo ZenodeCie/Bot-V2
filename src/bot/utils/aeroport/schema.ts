@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MEDIA_SOURCES = ["none", "avatar", "server", "url"] as const
 export type MediaSource = (typeof MEDIA_SOURCES)[number]
@@ -197,7 +198,7 @@ const dmSchema = new Schema(
 
 const aeroportSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     ignoreBots: { type: Boolean, default: true },
     arrival: { type: flightSchema, default: () => structuredClone(ARRIVAL_DEFAULT) },
     departure: { type: flightSchema, default: () => structuredClone(DEPARTURE_DEFAULT) },
@@ -206,6 +207,9 @@ const aeroportSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(aeroportSchema)
+uniqueBotGuildIndex(aeroportSchema)
 
 export const Aeroport = model("Aeroport", aeroportSchema, "aeroport")
 

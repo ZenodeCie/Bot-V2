@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex, uniqueBotGuildUserIndex } from "../mongoScope.js"
 
 export const MIN_FAKE_AGE = 0
 export const MAX_FAKE_AGE = 30 * 24 * 60 * 60 * 1000
@@ -87,7 +88,7 @@ const rewardSchema = new Schema(
 
 const configSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     logChannelId: { type: String, default: null },
     fakeAge: { type: Number, default: DEFAULT_FAKE_AGE },
@@ -98,6 +99,9 @@ const configSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(configSchema)
+uniqueBotGuildIndex(configSchema)
 
 export const Invitations = model("Invitations", configSchema, "invitations")
 
@@ -113,7 +117,8 @@ const statsSchema = new Schema(
   { timestamps: true }
 )
 
-statsSchema.index({ guildId: 1, userId: 1 }, { unique: true })
+applyBotScope(statsSchema)
+uniqueBotGuildUserIndex(statsSchema)
 
 export const InviteUser = model("InviteUser", statsSchema, "invitations_users")
 
@@ -130,7 +135,8 @@ const joinSchema = new Schema(
   { timestamps: true }
 )
 
-joinSchema.index({ guildId: 1, userId: 1 }, { unique: true })
+applyBotScope(joinSchema)
+uniqueBotGuildUserIndex(joinSchema)
 
 export const InviteJoin = model("InviteJoin", joinSchema, "invitations_joins")
 

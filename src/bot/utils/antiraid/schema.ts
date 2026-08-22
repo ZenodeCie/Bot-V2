@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const PUNISHMENTS = ["warn", "timeout", "kick", "ban", "lockdown", "none"] as const
 export type Punishment = (typeof PUNISHMENTS)[number]
@@ -279,7 +280,7 @@ const lockdownSchema = new Schema(
 
 const antiRaidSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     mode: { type: String, enum: MODES, default: "balanced" },
     raidMode: { type: Boolean, default: false },
@@ -297,6 +298,9 @@ const antiRaidSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(antiRaidSchema)
+uniqueBotGuildIndex(antiRaidSchema)
 
 export const AntiRaid = model("AntiRaid", antiRaidSchema, "antiraid")
 

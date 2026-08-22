@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildUserIndex } from "../mongoScope.js"
 
 export interface UserNoteDoc {
   guildId: string
@@ -26,7 +27,8 @@ const userNoteSchema = new Schema<UserNoteDoc>(
   }
 )
 
-userNoteSchema.index({ guildId: 1, userId: 1 }, { unique: true })
+applyBotScope(userNoteSchema)
+uniqueBotGuildUserIndex(userNoteSchema)
 
 export const UserNote = model<UserNoteDoc>("UserNote", userNoteSchema, "mod_user_notes")
 

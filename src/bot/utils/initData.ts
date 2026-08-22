@@ -1,14 +1,18 @@
 import { Schema, model, type InferSchemaType } from "mongoose"
 import config from "../config.js"
 import mongoClient from "./mongoClient.js"
+import { applyBotScope, uniqueBotGuildIndex } from "./mongoScope.js"
 
 const guildSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     prefix: { type: String, required: true, default: config.prefix },
   },
   { timestamps: true }
 )
+
+applyBotScope(guildSchema)
+uniqueBotGuildIndex(guildSchema)
 
 export type GuildData = InferSchemaType<typeof guildSchema>
 
@@ -40,6 +44,10 @@ const COLLECTIONS = [
   "invitations_joins",
 ]
 
+function isNamespaceExists(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === 48
+}
+
 export default async function initData() {
   const db = mongoClient.db
   if (!db) throw new Error("MongoDB connection is not established.")
@@ -48,7 +56,12 @@ export default async function initData() {
 
   for (const name of COLLECTIONS) {
     if (existing.some((collection) => collection.name === name)) continue
-    await db.createCollection(name)
-    console.log(`Collection "${name}" created.`)
+    try {
+      await db.createCollection(name)
+      console.log(`Collection "${name}" created.`)
+    } catch (error) {
+      if (isNamespaceExists(error)) continue
+      throw error
+    }
   }
 }

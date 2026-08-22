@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MIN_INTERVAL = 60 * 1000
 export const MAX_INTERVAL = 30 * 24 * 60 * 60 * 1000
@@ -48,11 +49,14 @@ export function defaultEmbed(): JobEmbed {
 
 const configSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     defaultChannelId: { type: String, default: null },
   },
   { timestamps: true }
 )
+
+applyBotScope(configSchema)
+uniqueBotGuildIndex(configSchema)
 
 export const MessageHoraireConfigModel = model("MessageHoraireConfig", configSchema, "messagehoraire")
 
@@ -79,8 +83,9 @@ const jobSchema = new Schema(
   { timestamps: true }
 )
 
-jobSchema.index({ guildId: 1, enabled: 1 })
-jobSchema.index({ enabled: 1, nextAt: 1 })
+applyBotScope(jobSchema)
+jobSchema.index({ botId: 1, guildId: 1, enabled: 1 })
+jobSchema.index({ botId: 1, enabled: 1, nextAt: 1 })
 
 export const MessageHoraireJobModel = model("MessageHoraireJob", jobSchema, "messagehoraires")
 

@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex, uniqueBotGuildUserIndex } from "../mongoScope.js"
 
 export const MIN_XP = 1
 export const MAX_XP = 100
@@ -120,7 +121,7 @@ const rewardSchema = new Schema(
 
 const configSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     xpMin: { type: Number, default: 15 },
     xpMax: { type: Number, default: 25 },
@@ -136,6 +137,9 @@ const configSchema = new Schema(
   { timestamps: true }
 )
 
+applyBotScope(configSchema)
+uniqueBotGuildIndex(configSchema)
+
 export const Levels = model("Levels", configSchema, "levels")
 
 const statsSchema = new Schema(
@@ -149,8 +153,9 @@ const statsSchema = new Schema(
   { timestamps: true }
 )
 
-statsSchema.index({ guildId: 1, userId: 1 }, { unique: true })
-statsSchema.index({ guildId: 1, xp: -1 })
+applyBotScope(statsSchema)
+uniqueBotGuildUserIndex(statsSchema)
+statsSchema.index({ botId: 1, guildId: 1, xp: -1 })
 
 export const LevelUser = model("LevelUser", statsSchema, "levels_users")
 

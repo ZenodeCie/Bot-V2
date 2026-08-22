@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MIN_DURATION = 10 * 1000
 export const MAX_DURATION = 30 * 24 * 60 * 60 * 1000
@@ -42,13 +43,16 @@ export function defaultConfig(guildId: string): GiveawayConfig {
 
 const configSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     defaultChannelId: { type: String, default: null },
     defaultWinnerCount: { type: Number, default: 1 },
     requiredRoleId: { type: String, default: null },
   },
   { timestamps: true }
 )
+
+applyBotScope(configSchema)
+uniqueBotGuildIndex(configSchema)
 
 export const GiveawayConfigModel = model("GiveawayConfig", configSchema, "giveaway")
 
@@ -72,9 +76,10 @@ const giveawaySchema = new Schema(
   { timestamps: true }
 )
 
-giveawaySchema.index({ guildId: 1, ended: 1, cancelled: 1 })
-giveawaySchema.index({ guildId: 1, messageId: 1 })
-giveawaySchema.index({ ended: 1, endsAt: 1 })
+applyBotScope(giveawaySchema)
+giveawaySchema.index({ botId: 1, guildId: 1, ended: 1, cancelled: 1 })
+giveawaySchema.index({ botId: 1, guildId: 1, messageId: 1 })
+giveawaySchema.index({ botId: 1, ended: 1, endsAt: 1 })
 
 export const Giveaway = model("Giveaway", giveawaySchema, "giveaways")
 

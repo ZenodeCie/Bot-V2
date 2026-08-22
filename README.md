@@ -76,7 +76,13 @@ CONFIGS_DIR=./configs
 BOT_ENTRY=dist/bot/index.js
 ```
 
-`MONGODB_URI` est **optionnelle**. Si elle est définie, chaque process bot utilise une base isolée `znd_{bot_id}`. L’agent host ne se connecte pas à Mongo.
+`MONGODB_URI` est **optionnelle**. Si elle est définie, tous les process bots partagent la même base (`MONGODB_DB`, défaut `znd`) et isolent leurs documents avec le champ `botId`. L’agent host ne se connecte pas à Mongo.
+
+Les anciennes bases `znd_{bot_id}` peuvent être fusionnées une fois (bots arrêtés) :
+
+```bash
+npm run migrate:mongo
+```
 
 Compilez, créez `.env`, puis lancez **uniquement l’agent** :
 

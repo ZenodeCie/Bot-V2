@@ -1,5 +1,6 @@
 import type { Client, GuildMember, User } from "discord.js"
 import { Schema, model } from "mongoose"
+import config from "../config.js"
 
 export interface PremiumConfigDoc {
   _id: string
@@ -22,16 +23,19 @@ export const PremiumConfig = model<PremiumConfigDoc>(
   "premium_config"
 )
 
-const GLOBAL_ID = "global"
+function premiumId(): string {
+  return config.botId
+}
 
 export async function getPremiumConfig(): Promise<PremiumConfigDoc> {
-  const doc = await PremiumConfig.findById(GLOBAL_ID).lean()
-  return doc ?? { _id: GLOBAL_ID, premiumServerId: null, boosterRoleId: null }
+  const id = premiumId()
+  const doc = await PremiumConfig.findById(id).lean()
+  return doc ?? { _id: id, premiumServerId: null, boosterRoleId: null }
 }
 
 export async function setPremiumServer(guildId: string): Promise<PremiumConfigDoc> {
   const doc = await PremiumConfig.findByIdAndUpdate(
-    GLOBAL_ID,
+    premiumId(),
     { $set: { premiumServerId: guildId, boosterRoleId: null } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean()
@@ -42,7 +46,7 @@ export async function setBoosterRole(roleId: string): Promise<PremiumConfigDoc |
   const current = await getPremiumConfig()
   if (!current.premiumServerId) return null
   const doc = await PremiumConfig.findByIdAndUpdate(
-    GLOBAL_ID,
+    premiumId(),
     { $set: { boosterRoleId: roleId } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean()
@@ -51,7 +55,7 @@ export async function setBoosterRole(roleId: string): Promise<PremiumConfigDoc |
 
 export async function resetPremiumConfig(): Promise<PremiumConfigDoc> {
   const doc = await PremiumConfig.findByIdAndUpdate(
-    GLOBAL_ID,
+    premiumId(),
     { $set: { premiumServerId: null, boosterRoleId: null } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean()

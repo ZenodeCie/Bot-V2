@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const FIELD_KEYS = ["members", "online", "boosts", "owner", "created", "channels", "roles"] as const
 export type FieldKey = (typeof FIELD_KEYS)[number]
@@ -74,7 +75,7 @@ const fieldsSchema = new Schema(
 
 const informationPanelSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     channelId: { type: String, default: null },
     messageId: { type: String, default: null },
@@ -86,6 +87,9 @@ const informationPanelSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(informationPanelSchema)
+uniqueBotGuildIndex(informationPanelSchema)
 
 export const InformationPanel = model("InformationPanel", informationPanelSchema, "informationpanel")
 
