@@ -1,5 +1,6 @@
 import { Schema, model } from "mongoose"
 import type { AppEmojiName } from "../../../shared/botConfig.js"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MOD_ACTIONS = [
   "WARN",
@@ -105,7 +106,7 @@ export interface ModerationConfigDoc {
 
 const moderationConfigSchema = new Schema<ModerationConfigDoc>(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     logChannelId: { type: String, default: null },
     caseCounter: { type: Number, default: 0 },
     warningCounter: { type: Number, default: 0 },
@@ -113,6 +114,9 @@ const moderationConfigSchema = new Schema<ModerationConfigDoc>(
   },
   { timestamps: true }
 )
+
+applyBotScope(moderationConfigSchema)
+uniqueBotGuildIndex(moderationConfigSchema)
 
 export const ModerationConfig = model<ModerationConfigDoc>(
   "ModerationConfig",
@@ -179,8 +183,9 @@ const modCaseSchema = new Schema<ModCaseDoc>(
   { timestamps: true }
 )
 
-modCaseSchema.index({ guildId: 1, caseId: 1 }, { unique: true })
-modCaseSchema.index({ guildId: 1, userId: 1, caseId: -1 })
+applyBotScope(modCaseSchema)
+modCaseSchema.index({ botId: 1, guildId: 1, caseId: 1 }, { unique: true })
+modCaseSchema.index({ botId: 1, guildId: 1, userId: 1, caseId: -1 })
 
 export const ModCase = model<ModCaseDoc>("ModCase", modCaseSchema, "mod_cases")
 
@@ -231,7 +236,8 @@ const warningSchema = new Schema<WarningDoc>(
   { timestamps: true }
 )
 
-warningSchema.index({ guildId: 1, warningId: 1 }, { unique: true })
+applyBotScope(warningSchema)
+warningSchema.index({ botId: 1, guildId: 1, warningId: 1 }, { unique: true })
 
 export const Warning = model<WarningDoc>("Warning", warningSchema, "mod_warnings")
 
@@ -259,6 +265,8 @@ const tempSanctionSchema = new Schema<TemporarySanctionDoc>(
   },
   { timestamps: true }
 )
+
+applyBotScope(tempSanctionSchema)
 
 export const TemporarySanction = model<TemporarySanctionDoc>(
   "TemporarySanction",

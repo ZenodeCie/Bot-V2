@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export interface CaptchaConfig {
   guildId: string
@@ -28,7 +29,7 @@ export function defaultConfig(guildId: string): CaptchaConfig {
 
 const captchaSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     channelId: { type: String, default: null },
     roleId: { type: String, default: null },
@@ -39,6 +40,9 @@ const captchaSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(captchaSchema)
+uniqueBotGuildIndex(captchaSchema)
 
 export const Captcha = model("Captcha", captchaSchema, "captcha")
 

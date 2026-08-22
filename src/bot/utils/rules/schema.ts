@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MAX_TITLE_LENGTH = 256
 export const MAX_DESCRIPTION_LENGTH = 4000
@@ -29,7 +30,7 @@ export function defaultConfig(guildId: string): RulesConfig {
 
 const rulesSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     channelId: { type: String, default: null },
     messageId: { type: String, default: null },
@@ -40,6 +41,9 @@ const rulesSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(rulesSchema)
+uniqueBotGuildIndex(rulesSchema)
 
 export const Rules = model("Rules", rulesSchema, "rules")
 

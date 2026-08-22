@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MAX_CATEGORIES = 25
 export const MAX_CHANNEL_NAME_LENGTH = 90
@@ -120,7 +121,7 @@ const categorySchema = new Schema(
 
 const ticketsSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     type: { type: String, enum: ["button", "select"], default: "button" },
     claimEnabled: { type: Boolean, default: true },
     requiredRoleIds: { type: [String], default: [] },
@@ -134,6 +135,9 @@ const ticketsSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(ticketsSchema)
+uniqueBotGuildIndex(ticketsSchema)
 
 export const Tickets = model("Tickets", ticketsSchema, "tickets")
 
@@ -150,6 +154,8 @@ const ticketRecordSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(ticketRecordSchema)
 
 export const TicketRecords = model("TicketRecords", ticketRecordSchema, "tickets_records")
 

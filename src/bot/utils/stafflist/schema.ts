@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const MAX_TITLE_LENGTH = 256
 export const MAX_DESCRIPTION_LENGTH = 1000
@@ -32,7 +33,7 @@ export function defaultConfig(guildId: string): StaffListConfig {
 
 const staffListSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     channelId: { type: String, default: null },
     messageId: { type: String, default: null },
@@ -44,6 +45,9 @@ const staffListSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(staffListSchema)
+uniqueBotGuildIndex(staffListSchema)
 
 export const StaffList = model("StaffList", staffListSchema, "stafflist")
 

@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose"
+import { applyBotScope, uniqueBotGuildIndex } from "../mongoScope.js"
 
 export const EVENT_KEYS = [
   "messages",
@@ -66,7 +67,7 @@ export function defaultConfig(guildId: string): LogsConfig {
 
 const logsSchema = new Schema(
   {
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, index: true },
     enabled: { type: Boolean, default: false },
     channelId: { type: String, default: null },
     ignoreBots: { type: Boolean, default: true },
@@ -85,6 +86,9 @@ const logsSchema = new Schema(
   },
   { timestamps: true }
 )
+
+applyBotScope(logsSchema)
+uniqueBotGuildIndex(logsSchema)
 
 export const Logs = model("Logs", logsSchema, "logs")
 

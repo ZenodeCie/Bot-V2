@@ -17,7 +17,7 @@ import {
 } from "./runtimeHeartbeat.js"
 import initData from "./utils/initData.js"
 import { AntiRaidEngine } from "./utils/antiraid/engine.js"
-import mongoClient, { connectMongo } from "./utils/mongoClient.js"
+import mongoClient, { connectMongo, mongoDbName } from "./utils/mongoClient.js"
 import type { Command, InteractionHandler } from "./types.js"
 
 const client = new Client({
@@ -197,7 +197,7 @@ async function start(): Promise<void> {
 
   const mongoOk = await connectMongo()
   if (mongoOk) {
-    console.log(`Connected to MongoDB (isolated db for ${botRuntime.botId}).`)
+    console.log(`Connected to MongoDB (shared db ${mongoDbName()}, scoped by botId ${botRuntime.botId}).`)
     await initData()
   } else {
     console.warn("MongoDB skipped — guild-specific persistence disabled.")
