@@ -188,7 +188,7 @@ async function buildContainer(client: Client, latencyMs: number): Promise<Contai
       .setLabel("GitHub")
       .setStyle(ButtonStyle.Link)
       .setURL(GITHUB_REPO)
-      .setEmoji(appEmojiComponent("file"))
+      .setEmoji({ id: "738960248366170225" })
   )
 
   container.addSeparatorComponents((s) => s.setDivider(true))
