@@ -5,7 +5,6 @@ import {
   ChannelSelectMenuBuilder,
   ChannelType,
   ContainerBuilder,
-  MessageFlags,
   StringSelectMenuBuilder,
   type Client,
   type Guild,
@@ -72,11 +71,11 @@ export async function buildModlogContainer(_client: Client, guild: Guild): Promi
 export async function buildBlacklistContainer(_client: Client, guild: Guild): Promise<ContainerBuilder[]> {
   const blConfig = await getBlacklistConfig(guild.id)
   const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("cancel", "Liste noire")))
+  container.addTextDisplayComponents((t) => t.setContent(appEmojiHeading("cancel", "Blacklist")))
   container.addSeparatorComponents((s) => s.setSpacing(1))
   container.addTextDisplayComponents((t) =>
     t.setContent(
-      `> *Sanction automatique des membres présents sur la liste noire à leur arrivée.*\n\n` +
+      `> *Sanction automatique des membres présents en blacklist à leur arrivée.*\n\n` +
         `> **État :** ${onOff(blConfig.enabled)}\n` +
         `> **Sanction :** ${PUNISHMENT_LABELS[blConfig.punishment as Punishment] ?? blConfig.punishment}\n` +
         `> **Durée :** ${blConfig.duration > 0 ? formatTime(blConfig.duration) : "—"}\n` +
@@ -124,20 +123,7 @@ export async function buildBlacklistContainer(_client: Client, guild: Guild): Pr
   return [container]
 }
 
-async function requireManageGuild(interaction: Interaction): Promise<boolean> {
-  const member = interaction.member
-  const perms = member && typeof member.permissions === "object" && member.permissions !== null ? member.permissions : null
-  if (!member || !perms?.has("ManageGuild")) {
-    if (interaction.isRepliable()) {
-      await interaction.reply({
-        content: "> *Cette action nécessite la permission **Gérer le serveur**.*",
-        flags: MessageFlags.Ephemeral,
-      })
-    }
-    return false
-  }
-  return true
-}
+import { requireAdministrator } from "../access.js"
 
 async function refreshModlog(interaction: MessageComponentInteraction, client: Client, guild: Guild) {
   const panels = await buildModlogContainer(client, guild)
@@ -155,7 +141,7 @@ export async function handleModerationPanelInteraction(client: Client, interacti
 
   const { customId } = interaction
   if (![CFG_ML_CHANNEL, CFG_ML_OFF, CFG_BL_TOGGLE, CFG_BL_PUNISH, CFG_BL_CHANNEL].includes(customId)) return false
-  if (!(await requireManageGuild(interaction))) return true
+  if (!(await requireAdministrator(interaction))) return true
 
   const guild = interaction.guild!
 

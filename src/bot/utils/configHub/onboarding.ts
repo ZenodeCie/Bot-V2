@@ -12,6 +12,7 @@ import {
   type User,
 } from "discord.js"
 import { botRuntime } from "../../config.js"
+import { resolveSupportUrl } from "../../../shared/botConfig.js"
 import { appEmojiText } from "../appEmojis.js"
 import { buildNoticeContainer, COMPONENTS_V2_FLAGS } from "../giveaway/notice.js"
 import { buildMainHubContainer } from "./hub.js"
@@ -65,10 +66,11 @@ function buildOnboardingBody(client: Client, guild: Guild, forOwner: boolean): s
 }
 
 function buildSupportRow(): ActionRowBuilder<ButtonBuilder>[] {
-  const supportUrl = botRuntime.raw.urlsupport ?? botRuntime.raw.guildsupport
-  if (!supportUrl || typeof supportUrl !== "string") return []
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setLabel("Serveur support").setStyle(ButtonStyle.Link).setURL(supportUrl)
+    new ButtonBuilder()
+      .setLabel("Serveur support")
+      .setStyle(ButtonStyle.Link)
+      .setURL(resolveSupportUrl(botRuntime.raw))
   )
   return [row]
 }

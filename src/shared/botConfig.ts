@@ -39,7 +39,24 @@ export const APP_EMOJI_KEYS = [
 export type AppEmojiName = (typeof APP_EMOJI_KEYS)[number]
 export type ApplicationEmojis = Partial<Record<AppEmojiName, string>>
 
+export const DEFAULT_SUPPORT_URL = "https://discord.gg/zenode"
+
+export const DEFAULT_DEVELOPER_IDS = ["1385340488894124235"] as const
+
 const SNOWFLAKE_RE = /^\d{17,22}$/
+
+function normalizeSupportUrl(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return DEFAULT_SUPPORT_URL
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  if (trimmed.startsWith("discord.gg/")) return `https://${trimmed}`
+  return trimmed
+}
+
+export function resolveSupportUrl(config?: Pick<BotConfig, "urlsupport" | "guildsupport"> | null): string {
+  const fromConfig = config?.urlsupport?.trim() || config?.guildsupport?.trim()
+  return fromConfig ? normalizeSupportUrl(fromConfig) : DEFAULT_SUPPORT_URL
+}
 
 export function parseApplicationEmojis(value: unknown): ApplicationEmojis | undefined {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined

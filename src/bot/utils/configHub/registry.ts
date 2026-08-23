@@ -262,7 +262,7 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
   },
   {
     id: "moderation-blacklist",
-    label: "Liste noire",
+    label: "Blacklist",
     emoji: "cancel",
     description: "Sanctions automatiques à l'arrivée",
     requiredModule: "Moderation",

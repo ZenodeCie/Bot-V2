@@ -7,7 +7,7 @@ export default {
   description: "Configure tous les modules du bot depuis un panneau central.",
   category: "utils",
   aliases: ["configuration", "setup", "settings"],
-  permissions: ["ManageGuild"],
+  permissions: ["Administrator"],
   usage: "[module]",
   async execute(client: Client, message: Message, args: string[]) {
     if (!message.guild) {

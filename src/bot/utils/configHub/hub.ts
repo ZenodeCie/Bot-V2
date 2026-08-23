@@ -3,7 +3,6 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
-  MessageFlags,
   StringSelectMenuBuilder,
   type ActionRowBuilder as ActionRowBuilderType,
   type Client,
@@ -13,6 +12,7 @@ import {
   type MessageReplyOptions,
 } from "discord.js"
 import { appEmojiComponent, appEmojiHeading, appEmojiOrFallback, appEmojiText, type AppEmojiName } from "../appEmojis.js"
+import { requireAdministrator } from "./access.js"
 import {
   appendBackButton,
   COMPONENTS_V2_FLAGS,
@@ -153,21 +153,6 @@ export async function buildAntiRaidSectionPanel(
   return appendBackButton(panels, CFG_BACK_AR)
 }
 
-async function requireManageGuild(interaction: Interaction): Promise<boolean> {
-  const member = interaction.member
-  const perms = member && typeof member.permissions === "object" && member.permissions !== null ? member.permissions : null
-  if (!member || !perms?.has("ManageGuild")) {
-    if (interaction.isRepliable()) {
-      await interaction.reply({
-        content: "> *Cette action nécessite la permission **Gérer le serveur**.*",
-        flags: MessageFlags.Ephemeral,
-      })
-    }
-    return false
-  }
-  return true
-}
-
 async function updateHub(interaction: MessageComponentInteraction, client: Client) {
   await interaction.update(configUpdatePayload(buildMainHubContainer(client)))
 }
@@ -183,7 +168,7 @@ export async function handleConfigHubInteraction(client: Client, interaction: In
   if (!interaction.isMessageComponent()) return false
   if (!isConfigHubCustomId(interaction.customId)) return false
   if (!interaction.inGuild()) return false
-  if (!(await requireManageGuild(interaction))) return true
+  if (!(await requireAdministrator(interaction))) return true
 
   const guild = interaction.guild!
 

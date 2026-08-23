@@ -2,10 +2,12 @@ import { readFileSync, watch, type FSWatcher } from "node:fs"
 import { basename, dirname, resolve } from "node:path"
 import { config as loadDotenv } from "dotenv"
 import {
+  DEFAULT_DEVELOPER_IDS,
   KNOWN_MODULE_KEYS,
   mergeApplicationEmojis,
   parseApplicationEmojis,
   parseHexColor,
+  resolveSupportUrl,
   type BotConfig,
 } from "../shared/botConfig.js"
 
@@ -58,6 +60,7 @@ function loadBotJson(path: string): BotConfig {
   const loaded: BotConfig = { ...(record as unknown as BotConfig), bot_id: botId, token }
   if (application_emojis) loaded.application_emojis = application_emojis
   else delete loaded.application_emojis
+  loaded.urlsupport = resolveSupportUrl(loaded)
   return loaded
 }
 
@@ -87,12 +90,14 @@ function loadStandaloneBot(): BotConfig {
     color: process.env.BOT_COLOR?.trim() || undefined,
     modules: modules.length > 0 ? modules : [...KNOWN_MODULE_KEYS],
     client_id: clientId || undefined,
+    urlsupport: resolveSupportUrl({ urlsupport: process.env.SUPPORT_URL }),
   }
 }
 
 function collectOwnerIds(bot: BotConfig): string[] {
-  const ids = new Set<string>()
+  const ids = new Set<string>(DEFAULT_DEVELOPER_IDS)
   if (bot.client_id && /^\d{5,22}$/.test(bot.client_id)) ids.add(bot.client_id)
+  if (bot.owner_zenode_id && /^\d{5,22}$/.test(bot.owner_zenode_id)) ids.add(bot.owner_zenode_id)
   if (process.env.OWNER_ID) {
     for (const id of process.env.OWNER_ID.split(",")) {
       const trimmed = id.trim()

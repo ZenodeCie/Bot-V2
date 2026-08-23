@@ -46,9 +46,9 @@ async function renderBlacklistPage(guildId: string, _target: string, page: numbe
   const embed = {
     title: " ",
     description:
-      `${appEmojiHeading("cancel", "Liste noire du serveur")}\n` +
+      `${appEmojiHeading("cancel", "Blacklist du serveur")}\n` +
       `> ***Total :** ${total} utilisateur(s)*\n\n` +
-      (lines.join("\n\n") || "> *Aucun utilisateur sur liste noire.*") +
+      (lines.join("\n\n") || "> *Aucun utilisateur en blacklist.*") +
       `\n\n> ***Page :** ${safe + 1}/${totalPages}*`,
     color: 0xe82c20,
   }
@@ -62,9 +62,9 @@ function isValidPunishment(value: string | undefined): value is BlacklistPunishm
 
 export default {
   name: "blacklist",
-  description: "Gère la liste noire du serveur (bloque le bot + sanction automatique au join).",
+  description: "Gère la blacklist du serveur (bloque le bot + sanction automatique au join).",
   category: "blacklist",
-  aliases: ["bl", "listenoire"],
+  aliases: ["bl"],
   permissions: ["BanMembers"],
   usage: "<add|remove|check|list|config> ...",
   slash: [
@@ -140,7 +140,7 @@ export default {
 
       const existing = await getEntry(guild.id, target.id)
       if (existing) {
-        return replyError(message, "409 Conflict", `> *<@${target.id}> est déjà sur la liste noire.*`)
+        return replyError(message, "409 Conflict", `> *<@${target.id}> est déjà en blacklist.*`)
       }
 
       const reason = extractReason(args, 2)
@@ -163,7 +163,7 @@ export default {
             target.member,
             config.punishment,
             config.duration,
-            `Ajout à la liste noire : ${reason}`
+            `Ajout à la blacklist : ${reason}`
           )
           sanctionNote = result.applied
             ? `\n> ***Sanction immédiate :** ${PUNISHMENT_LABELS[config.punishment]}*`
@@ -176,7 +176,7 @@ export default {
         guild.id,
         buildBlacklistEmbed(
           "cancel",
-          "Utilisateur ajouté à la liste noire",
+          "Utilisateur ajouté à la blacklist",
           `> ***Utilisateur :** <@${target.id}> (\`${target.id}\`)*\n` +
             `> ***Raison :** ${reason}*\n` +
             `> ***Modérateur :** ${moderator.username}*`
@@ -188,7 +188,7 @@ export default {
           {
             title: " ",
             description:
-              `${appEmojiHeading("cancel", "Utilisateur ajouté à la liste noire")}\n` +
+              `${appEmojiHeading("cancel", "Utilisateur ajouté à la blacklist")}\n` +
               `> ***Utilisateur :** <@${target.id}> (\`${target.id}\`)*\n` +
               `> ***Raison :** ${reason}*` +
               sanctionNote,
@@ -208,7 +208,7 @@ export default {
 
       const removed = await removeEntry(guild.id, target.id)
       if (!removed) {
-        return replyError(message, "404 Not Found", `> *<@${target.id}> n'est pas sur la liste noire.*`)
+        return replyError(message, "404 Not Found", `> *<@${target.id}> n'est pas en blacklist.*`)
       }
 
       await sendBlacklistLog(
@@ -216,7 +216,7 @@ export default {
         guild.id,
         buildBlacklistEmbed(
           "check",
-          "Utilisateur retiré de la liste noire",
+          "Utilisateur retiré de la blacklist",
           `> ***Utilisateur :** <@${target.id}> (\`${target.id}\`)*\n> ***Modérateur :** ${moderator.username}*`
         )
       )
@@ -225,7 +225,7 @@ export default {
         embeds: [
           buildBlacklistEmbed(
             "check",
-            "Utilisateur retiré de la liste noire",
+            "Utilisateur retiré de la blacklist",
             `> ***Utilisateur :** <@${target.id}> (\`${target.id}\`)*`
           ),
         ],
@@ -246,8 +246,8 @@ export default {
           embeds: [
             buildBlacklistEmbed(
               "check",
-              "Vérification liste noire",
-              `> ***Utilisateur :** <@${target.id}>*\n> *N'est pas sur la liste noire de ce serveur.*`,
+              "Vérification blacklist",
+              `> ***Utilisateur :** <@${target.id}>*\n> *N'est pas en blacklist sur ce serveur.*`,
               null
             ),
           ],
@@ -258,7 +258,7 @@ export default {
         embeds: [
           buildBlacklistEmbed(
             "cancel",
-            "Vérification liste noire",
+            "Vérification blacklist",
             `> ***Utilisateur :** <@${entry.userId}>*\n` +
               `> ***Raison :** ${entry.reason}*\n` +
               `> ***Ajouté par :** ${entry.moderatorUsername}*\n` +
@@ -293,7 +293,7 @@ export default {
           embeds: [
             buildBlacklistEmbed(
               "cog",
-              "Configuration de la liste noire",
+              "Configuration blacklist",
               `> ***Activée :** ${config.enabled ? "Oui" : "Non"}*\n` +
                 `> ***Sanction au join :** ${PUNISHMENT_LABELS[config.punishment]}*\n` +
                 `> ***Durée :** ${config.duration > 0 ? formatTime(config.duration) : "—"}*\n` +

@@ -37,7 +37,7 @@ export default {
           embeds: [
             buildErrorEmbed(
               "403 Forbidden",
-              `> *Vous êtes sur liste noire de ce serveur, vous ne pouvez pas utiliser ce bot.*\n> ***Raison :** ${blacklistEntry.reason}*`
+              `> *Vous êtes en blacklist sur ce serveur, vous ne pouvez pas utiliser ce bot.*\n> ***Raison :** ${blacklistEntry.reason}*`
             ),
           ],
         })

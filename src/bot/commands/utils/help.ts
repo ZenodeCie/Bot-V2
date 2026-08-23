@@ -43,7 +43,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   utils: "Utilitaires",
   dev: "Développeur",
   moderation: "Modération",
-  blacklist: "Liste noire",
+  blacklist: "Blacklist",
   antiraid: "Anti-raid",
   aeroport: "Aéroport",
   captcha: "Captcha",

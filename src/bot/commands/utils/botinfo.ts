@@ -10,6 +10,7 @@ import {
 } from "discord.js"
 import { cpus, loadavg } from "node:os"
 import config, { botRuntime, colors } from "../../config.js"
+import { resolveSupportUrl } from "../../../shared/botConfig.js"
 import { appEmojiText } from "../../utils/appEmojis.js"
 import { Giveaway } from "../../utils/giveaway/schema.js"
 import { LevelUser } from "../../utils/levels/schema.js"
@@ -192,7 +193,7 @@ async function buildEmbed(client: Client, apiPing: number): Promise<EmbedBuilder
 
 function buildButtons(client: Client): ActionRowBuilder<ButtonBuilder>[] {
   const clientId = client.user?.id ?? botRuntime.raw.client_id ?? botRuntime.raw.discord_bot_id
-  const supportUrl = botRuntime.raw.urlsupport ?? botRuntime.raw.guildsupport
+  const supportUrl = resolveSupportUrl(botRuntime.raw)
   const row = new ActionRowBuilder<ButtonBuilder>()
 
   if (clientId) {
@@ -204,14 +205,12 @@ function buildButtons(client: Client): ActionRowBuilder<ButtonBuilder>[] {
     )
   }
 
-  if (supportUrl) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setLabel("Rejoindre le support")
-        .setStyle(ButtonStyle.Link)
-        .setURL(supportUrl)
-    )
-  }
+  row.addComponents(
+    new ButtonBuilder()
+      .setLabel("Rejoindre le support")
+      .setStyle(ButtonStyle.Link)
+      .setURL(supportUrl)
+  )
 
   row.addComponents(
     new ButtonBuilder()

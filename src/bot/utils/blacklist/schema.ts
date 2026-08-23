@@ -53,7 +53,7 @@ export async function getConfig(guildId: string): Promise<BlacklistConfigDoc> {
 }
 
 // ---------------------------------------------------------------------------
-// BlacklistEntry — utilisateurs sur liste noire
+// BlacklistEntry — utilisateurs en blacklist
 // ---------------------------------------------------------------------------
 
 export interface BlacklistEntryDoc {

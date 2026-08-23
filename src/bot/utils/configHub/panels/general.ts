@@ -17,6 +17,7 @@ import buildErrorEmbed from "../../errorEmbed.js"
 import { Guild as GuildModel } from "../../initData.js"
 import { COMPONENTS_V2_FLAGS, CONTAINER_ACCENT } from "../../giveaway/notice.js"
 import { CFG_PREFIX_BTN, CFG_PREFIX_MODAL } from "../constants.js"
+import { requireAdministrator } from "../access.js"
 
 const MAX_PREFIX_LENGTH = 10
 
@@ -74,6 +75,7 @@ function buildPrefixModal(current: string): ModalBuilder {
 export async function handleGeneralInteraction(client: Client, interaction: Interaction): Promise<boolean> {
   if (interaction.isButton() && interaction.customId === CFG_PREFIX_BTN) {
     if (!interaction.inGuild()) return false
+    if (!(await requireAdministrator(interaction))) return true
     let current = config.prefix
     try {
       const data = await GuildModel.findOne({ guildId: interaction.guildId }).lean()
@@ -86,6 +88,8 @@ export async function handleGeneralInteraction(client: Client, interaction: Inte
   }
 
   if (interaction.isModalSubmit() && interaction.customId === CFG_PREFIX_MODAL) {
+    if (!interaction.inGuild()) return false
+    if (!(await requireAdministrator(interaction))) return true
     return handlePrefixModal(interaction)
   }
 

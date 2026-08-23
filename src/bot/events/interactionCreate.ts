@@ -1,6 +1,7 @@
 import type { Client, Interaction } from "discord.js"
 import { MessageFlags } from "discord.js"
 import buildErrorEmbed from "../utils/errorEmbed.js"
+import { guardConfigHubInteraction } from "../utils/configHub/access.js"
 import { argsFromSlash, asCommandMessage, resolveSlashCommand } from "../utils/slash.js"
 import { getBlockingEntry } from "../utils/blacklist/engine.js"
 
@@ -18,7 +19,7 @@ export default {
             embeds: [
               buildErrorEmbed(
                 "403 Forbidden",
-                `> *Vous êtes sur liste noire de ce serveur, vous ne pouvez pas utiliser ce bot.*\n> ***Raison :** ${blacklistEntry.reason}*`
+                `> *Vous êtes en blacklist sur ce serveur, vous ne pouvez pas utiliser ce bot.*\n> ***Raison :** ${blacklistEntry.reason}*`
               ),
             ],
             flags: MessageFlags.Ephemeral,
@@ -53,6 +54,8 @@ export default {
       }
       return
     }
+
+    if (await guardConfigHubInteraction(interaction)) return
 
     for (const handler of client.interactions.values()) {
       try {

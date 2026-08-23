@@ -33,7 +33,7 @@ export async function handleMemberJoin(client: Client, member: GuildMember): Pro
     member,
     config.punishment,
     config.duration,
-    `Sur liste noire du serveur : ${entry.reason}`
+    `Blacklist du serveur : ${entry.reason}`
   )
 
   await sendBlacklistLog(
