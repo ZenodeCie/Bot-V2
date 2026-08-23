@@ -9,6 +9,7 @@ export default {
   name: "arlogs",
   description: "Affiche le journal de sécurité anti-raid.",
   category: "antiraid",
+  slashRegister: false,
   aliases: ["log", "journal"],
   slashName: "logs",
   permissions: ["Administrator"],

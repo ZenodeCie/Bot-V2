@@ -77,6 +77,12 @@ function asArgs(value: string[] | string | undefined): string[] {
   return []
 }
 
+/** PM2 entry with a running process (online or launching). */
+export function isLiveBotProcess(proc: Pm2ProcessInfo): boolean {
+  if (proc.pid <= 0) return false
+  return proc.pm2Status === "online" || proc.pm2Status === "starting"
+}
+
 export class Pm2Manager {
   constructor(
     private readonly env: HostEnv,

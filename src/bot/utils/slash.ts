@@ -12,7 +12,7 @@ import {
 import type { Command, SlashOption } from "../types.js"
 
 /** Standalone slash commands (not nested under a module). */
-export const ROOT_SLASH_NAMES = new Set(["help", "ping", "prefix"])
+export const ROOT_SLASH_NAMES = new Set(["help", "ping", "prefix", "botinfo", "config"])
 
 export const SLASH_GROUPS: Record<string, { name: string; description: string }> = {
   antiraid: { name: "anti-raid", description: "Configuration et outils anti-raid" },
@@ -178,7 +178,8 @@ export function resolveSlashCommand(client: Client, interaction: ChatInputComman
 }
 
 export function buildSlashBody(commands: Command[]): RESTPostAPIChatInputApplicationCommandsJSONBody[] {
-  const { root, grouped } = partitionCommands(commands)
+  const eligible = commands.filter((command) => command.slashRegister !== false)
+  const { root, grouped } = partitionCommands(eligible)
   const body: RESTPostAPIChatInputApplicationCommandsJSONBody[] = root.map(toSlashData)
 
   for (const [category, bucket] of grouped) {

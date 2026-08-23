@@ -117,6 +117,7 @@ export function createModuleCommand(options: ModuleCommandOptions) {
     aliases: options.aliases ?? [],
     permissions: ["Administrator"],
     usage: options.usage ?? "[on|off|threshold|interval|action]",
+    slashRegister: false,
     slash: [
       { name: "action", description: "on, off, threshold, interval, action…", type: ApplicationCommandOptionType.String, required: false },
       { name: "valeur", description: "Seuil, durée, punition ou extra", type: ApplicationCommandOptionType.String, required: false },

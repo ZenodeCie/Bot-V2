@@ -10,6 +10,7 @@ export default {
   name: "quarantine",
   description: "Gère la quarantaine (retrait de tous les rôles).",
   category: "antiraid",
+  slashRegister: false,
   aliases: ["q", "quarantaine"],
   permissions: ["Administrator"],
   usage: "[add <@user>|remove <@user>|list|clear]",

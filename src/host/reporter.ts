@@ -1,17 +1,25 @@
+import { toPm2Name } from "../shared/botId.js"
 import { reportBotStatus, type HostContext } from "./context.js"
-import type { Pm2ProcessInfo } from "./pm2Manager.js"
-import type { RealStatusPayload, VmStatsBotEntry } from "./protocol.js"
+import { isLiveBotProcess, type Pm2ProcessInfo } from "./pm2Manager.js"
+import type { BotLifecycleStatus, HostedBotInfo, RealStatusPayload, VmStatsBotEntry } from "./protocol.js"
 import { readDiscordRuntime } from "./runtimeReader.js"
 import { getAgentVersionInfo } from "./versionInfo.js"
 
 const STATS_INTERVAL_MS = 15_000
 const REAL_STATUS_INTERVAL_MS = 5_000
 const REAL_STATUS_MIN_GAP_MS = 25_000
+const ASSIGNED_CACHE_MS = 60_000
+
+function pm2StatusToLifecycle(proc: Pm2ProcessInfo | undefined): BotLifecycleStatus {
+  if (!proc || !isLiveBotProcess(proc)) return "offline"
+  return proc.status
+}
 
 export class StatusReporter {
   private readonly lastPm2 = new Map<string, string>()
   private readonly lastReady = new Map<string, string>()
   private readonly lastRealPost = new Map<string, number>()
+  private assignedCache: { at: number; bots: HostedBotInfo[] } | null = null
   private statsTimer: NodeJS.Timeout | null = null
   private realTimer: NodeJS.Timeout | null = null
   private running = false
@@ -41,39 +49,89 @@ export class StatusReporter {
     this.realTimer = null
   }
 
-  private async tickStats(): Promise<void> {
+  private async getAssignedBotsCached(): Promise<HostedBotInfo[]> {
+    const now = Date.now()
+    if (this.assignedCache && now - this.assignedCache.at < ASSIGNED_CACHE_MS) {
+      return this.assignedCache.bots
+    }
     try {
-      const procs = await this.ctx.pm2.listBots()
-      await this.emitStatusChanges(procs)
+      const bots = await this.ctx.rest.getAssignedBots()
+      this.assignedCache = { at: now, bots }
+      return bots
+    } catch (error) {
+      this.ctx.log.warn(
+        `GET assigned bots for stats failed: ${error instanceof Error ? error.message : String(error)}`
+      )
+      return this.assignedCache?.bots ?? []
+    }
+  }
 
-      const visible: VmStatsBotEntry[] = []
-      let active = 0
-      let error = 0
-      let offline = 0
-      for (const proc of procs) {
-        if (proc.status === "online") {
-          visible.push({ bot_id: proc.name, status: "online" })
-          active += 1
-        } else if (proc.status === "starting") {
-          visible.push({ bot_id: proc.name, status: "starting" })
-        } else if (proc.status === "error") {
-          error += 1
-        } else {
-          offline += 1
-        }
-      }
+  private buildVmStats(procs: Pm2ProcessInfo[], assigned: HostedBotInfo[]): {
+    bots: VmStatsBotEntry[]
+    stats: { total: number; active: number; offline: number; error: number }
+  } {
+    const procsByName = new Map(procs.map((proc) => [proc.name, proc]))
+    const bots: VmStatsBotEntry[] = []
+    const seen = new Set<string>()
+    let active = 0
+    let offline = 0
+    let error = 0
 
-      const versionInfo = getAgentVersionInfo(this.ctx.env.repoRoot)
+    const pushBot = (botId: string, status: BotLifecycleStatus): void => {
+      bots.push({ bot_id: botId, status })
+      if (status === "online") active += 1
+      else if (status === "error") error += 1
+      else if (status === "offline") offline += 1
+    }
 
+    for (const bot of assigned) {
+      const name = toPm2Name(bot.bot_id)
+      if (seen.has(name)) continue
+      seen.add(name)
+      pushBot(name, pm2StatusToLifecycle(procsByName.get(name)))
+    }
+
+    for (const proc of procs) {
+      if (!this.ctx.pm2.isBotProcess(proc)) continue
+      if (seen.has(proc.name)) continue
+      seen.add(proc.name)
+      pushBot(proc.name, pm2StatusToLifecycle(proc))
+    }
+
+    return {
+      bots,
+      stats: {
+        total: bots.length,
+        active,
+        offline,
+        error,
+      },
+    }
+  }
+
+  private async tickStats(): Promise<void> {
+    let procs: Pm2ProcessInfo[] = []
+    try {
+      procs = await this.ctx.pm2.listBots()
+    } catch (error) {
+      this.ctx.log.warn(
+        `PM2 list failed, reporting all bots offline: ${error instanceof Error ? error.message : String(error)}`
+      )
+      procs = []
+    }
+
+    const liveProcs = procs.filter(isLiveBotProcess)
+    await this.emitStatusChanges(liveProcs)
+
+    const assigned = await this.getAssignedBotsCached()
+    const { bots, stats } = this.buildVmStats(procs, assigned)
+    const versionInfo = getAgentVersionInfo(this.ctx.env.repoRoot)
+
+    try {
       await this.ctx.rest.postVmStats({
         vm_host: this.ctx.env.vmHost,
-        bots: visible,
-        stats: {
-          total: visible.length,
-          active,
-          offline,
-          error,
-        },
+        bots,
+        stats,
         version: versionInfo.version,
         git_commit: versionInfo.git_commit,
         git_branch: versionInfo.git_branch,
@@ -108,7 +166,7 @@ export class StatusReporter {
 
   private async tickReal(): Promise<void> {
     try {
-      const procs = await this.ctx.pm2.listBots()
+      const procs = (await this.ctx.pm2.listBots()).filter(isLiveBotProcess)
       const now = Date.now()
       for (const proc of procs) {
         if (proc.status === "offline") continue

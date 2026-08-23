@@ -9,6 +9,7 @@ export default {
   name: "mode",
   description: "Configure le mode automatique de la protection anti-raid.",
   category: "antiraid",
+  slashRegister: false,
   aliases: ["antiraidmode"],
   permissions: ["Administrator"],
   usage: "[off|low|balanced|high|maximum|custom]",

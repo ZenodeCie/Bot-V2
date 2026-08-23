@@ -80,7 +80,7 @@ export default {
   name: "invitations",
   description: "Configure le suivi des invitations du serveur.",
   category: "invitations",
-  slashName: "config",
+  slashRegister: false,
   aliases: ["inviteconfig", "invitelogs"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|fake|bots|rejoins|role|stack|add|remove|reset]",

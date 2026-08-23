@@ -7,6 +7,7 @@ import {
   EmbedBuilder,
   MessageFlags,
   ModalBuilder,
+  StringSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle,
   type Client,
@@ -26,9 +27,7 @@ import {
   clampInterval,
   clampTitle,
   getConfig,
-  isFieldKey,
   updateConfig,
-  type FieldKey,
   type InformationPanelConfig,
 } from "./schema.js"
 
@@ -159,20 +158,26 @@ export function buildInformationPanelContainer(
       )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent("**Champs affichés**"))
-  for (const key of FIELD_KEYS) {
-    const enabled = config.fields[key]
-    container.addSectionComponents((sectionBuilder) =>
-      sectionBuilder
-        .addTextDisplayComponents((t) => t.setContent(`**${FIELD_LABELS[key]}**\n> ${onOff(enabled)}`))
-        .setButtonAccessory((btn) =>
-          btn
-            .setCustomId(`ip_field_${key}`)
-            .setEmoji(appEmojiComponent("power"))
-            .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Danger)
+  container.addTextDisplayComponents((t) =>
+    t.setContent(`${appEmojiText("file")} **Champs affichés**\n> ${fieldSummary(config)}`)
+  )
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("ip_fields")
+        .setPlaceholder("Sélectionner les champs à afficher...")
+        .setMinValues(0)
+        .setMaxValues(FIELD_KEYS.length)
+        .addOptions(
+          FIELD_KEYS.map((key) => ({
+            label: FIELD_LABELS[key],
+            value: key,
+            default: config.fields[key],
+            emoji: appEmojiOrFallback("power"),
+          }))
         )
     )
-  }
+  )
   return [container]
 }
 
@@ -336,12 +341,10 @@ export async function handleInformationPanelInteraction(client: Client, interact
     return true
   }
 
-  if (customId.startsWith("ip_field_")) {
-    const key = customId.slice("ip_field_".length)
-    if (!isFieldKey(key)) return false
-    const config = await getConfig(guild.id)
-    const fieldKey: FieldKey = key
-    await updateConfig(guild.id, { $set: { [`fields.${fieldKey}`]: !config.fields[fieldKey] } })
+  if (customId === "ip_fields" && interaction.isStringSelectMenu()) {
+    const selected = new Set(interaction.values)
+    const fields = Object.fromEntries(FIELD_KEYS.map((key) => [key, selected.has(key)]))
+    await updateConfig(guild.id, { $set: { fields } })
     await refreshPanel(client, interaction, guild)
     return true
   }

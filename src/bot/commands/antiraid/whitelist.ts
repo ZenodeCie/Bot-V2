@@ -17,6 +17,7 @@ export default {
   name: "whitelist",
   description: "Gère la liste blanche anti-raid.",
   category: "antiraid",
+  slashRegister: false,
   aliases: ["wl", "liste-blanche"],
   permissions: ["Administrator"],
   usage: "[add|remove <user|role|bot|channel> <cible>|list]",

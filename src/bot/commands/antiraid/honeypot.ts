@@ -9,6 +9,7 @@ export default {
   name: "honeypot",
   description: "Configure le système piège (honeypot) anti-intrus.",
   category: "antiraid",
+  slashRegister: false,
   aliases: ["hp"],
   permissions: ["Administrator"],
   usage: "[enable|disable|add channel <#salon>|remove channel <#salon>|add role <@rôle>|remove role <@rôle>|action <punition>]",

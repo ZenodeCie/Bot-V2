@@ -78,7 +78,7 @@ export default {
   name: "levels",
   description: "Configure le système de niveaux du serveur.",
   category: "levels",
-  slashName: "config",
+  slashRegister: false,
   aliases: ["niveaux", "leveling"],
   permissions: ["ManageGuild"],
   usage: "[on|off|salon|xp|cooldown|notify|message|role|stack|ignore|set|reset]",

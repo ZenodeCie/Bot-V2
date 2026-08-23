@@ -29,6 +29,7 @@ export interface Command {
   usage: string
   slash?: SlashOption[]
   slashName?: string
+  slashRegister?: boolean
   slashArgs?: (interaction: ChatInputCommandInteraction) => string[]
   execute: (client: Client, message: Message, args: string[]) => Promise<void> | void
   handleInteraction?: (client: Client, interaction: Interaction) => Promise<boolean> | boolean

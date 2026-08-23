@@ -71,7 +71,7 @@ export default {
   name: "message-horaire",
   description: "Programmez des messages ou embeds envoyés régulièrement.",
   category: "message-horaire",
-  slashName: "config",
+  slashRegister: false,
   aliases: ["messagehoraire", "horaire", "schedule"],
   permissions: ["ManageGuild"],
   usage: "[create|list|delete|on|off|salon|reset]",
