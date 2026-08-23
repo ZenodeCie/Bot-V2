@@ -6,7 +6,9 @@ import type {
   BotLogsRequestMessage,
   ConfigUploadMessage,
   InboundMessage,
+  VmCommandMessage,
 } from "./protocol.js"
+import { tryStartVmUpdate } from "./vmUpdate.js"
 
 class BotLocks {
   private readonly locks = new Map<string, Promise<void>>()
@@ -51,6 +53,9 @@ export class MessageRouter {
         return
       case "bot_logs_request":
         await this.onLogsRequest(message)
+        return
+      case "vm_command":
+        this.onVmCommand(message)
         return
       case "unknown":
         this.ctx.log.warn(`Ignoring unknown WS type "${message.originalType}"`)
@@ -184,6 +189,14 @@ export class MessageRouter {
       this.ctx.log.warn(`GET /bots/${botId} failed: ${error instanceof Error ? error.message : String(error)}`)
     }
     return existing
+  }
+
+  private onVmCommand(message: VmCommandMessage): void {
+    if (message.action !== "update") {
+      this.ctx.log.warn(`Ignoring vm_command action=${message.action}`)
+      return
+    }
+    tryStartVmUpdate(this.ctx, message.request_id)
   }
 
   private async onLogsRequest(message: BotLogsRequestMessage): Promise<void> {

@@ -2,6 +2,7 @@ import { reportBotStatus, type HostContext } from "./context.js"
 import type { Pm2ProcessInfo } from "./pm2Manager.js"
 import type { RealStatusPayload, VmStatsBotEntry } from "./protocol.js"
 import { readDiscordRuntime } from "./runtimeReader.js"
+import { getAgentVersionInfo } from "./versionInfo.js"
 
 const STATS_INTERVAL_MS = 15_000
 const REAL_STATUS_INTERVAL_MS = 5_000
@@ -62,6 +63,8 @@ export class StatusReporter {
         }
       }
 
+      const versionInfo = getAgentVersionInfo(this.ctx.env.repoRoot)
+
       await this.ctx.rest.postVmStats({
         vm_host: this.ctx.env.vmHost,
         bots: visible,
@@ -71,6 +74,9 @@ export class StatusReporter {
           offline,
           error,
         },
+        version: versionInfo.version,
+        git_commit: versionInfo.git_commit,
+        git_branch: versionInfo.git_branch,
       })
     } catch (error) {
       this.ctx.log.warn(`VM stats tick failed: ${error instanceof Error ? error.message : String(error)}`)

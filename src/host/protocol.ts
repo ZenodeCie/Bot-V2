@@ -54,6 +54,13 @@ export interface BotLogsRequestMessage {
   vm_host?: string
 }
 
+export interface VmCommandMessage {
+  type: "vm_command"
+  action: "update"
+  request_id: string
+  vm_host?: string
+}
+
 export interface UnknownInboundMessage {
   type: "unknown"
   originalType: string
@@ -68,6 +75,7 @@ export type InboundMessage =
   | BotCommandMessage
   | ConfigUploadMessage
   | BotLogsRequestMessage
+  | VmCommandMessage
   | UnknownInboundMessage
 
 export interface BotStatusMessage {
@@ -106,12 +114,21 @@ export interface PongOutboundMessage {
   vm_host: string
 }
 
+export interface VmUpdateStatusMessage {
+  type: "vm_update_status"
+  request_id: string
+  status: "running" | "rejected"
+  step: string
+  vm_host: string
+}
+
 export type OutboundMessage =
   | BotStatusMessage
   | ConfigReceivedMessage
   | BotLogsResponseMessage
   | PingOutboundMessage
   | PongOutboundMessage
+  | VmUpdateStatusMessage
 
 export interface VmStatsBotEntry {
   bot_id: string
@@ -127,6 +144,9 @@ export interface VmStatsPayload {
     offline: number
     error: number
   }
+  version: string
+  git_commit: string
+  git_branch: string
 }
 
 export interface RealStatusPayload {
@@ -262,6 +282,19 @@ export function parseInboundMessage(raw: unknown): InboundMessage {
         bot_id: botId,
         request_id: requestId,
         lines: Number.isFinite(lines) ? lines : undefined,
+        vm_host: asString(record.vm_host),
+      }
+    }
+    case "vm_command": {
+      const action = asString(record.action) ?? ""
+      const requestId = asString(record.request_id) ?? ""
+      if (action !== "update" || !requestId) {
+        return { type: "unknown", originalType: type, payload: record }
+      }
+      return {
+        type: "vm_command",
+        action: "update",
+        request_id: requestId,
         vm_host: asString(record.vm_host),
       }
     }
