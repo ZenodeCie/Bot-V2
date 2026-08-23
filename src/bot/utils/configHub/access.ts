@@ -27,6 +27,12 @@ export function messageHasConfigHubMarker(message: Pick<Message, "components">):
   return walkComponentCustomIds(message.components as readonly unknown[]).some((id) => id.startsWith(HUB_PREFIX))
 }
 
+function interactionMessage(interaction: Interaction): Message | null {
+  if (interaction.isMessageComponent()) return interaction.message
+  if (interaction.isModalSubmit() && interaction.isFromMessage()) return interaction.message
+  return null
+}
+
 export async function requireAdministrator(interaction: Interaction): Promise<boolean> {
   const member = interaction.member
   const perms = member && typeof member.permissions === "object" && member.permissions !== null ? member.permissions : null
@@ -45,7 +51,8 @@ export async function requireAdministrator(interaction: Interaction): Promise<bo
 export async function guardConfigHubInteraction(interaction: Interaction): Promise<boolean> {
   if (!interaction.inGuild()) return false
   if (!interaction.isMessageComponent() && !interaction.isModalSubmit()) return false
-  if (!interaction.isFromMessage()) return false
-  if (!messageHasConfigHubMarker(interaction.message)) return false
+  const message = interactionMessage(interaction)
+  if (!message) return false
+  if (!messageHasConfigHubMarker(message)) return false
   return !(await requireAdministrator(interaction))
 }
