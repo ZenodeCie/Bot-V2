@@ -30,6 +30,7 @@ import {
 } from "./constants.js"
 import { handleGeneralInteraction } from "./panels/general.js"
 import { handleModerationPanelInteraction } from "./panels/moderation.js"
+import { handlePartenariatPanelInteraction } from "./panels/partenariat.js"
 import {
   ANTI_RAID_PANEL_IDS,
   ANTI_RAID_PANEL_LABELS,
@@ -164,6 +165,7 @@ async function updateAntiRaidHub(interaction: MessageComponentInteraction, clien
 export async function handleConfigHubInteraction(client: Client, interaction: Interaction): Promise<boolean> {
   if (await handleGeneralInteraction(client, interaction)) return true
   if (await handleModerationPanelInteraction(client, interaction)) return true
+  if (await handlePartenariatPanelInteraction(client, interaction)) return true
 
   if (!interaction.isMessageComponent()) return false
   if (!isConfigHubCustomId(interaction.customId)) return false

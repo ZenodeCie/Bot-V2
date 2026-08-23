@@ -11,6 +11,7 @@ import {
   buildWhitelistContainer,
 } from "../antiraid/dashboard.js"
 import { MODULE_LABELS, MODULES, getConfig as getAntiRaidConfig, type ModuleName } from "../antiraid/schema.js"
+import { buildPartenariatContainer } from "./panels/partenariat.js"
 import { buildAeroportContainer } from "../aeroport/dashboard.js"
 import { getConfig as getAeroportConfig } from "../aeroport/schema.js"
 import { buildCaptchaContainer } from "../captcha/dashboard.js"
@@ -82,6 +83,8 @@ export const MODULE_ID_ALIASES: Record<string, string> = {
   modlog: "moderation-modlog",
   moderation: "moderation-modlog",
   blacklist: "moderation-blacklist",
+  partenariat: "partenariat",
+  partner: "partenariat",
   antiraid: "antiraid",
   "anti-raid": "antiraid",
 }
@@ -249,6 +252,18 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
     openPanel: async ({ client, guild }) => {
       const cfg = await getTicketsConfig(guild.id)
       return buildTicketsPayload(client, guild, cfg) as HubComponents
+    },
+  },
+  {
+    id: "partenariat",
+    label: "Partenariat",
+    emoji: "people",
+    description: "Demandes de partenariat et annonces",
+    requiredModule: "Partenariat",
+    permission: "ManageGuild",
+    aliases: ["partner", "partnership"],
+    openPanel: async ({ client, guild }) => {
+      return buildPartenariatContainer(client, guild)
     },
   },
   {
