@@ -18,8 +18,8 @@ export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
     eventGlobs: [],
   },
   Moderation: {
-    commandGlobs: ["commands/moderation"],
-    eventGlobs: ["events/moderation"],
+    commandGlobs: ["commands/moderation", "commands/blacklist"],
+    eventGlobs: ["events/moderation", "events/blacklist"],
   },
   ModerationAvancee: {
     commandGlobs: ["commands/antiraid"],
