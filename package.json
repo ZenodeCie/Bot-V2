@@ -1,6 +1,6 @@
 {
   "name": "zenode-vm-host",
-  "version": "1.0.0",
+  "version": "1.2",
   "description": "ZenodeBots VM host agent — orchestrates N Discord bot processes via PM2 and talks to dfb-vm-core.",
   "type": "module",
   "scripts": {
