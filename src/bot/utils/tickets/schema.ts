@@ -8,6 +8,16 @@ export const MAX_PATTERN_LENGTH = 90
 
 export type TicketPanelType = "button" | "select"
 
+export const TICKET_BUTTON_KEYS = ["priority", "rename", "addmember", "removemember"] as const
+export type TicketButtonKey = (typeof TICKET_BUTTON_KEYS)[number]
+
+export const TICKET_BUTTON_LABELS: Record<TicketButtonKey, string> = {
+  priority: "Priorité",
+  rename: "Renommer",
+  addmember: "Ajouter un membre",
+  removemember: "Retirer un membre",
+}
+
 export interface TicketCategory {
   id: string
   categoryId: string | null
@@ -43,6 +53,7 @@ export interface TicketsConfig {
   guildId: string
   type: TicketPanelType
   claimEnabled: boolean
+  enabledButtons: TicketButtonKey[]
   requiredRoleIds: string[]
   blacklistRoleIds: string[]
   logsChannelId: string | null
@@ -56,12 +67,30 @@ export interface TicketsConfig {
 export interface TicketRecordModel {
   guildId: string
   channelId: string
+  messageId: string | null
   userId: string
   categoryId: string
   number: number
   claimedBy: string | null
   closedAt: number | null
   createdAt: number
+  priority: TicketPriority
+  extraMemberIds: string[]
+}
+
+export const TICKET_PRIORITIES = ["low", "medium", "high"] as const
+export type TicketPriority = (typeof TICKET_PRIORITIES)[number]
+
+export const PRIORITY_LABELS: Record<TicketPriority, string> = {
+  low: "Faible",
+  medium: "Moyenne",
+  high: "Urgente",
+}
+
+export const PRIORITY_ACCENTS: Record<TicketPriority, number> = {
+  low: 0x36373e,
+  medium: 0x5865f2,
+  high: 0xe82c20,
 }
 
 export function defaultCategory(id: string): TicketCategory {
@@ -82,6 +111,7 @@ export function defaultConfig(guildId: string): TicketsConfig {
     guildId,
     type: "button",
     claimEnabled: true,
+    enabledButtons: [...TICKET_BUTTON_KEYS],
     requiredRoleIds: [],
     blacklistRoleIds: [],
     logsChannelId: null,
@@ -124,6 +154,7 @@ const ticketsSchema = new Schema(
     guildId: { type: String, required: true, index: true },
     type: { type: String, enum: ["button", "select"], default: "button" },
     claimEnabled: { type: Boolean, default: true },
+    enabledButtons: { type: [String], enum: TICKET_BUTTON_KEYS, default: () => [...TICKET_BUTTON_KEYS] },
     requiredRoleIds: { type: [String], default: [] },
     blacklistRoleIds: { type: [String], default: [] },
     logsChannelId: { type: String, default: null },
@@ -145,12 +176,15 @@ const ticketRecordSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
     channelId: { type: String, required: true, unique: true, index: true },
+    messageId: { type: String, default: null },
     userId: { type: String, required: true, index: true },
     categoryId: { type: String, required: true },
     number: { type: Number, required: true },
     claimedBy: { type: String, default: null },
     closedAt: { type: Number, default: null },
     createdAt: { type: Number, required: true },
+    priority: { type: String, enum: TICKET_PRIORITIES, default: "medium" },
+    extraMemberIds: { type: [String], default: [] },
   },
   { timestamps: true }
 )
@@ -175,6 +209,13 @@ function asStringOrNull(value: unknown, fallback: string | null): string | null 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return [...new Set(value.filter((item): item is string => typeof item === "string"))].slice(0, 25)
+}
+
+function asTicketButtonArray(value: unknown, fallback: TicketButtonKey[]): TicketButtonKey[] {
+  if (!Array.isArray(value)) return fallback
+  const allowed = new Set<string>(TICKET_BUTTON_KEYS)
+  const filtered = value.filter((item): item is TicketButtonKey => typeof item === "string" && allowed.has(item))
+  return [...new Set(filtered)]
 }
 
 function clampText(value: string, max: number): string {
@@ -269,6 +310,7 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
     guildId,
     type,
     claimEnabled: asBoolean(rawRecord.claimEnabled, defaults.claimEnabled),
+    enabledButtons: asTicketButtonArray(rawRecord.enabledButtons, defaults.enabledButtons),
     requiredRoleIds: asStringArray(rawRecord.requiredRoleIds).slice(0, 1),
     blacklistRoleIds: asStringArray(rawRecord.blacklistRoleIds).slice(0, 10),
     logsChannelId: asStringOrNull(rawRecord.logsChannelId, defaults.logsChannelId),
