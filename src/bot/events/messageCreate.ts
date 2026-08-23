@@ -2,6 +2,7 @@ import type { Client, Message } from "discord.js"
 import config from "../config.js"
 import buildErrorEmbed from "../utils/errorEmbed.js"
 import { Guild } from "../utils/initData.js"
+import { getBlockingEntry } from "../utils/blacklist/engine.js"
 
 export default {
   name: "messageCreate",
@@ -28,6 +29,20 @@ export default {
       client.commands.get(commandName) ??
       client.commands.find((cmd) => cmd.aliases?.includes(commandName))
     if (!command) return
+
+    if (message.guild) {
+      const blacklistEntry = await getBlockingEntry(message.guild.id, message.author.id).catch(() => null)
+      if (blacklistEntry) {
+        return message.reply({
+          embeds: [
+            buildErrorEmbed(
+              "403 Forbidden",
+              `> *Vous êtes sur liste noire de ce serveur, vous ne pouvez pas utiliser ce bot.*\n> ***Raison :** ${blacklistEntry.reason}*`
+            ),
+          ],
+        })
+      }
+    }
 
     if (command.permissions?.length) {
       const missing = message.member?.permissions.missing(command.permissions)
