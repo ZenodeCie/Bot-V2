@@ -2,6 +2,7 @@ import type { Client, Interaction } from "discord.js"
 import { MessageFlags } from "discord.js"
 import buildErrorEmbed from "../utils/errorEmbed.js"
 import { argsFromSlash, asCommandMessage, resolveSlashCommand } from "../utils/slash.js"
+import { getBlockingEntry } from "../utils/blacklist/engine.js"
 
 export default {
   name: "interactionCreate",
@@ -9,6 +10,21 @@ export default {
     if (interaction.isChatInputCommand()) {
       const command = resolveSlashCommand(client, interaction)
       if (!command) return
+
+      if (interaction.guildId) {
+        const blacklistEntry = await getBlockingEntry(interaction.guildId, interaction.user.id).catch(() => null)
+        if (blacklistEntry) {
+          return interaction.reply({
+            embeds: [
+              buildErrorEmbed(
+                "403 Forbidden",
+                `> *Vous êtes sur liste noire de ce serveur, vous ne pouvez pas utiliser ce bot.*\n> ***Raison :** ${blacklistEntry.reason}*`
+              ),
+            ],
+            flags: MessageFlags.Ephemeral,
+          })
+        }
+      }
 
       if (command.permissions?.length) {
         const missing = interaction.memberPermissions?.missing(command.permissions)
