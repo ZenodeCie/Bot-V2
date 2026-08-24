@@ -7,3 +7,4 @@ configs/
 data/
 *.md
 !README.md
+*.temp.*
