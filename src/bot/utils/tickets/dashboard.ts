@@ -621,7 +621,9 @@ export async function handleTicketsInteraction(client: Client, interaction: Inte
     customId === "tk_panel_select" ||
     customId === "tk_claim" ||
     customId === "tk_unclaim" ||
-    customId === "tk_close"
+    customId === "tk_close" ||
+    customId === "tk_reopen" ||
+    customId === "tk_delete"
   ) {
     return false
   }

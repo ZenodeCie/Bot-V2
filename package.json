@@ -8,6 +8,7 @@
     "start": "node dist/host/index.js",
     "start:bot": "node dist/bot/index.js",
     "start:alone": "tsc && node dist/bot/index.js --alone",
+    "start:alone:wb": "node dist/bot/index.js --alone",
     "dev": "tsc --watch",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop zenode-vm-host",

@@ -8,11 +8,10 @@ export const MAX_PATTERN_LENGTH = 90
 
 export type TicketPanelType = "button" | "select"
 
-export const TICKET_BUTTON_KEYS = ["priority", "rename", "addmember", "removemember"] as const
+export const TICKET_BUTTON_KEYS = ["rename", "addmember", "removemember"] as const
 export type TicketButtonKey = (typeof TICKET_BUTTON_KEYS)[number]
 
 export const TICKET_BUTTON_LABELS: Record<TicketButtonKey, string> = {
-  priority: "Priorité",
   rename: "Renommer",
   addmember: "Ajouter un membre",
   removemember: "Retirer un membre",
@@ -74,23 +73,7 @@ export interface TicketRecordModel {
   claimedBy: string | null
   closedAt: number | null
   createdAt: number
-  priority: TicketPriority
   extraMemberIds: string[]
-}
-
-export const TICKET_PRIORITIES = ["low", "medium", "high"] as const
-export type TicketPriority = (typeof TICKET_PRIORITIES)[number]
-
-export const PRIORITY_LABELS: Record<TicketPriority, string> = {
-  low: "Faible",
-  medium: "Moyenne",
-  high: "Urgente",
-}
-
-export const PRIORITY_ACCENTS: Record<TicketPriority, number> = {
-  low: 0x36373e,
-  medium: 0x5865f2,
-  high: 0xe82c20,
 }
 
 export function defaultCategory(id: string): TicketCategory {
@@ -183,7 +166,6 @@ const ticketRecordSchema = new Schema(
     claimedBy: { type: String, default: null },
     closedAt: { type: Number, default: null },
     createdAt: { type: Number, required: true },
-    priority: { type: String, enum: TICKET_PRIORITIES, default: "medium" },
     extraMemberIds: { type: [String], default: [] },
   },
   { timestamps: true }

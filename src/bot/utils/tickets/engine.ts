@@ -24,9 +24,6 @@ import { appEmojiComponent, appEmojiText } from "../appEmojis.js"
 import {
   MAX_CATEGORIES,
   MAX_CHANNEL_NAME_LENGTH,
-  PRIORITY_ACCENTS,
-  PRIORITY_LABELS,
-  TICKET_PRIORITIES,
   TicketRecords,
   clampPattern,
   getConfig,
@@ -35,7 +32,6 @@ import {
   updateConfig,
   type TicketCategory,
   type TicketEmbedConfig,
-  type TicketPriority,
   type TicketRecordModel,
   type TicketsConfig,
 } from "./schema.js"
@@ -276,45 +272,23 @@ function ticketStatusLine(record: TicketRecordModel): string {
   return `${appEmojiText("power")} **Ouvert**`
 }
 
-export function buildTicketContainer(
+export function buildTicketEmbed(
   guild: Guild,
   category: TicketCategory | undefined,
   record: TicketRecordModel,
   ctx?: TicketVariableContext
-): ContainerBuilder {
-  const accent = PRIORITY_ACCENTS[record.priority] ?? CONTAINER_ACCENT
-  const container = new ContainerBuilder().setAccentColor(accent)
-
-  container.addTextDisplayComponents((t) =>
-    t.setContent(`# ${EMOJI_TAGS.notes} 〃 Ticket \`${padTicketNumber(record.number)}\``)
-  )
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-  container.addTextDisplayComponents((t) =>
-    t.setContent(
-      `> ***Ouvert par :** <@${record.userId}>*\n` +
-        `> ***Priorité :** ${PRIORITY_LABELS[record.priority]}*\n` +
-        `> ***Statut :** ${ticketStatusLine(record)}*` +
-        (record.extraMemberIds.length > 0
-          ? `\n> ***Membres ajoutés :** ${record.extraMemberIds.map((id) => `<@${id}>`).join(", ")}*`
-          : "")
-    )
-  )
-
-  if (category) {
-    const embed = category.openEmbed
-    const hasContent = embed.title.trim() || embed.description.trim() || embed.footer.trim()
-    if (hasContent) {
-      container.addSeparatorComponents((s) => s.setSpacing(1))
-      const apply = (text: string) => (ctx ? replaceTicketVariables(text, ctx) : text)
-      const parts: string[] = []
-      if (embed.title.trim()) parts.push(`**${apply(embed.title.trim())}**`)
-      if (embed.description.trim()) parts.push(apply(embed.description.trim()))
-      if (embed.footer.trim()) parts.push(`-# ${apply(embed.footer.trim())}`)
-      container.addTextDisplayComponents((t) => t.setContent(parts.join("\n")))
-    }
+): EmbedBuilder {
+  void guild
+  const embed = category ? buildSimpleTicketEmbed(category.openEmbed, { ctx }) : new EmbedBuilder()
+  if (!embed.data.title) embed.setTitle(`Ticket #${padTicketNumber(record.number)}`)
+  if (!embed.data.color && colors.prime) embed.setColor(colors.prime)
+  if (record.extraMemberIds.length > 0) {
+    embed.addFields({
+      name: "Membres ajoutés",
+      value: record.extraMemberIds.map((id) => `<@${id}>`).join(", "),
+    })
   }
-
-  return container
+  return embed
 }
 
 /** Boutons/select d'action du ticket, rendus en dehors du Container (top-level, comme le dashboard config). */
@@ -325,24 +299,6 @@ export function buildTicketActionRows(
   const closed = Boolean(record.closedAt)
   const enabled = new Set(config.enabledButtons)
   const rows: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>> = []
-
-  if (enabled.has("priority")) {
-    rows.push(
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("tk_priority")
-          .setPlaceholder("Changer la priorité...")
-          .setDisabled(closed)
-          .addOptions(
-            TICKET_PRIORITIES.map((p) => ({
-              label: PRIORITY_LABELS[p],
-              value: p,
-              default: record.priority === p,
-            }))
-          )
-      )
-    )
-  }
 
   const actionRow = new ActionRowBuilder<ButtonBuilder>()
   if (config.claimEnabled) {
@@ -359,7 +315,8 @@ export function buildTicketActionRows(
   }
   if (closed) {
     actionRow.addComponents(
-      new ButtonBuilder().setCustomId("tk_reopen").setLabel("Réouvrir").setEmoji(appEmojiComponent("check")).setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setCustomId("tk_reopen").setLabel("Réouvrir").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("tk_delete").setLabel("Supprimer").setStyle(ButtonStyle.Danger)
     )
   } else {
     actionRow.addComponents(new ButtonBuilder().setCustomId("tk_close").setLabel("Fermer").setStyle(ButtonStyle.Danger))
@@ -371,8 +328,7 @@ export function buildTicketActionRows(
     manageRow.addComponents(
       new ButtonBuilder()
         .setCustomId("tk_rename_btn")
-        .setLabel("Renommer")
-        .setEmoji(appEmojiComponent("settings"))
+        .setEmoji({ id: "1469693057497563160" })
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(closed)
     )
@@ -381,8 +337,7 @@ export function buildTicketActionRows(
     manageRow.addComponents(
       new ButtonBuilder()
         .setCustomId("tk_addmember_btn")
-        .setLabel("Ajouter un membre")
-        .setEmoji(appEmojiComponent("add"))
+        .setEmoji({ id: "1469692082107977782" })
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(closed)
     )
@@ -391,8 +346,7 @@ export function buildTicketActionRows(
     manageRow.addComponents(
       new ButtonBuilder()
         .setCustomId("tk_removemember_btn")
-        .setLabel("Retirer un membre")
-        .setEmoji(appEmojiComponent("cancel"))
+        .setEmoji({ id: "1270005485764083722" })
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(closed || record.extraMemberIds.length === 0)
     )
@@ -402,14 +356,17 @@ export function buildTicketActionRows(
   return rows
 }
 
-function buildTicketPayloadComponents(
+export function buildTicketPayload(
   guild: Guild,
   config: TicketsConfig,
   category: TicketCategory | undefined,
   record: TicketRecordModel,
   ctx?: TicketVariableContext
-): Array<ContainerBuilder | ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>> {
-  return [buildTicketContainer(guild, category, record, ctx), ...buildTicketActionRows(config, record)]
+): {
+  embeds: EmbedBuilder[]
+  components: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>>
+} {
+  return { embeds: [buildTicketEmbed(guild, category, record, ctx)], components: buildTicketActionRows(config, record) }
 }
 
 async function refreshTicketMessage(
@@ -426,7 +383,10 @@ async function refreshTicketMessage(
     if (!message) return
     const config = await getConfig(guild.id)
     const category = config.categories.find((entry) => entry.id === record.categoryId)
-    await message.edit({ components: buildTicketPayloadComponents(guild, config, category, record, ctx) }).catch(() => undefined)
+    const payload = buildTicketPayload(guild, config, category, record, ctx)
+    await message
+      .edit({ embeds: payload.embeds, components: payload.components })
+      .catch(() => undefined)
   } catch (error) {
     console.error(`Failed to refresh ticket message for channel ${record.channelId}:`, error)
   }
@@ -474,9 +434,6 @@ function mapRecord(raw: Record<string, unknown>): TicketRecordModel {
     claimedBy: typeof raw.claimedBy === "string" ? raw.claimedBy : null,
     closedAt: typeof raw.closedAt === "number" ? raw.closedAt : null,
     createdAt: Number(raw.createdAt ?? Date.now()),
-    priority: (TICKET_PRIORITIES as readonly string[]).includes(raw.priority as string)
-      ? (raw.priority as TicketPriority)
-      : "medium",
     extraMemberIds: Array.isArray(raw.extraMemberIds) ? raw.extraMemberIds.filter((v): v is string => typeof v === "string") : [],
   }
 }
@@ -627,7 +584,6 @@ async function openTicket(client: Client, interaction: Interaction, categoryId: 
     claimedBy: null,
     closedAt: null,
     createdAt: nowTs,
-    priority: "medium",
     extraMemberIds: [],
   })
   void created
@@ -643,16 +599,15 @@ async function openTicket(client: Client, interaction: Interaction, categoryId: 
     claimedBy: null,
     closedAt: null,
     createdAt: nowTs,
-    priority: "medium",
     extraMemberIds: [],
   }
-  const components = buildTicketPayloadComponents(guild, config, category, record, ctx)
+  const payload = buildTicketPayload(guild, config, category, record, ctx)
 
   const sentMessage = await channel
     .send({
       content: mentions.trim() || undefined,
-      components,
-      flags: COMPONENTS_V2_FLAGS,
+      embeds: payload.embeds,
+      components: payload.components,
       allowedMentions: { roles: category.mentionRoleIds, users: [member.id] },
     })
     .catch((error: unknown) => {
@@ -701,7 +656,7 @@ async function claimTicket(client: Client, interaction: Interaction): Promise<vo
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
     const category = config.categories.find((entry) => entry.id === record.categoryId)
     await interaction
-      .update({ components: buildTicketPayloadComponents(guild, config, category, record) })
+      .update(buildTicketPayload(guild, config, category, record))
       .catch(() => undefined)
   }
   await interaction.channel
@@ -748,7 +703,7 @@ async function closeTicket(client: Client, interaction: Interaction): Promise<vo
   record.closedAt = Date.now()
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
     await interaction
-      .update({ components: buildTicketPayloadComponents(guild, config, category, record) })
+      .update(buildTicketPayload(guild, config, category, record))
       .catch(() => undefined)
   }
 
@@ -811,7 +766,7 @@ async function unclaimTicket(client: Client, interaction: Interaction): Promise<
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
     const category = config.categories.find((entry) => entry.id === record.categoryId)
     await interaction
-      .update({ components: buildTicketPayloadComponents(guild, config, category, record) })
+      .update(buildTicketPayload(guild, config, category, record))
       .catch(() => undefined)
   }
   await interaction.channel
@@ -873,7 +828,7 @@ async function reopenTicket(client: Client, interaction: Interaction): Promise<v
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
     const category = config.categories.find((entry) => entry.id === record.categoryId)
     await interaction
-      .update({ components: buildTicketPayloadComponents(guild, config, category, record) })
+      .update(buildTicketPayload(guild, config, category, record))
       .catch(() => undefined)
   }
 
@@ -897,40 +852,53 @@ async function reopenTicket(client: Client, interaction: Interaction): Promise<v
   }
 }
 
-async function setPriority(client: Client, interaction: Interaction, priority: string): Promise<void> {
+async function deleteTicket(client: Client, interaction: Interaction): Promise<void> {
   if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
-  if (!(TICKET_PRIORITIES as readonly string[]).includes(priority)) return
   const guild = interaction.guild
-  const record = await findOpenRecord(interaction.channel.id)
-  if (!record) {
-    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || !record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket doit être fermé avant de pouvoir être supprimé.*")
     return
   }
   const config = await getConfig(guild.id)
   const member = await fetchMember(guild, interaction.user.id)
   if (!member) return
   if (!(await isStaffMember(guild, config, record, member))) {
-    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent changer la priorité.*")
+    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent supprimer ce ticket.*")
     return
   }
 
-  await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { priority } })
-  record.priority = priority as TicketPriority
-  if (interaction.isRepliable() && interaction.isMessageComponent()) {
-    const category = config.categories.find((entry) => entry.id === record.categoryId)
+  const category = config.categories.find((entry) => entry.id === record.categoryId)
+  void category
+
+  if (interaction.isRepliable()) {
     await interaction
-      .update({ components: buildTicketPayloadComponents(guild, config, category, record) })
+      .deferReply({ flags: MessageFlags.Ephemeral })
       .catch(() => undefined)
   }
+
+  const transcript = await buildTranscript(interaction.channel, record.number)
 
   await sendTicketsLog(
     client,
     guild.id,
-    `> **Priorité** — \`${padTicketNumber(record.number)}\`\n` +
+    `> **Suppression** — \`${padTicketNumber(record.number)}\`\n` +
       `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
-      `> **Nouvelle priorité :** ${PRIORITY_LABELS[record.priority]}\n` +
-      `> **Salon :** <#${record.channelId}>`
+      `> **Ouvert par :** <@${record.userId}>\n` +
+      `> **Salon :** <#${record.channelId}>`,
+    transcript ? [transcript] : []
   )
+
+  await TicketRecords.deleteOne({ channelId: record.channelId }).catch(() => undefined)
+
+  await editEphemeral(interaction, `> ${appEmojiText("cancel")} *Suppression du ticket...*`)
+
+  await interaction.channel
+    .delete(`Ticket #${padTicketNumber(record.number)} supprimé par ${member.user.tag}`)
+    .catch((error: unknown) => {
+      console.error(`Failed to delete ticket channel ${record.channelId}:`, error)
+      void editEphemeral(interaction, "> *La suppression du salon a échoué. Vérifiez mes permissions.*")
+    })
 }
 
 function buildRenameModal(currentName: string): ModalBuilder {
@@ -945,7 +913,7 @@ function buildRenameModal(currentName: string): ModalBuilder {
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(MAX_CHANNEL_NAME_LENGTH)
-          .setValue(currentName)
+          .setValue(currentName.slice(0, MAX_CHANNEL_NAME_LENGTH))
       )
     )
 }
@@ -960,7 +928,10 @@ async function handleRenameModal(client: Client, interaction: Interaction): Prom
   }
   const config = await getConfig(guild.id)
   const member = await fetchMember(guild, interaction.user.id)
-  if (!member) return
+  if (!member) {
+    await replyEphemeral(interaction, "> *Impossible de vérifier votre accès à ce ticket.*")
+    return
+  }
   if (!(await isStaffMember(guild, config, record, member))) {
     await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent renommer ce ticket.*")
     return
@@ -1017,7 +988,9 @@ async function handleAddMemberButton(interaction: Interaction): Promise<void> {
         components: [new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(new UserSelectMenuBuilder().setCustomId("tk_addmember_select").setMaxValues(1))],
         flags: MessageFlags.Ephemeral,
       })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        console.error("Failed to send add-member select menu:", error)
+      })
   }
 }
 
@@ -1050,7 +1023,9 @@ async function handleRemoveMemberButton(interaction: Interaction): Promise<void>
         ],
         flags: MessageFlags.Ephemeral,
       })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        console.error("Failed to send remove-member select menu:", error)
+      })
   }
 }
 
@@ -1059,7 +1034,7 @@ async function handleAddMemberSelect(interaction: Interaction): Promise<void> {
   const guild = interaction.guild
   const record = await findOpenRecord(interaction.channel.id)
   if (!record) {
-    await editEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
     return
   }
   const targetId = interaction.values[0]
@@ -1098,7 +1073,7 @@ async function handleRemoveMemberSelect(interaction: Interaction): Promise<void>
   const guild = interaction.guild
   const record = await findOpenRecord(interaction.channel.id)
   if (!record) {
-    await editEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
     return
   }
   const targetId = interaction.values[0]
@@ -1162,8 +1137,8 @@ export async function handleTicketActionInteraction(client: Client, interaction:
     return true
   }
 
-  if (interaction.isStringSelectMenu() && interaction.customId === "tk_priority") {
-    await setPriority(client, interaction, interaction.values[0] ?? "")
+  if (interaction.isButton() && interaction.customId === "tk_delete") {
+    await deleteTicket(client, interaction)
     return true
   }
 
@@ -1175,7 +1150,9 @@ export async function handleTicketActionInteraction(client: Client, interaction:
       return true
     }
     if (interaction.isRepliable()) {
-      await interaction.showModal(buildRenameModal(channelName)).catch(() => undefined)
+      await interaction.showModal(buildRenameModal(channelName)).catch((error: unknown) => {
+        console.error("Failed to show rename modal:", error)
+      })
     }
     return true
   }
