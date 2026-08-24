@@ -1,6 +1,6 @@
 {
   "name": "zenode-vm-host",
-  "version": "1.0.0",
+  "version": "1.2",
   "description": "ZenodeBots VM host agent — orchestrates N Discord bot processes via PM2 and talks to dfb-vm-core.",
   "type": "module",
   "scripts": {
@@ -8,6 +8,7 @@
     "start": "node dist/host/index.js",
     "start:bot": "node dist/bot/index.js",
     "start:alone": "tsc && node dist/bot/index.js --alone",
+    "start:alone:wb": "node dist/bot/index.js --alone",
     "dev": "tsc --watch",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop zenode-vm-host",
@@ -17,7 +18,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "discord.js": "^14.27.0",

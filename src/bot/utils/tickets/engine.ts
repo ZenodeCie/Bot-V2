@@ -1,19 +1,26 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
   ContainerBuilder,
   EmbedBuilder,
   MessageFlags,
+  ModalBuilder,
   PermissionFlagsBits,
   StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  UserSelectMenuBuilder,
   type Client,
   type Guild,
   type GuildMember,
   type Interaction,
+  type Message,
 } from "discord.js"
 import { colors } from "../../config.js"
+import { appEmojiComponent, appEmojiText } from "../appEmojis.js"
 import {
   MAX_CATEGORIES,
   MAX_CHANNEL_NAME_LENGTH,
@@ -223,7 +230,12 @@ export async function republishIfPublished(client: Client, guildId: string): Pro
   await publishPanel(client, guildId)
 }
 
-export async function sendTicketsLog(client: Client, guildId: string, body: string): Promise<void> {
+export async function sendTicketsLog(
+  client: Client,
+  guildId: string,
+  body: string,
+  files: AttachmentBuilder[] = []
+): Promise<void> {
   try {
     const config = await getConfig(guildId)
     if (!config.logsChannelId) return
@@ -233,7 +245,12 @@ export async function sendTicketsLog(client: Client, guildId: string, body: stri
     container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Journal des tickets`))
     container.addSeparatorComponents((s) => s.setSpacing(1))
     container.addTextDisplayComponents((t) => t.setContent(body))
-    await channel.send({ components: [container], flags: COMPONENTS_V2_FLAGS, allowedMentions: { parse: [] } })
+    await channel.send({
+      components: [container],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
+      files,
+    })
   } catch (error) {
     console.error(`Failed to send tickets log in guild ${guildId}:`, error)
   }
@@ -249,49 +266,190 @@ function hasAnyRole(member: GuildMember, roleIds: string[]): boolean {
   return roleIds.some((roleId) => member.roles.cache.has(roleId))
 }
 
-function ticketActionRow(claimEnabled: boolean, claimedBy: string | null, closed = false): ActionRowBuilder<ButtonBuilder> {
-  const row = new ActionRowBuilder<ButtonBuilder>()
-  if (claimEnabled) {
-    if (claimedBy) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId("tk_claim")
-          .setLabel("Sur-Claim")
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(closed),
-        new ButtonBuilder()
-          .setCustomId("tk_unclaim")
-          .setLabel("Unclaim")
-          .setStyle(ButtonStyle.Secondary)
-          .setDisabled(closed)
+function ticketStatusLine(record: TicketRecordModel): string {
+  if (record.closedAt) return `${appEmojiText("cancel")} **Fermé**`
+  if (record.claimedBy) return `${appEmojiText("check")} **Claim par** <@${record.claimedBy}>`
+  return `${appEmojiText("power")} **Ouvert**`
+}
+
+export function buildTicketEmbed(
+  guild: Guild,
+  category: TicketCategory | undefined,
+  record: TicketRecordModel,
+  ctx?: TicketVariableContext
+): EmbedBuilder {
+  void guild
+  const embed = category ? buildSimpleTicketEmbed(category.openEmbed, { ctx }) : new EmbedBuilder()
+  if (!embed.data.title) embed.setTitle(`Ticket #${padTicketNumber(record.number)}`)
+  if (!embed.data.color && colors.prime) embed.setColor(colors.prime)
+  if (record.extraMemberIds.length > 0) {
+    embed.addFields({
+      name: "Membres ajoutés",
+      value: record.extraMemberIds.map((id) => `<@${id}>`).join(", "),
+    })
+  }
+  return embed
+}
+
+/** Boutons/select d'action du ticket, rendus en dehors du Container (top-level, comme le dashboard config). */
+export function buildTicketActionRows(
+  config: TicketsConfig,
+  record: TicketRecordModel
+): Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>> {
+  const closed = Boolean(record.closedAt)
+  const enabled = new Set(config.enabledButtons)
+  const rows: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>> = []
+
+  const actionRow = new ActionRowBuilder<ButtonBuilder>()
+  if (config.claimEnabled) {
+    if (record.claimedBy) {
+      actionRow.addComponents(
+        new ButtonBuilder().setCustomId("tk_claim").setLabel("Sur-Claim").setStyle(ButtonStyle.Success).setDisabled(closed),
+        new ButtonBuilder().setCustomId("tk_unclaim").setLabel("Unclaim").setStyle(ButtonStyle.Secondary).setDisabled(closed)
       )
     } else {
-      row.addComponents(
+      actionRow.addComponents(
         new ButtonBuilder().setCustomId("tk_claim").setLabel("Claim").setStyle(ButtonStyle.Success).setDisabled(closed)
       )
     }
   }
-  row.addComponents(
-    new ButtonBuilder().setCustomId("tk_close").setLabel("Fermer").setStyle(ButtonStyle.Danger).setDisabled(closed)
-  )
-  return row
+  if (closed) {
+    actionRow.addComponents(
+      new ButtonBuilder().setCustomId("tk_reopen").setLabel("Réouvrir").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("tk_delete").setLabel("Supprimer").setStyle(ButtonStyle.Danger)
+    )
+  } else {
+    actionRow.addComponents(new ButtonBuilder().setCustomId("tk_close").setLabel("Fermer").setStyle(ButtonStyle.Danger))
+  }
+  if (actionRow.components.length > 0) rows.push(actionRow)
+
+  const manageRow = new ActionRowBuilder<ButtonBuilder>()
+  if (enabled.has("rename")) {
+    manageRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("tk_rename_btn")
+        .setEmoji({ id: "1469693057497563160" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(closed)
+    )
+  }
+  if (enabled.has("addmember")) {
+    manageRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("tk_addmember_btn")
+        .setEmoji({ id: "1469692082107977782" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(closed)
+    )
+  }
+  if (enabled.has("removemember")) {
+    manageRow.addComponents(
+      new ButtonBuilder()
+        .setCustomId("tk_removemember_btn")
+        .setEmoji({ id: "1270005485764083722" })
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(closed || record.extraMemberIds.length === 0)
+    )
+  }
+  if (manageRow.components.length > 0) rows.push(manageRow)
+
+  return rows
+}
+
+export function buildTicketPayload(
+  guild: Guild,
+  config: TicketsConfig,
+  category: TicketCategory | undefined,
+  record: TicketRecordModel,
+  ctx?: TicketVariableContext
+): {
+  embeds: EmbedBuilder[]
+  components: Array<ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>>
+} {
+  return { embeds: [buildTicketEmbed(guild, category, record, ctx)], components: buildTicketActionRows(config, record) }
+}
+
+async function refreshTicketMessage(
+  client: Client,
+  guild: Guild,
+  record: TicketRecordModel,
+  ctx?: TicketVariableContext
+): Promise<void> {
+  if (!record.messageId) return
+  try {
+    const channel = await resolveSendableChannel(client, record.channelId)
+    if (!channel) return
+    const message = await channel.messages.fetch(record.messageId).catch(() => null)
+    if (!message) return
+    const config = await getConfig(guild.id)
+    const category = config.categories.find((entry) => entry.id === record.categoryId)
+    const payload = buildTicketPayload(guild, config, category, record, ctx)
+    await message
+      .edit({ embeds: payload.embeds, components: payload.components })
+      .catch(() => undefined)
+  } catch (error) {
+    console.error(`Failed to refresh ticket message for channel ${record.channelId}:`, error)
+  }
+}
+
+async function buildTranscript(channel: Message["channel"], number: number): Promise<AttachmentBuilder | null> {
+  try {
+    if (!("messages" in channel)) return null
+    const collected: Message[] = []
+    let before: string | undefined
+    for (let i = 0; i < 10; i++) {
+      const batch = await channel.messages.fetch({ limit: 100, before })
+      if (batch.size === 0) break
+      collected.push(...batch.values())
+      before = batch.last()?.id
+      if (batch.size < 100) break
+    }
+    collected.reverse()
+    const lines = collected.map((msg) => {
+      const time = new Date(msg.createdTimestamp).toISOString().slice(0, 19).replace("T", " ")
+      const content = msg.content || (msg.attachments.size > 0 ? "[pièce jointe]" : "[message vide]")
+      return `[${time}] ${msg.author.tag} (${msg.author.id}) : ${content}`
+    })
+    const text = lines.join("\n") || "Aucun message."
+    return new AttachmentBuilder(Buffer.from(text, "utf-8"), { name: `transcript-${padTicketNumber(number)}.txt` })
+  } catch (error) {
+    console.error("Failed to build ticket transcript:", error)
+    return null
+  }
+}
+
+async function isStaffMember(guild: Guild, config: TicketsConfig, record: TicketRecordModel, member: GuildMember): Promise<boolean> {
+  const category = config.categories.find((entry) => entry.id === record.categoryId)
+  return member.permissions.has(PermissionFlagsBits.ManageGuild) || (category ? hasAnyRole(member, category.staffRoleIds) : false)
+}
+
+function mapRecord(raw: Record<string, unknown>): TicketRecordModel {
+  return {
+    guildId: String(raw.guildId),
+    channelId: String(raw.channelId),
+    messageId: typeof raw.messageId === "string" ? raw.messageId : null,
+    userId: String(raw.userId),
+    categoryId: String(raw.categoryId),
+    number: Number(raw.number),
+    claimedBy: typeof raw.claimedBy === "string" ? raw.claimedBy : null,
+    closedAt: typeof raw.closedAt === "number" ? raw.closedAt : null,
+    createdAt: Number(raw.createdAt ?? Date.now()),
+    extraMemberIds: Array.isArray(raw.extraMemberIds) ? raw.extraMemberIds.filter((v): v is string => typeof v === "string") : [],
+  }
 }
 
 async function findOpenRecord(channelId: string): Promise<TicketRecordModel | null> {
   const raw = await TicketRecords.findOne({ channelId }).lean()
   if (!raw) return null
-  const record = raw as unknown as Record<string, unknown>
-  if (record.closedAt !== null && record.closedAt !== undefined) return null
-  return {
-    guildId: String(record.guildId),
-    channelId: String(record.channelId),
-    userId: String(record.userId),
-    categoryId: String(record.categoryId),
-    number: Number(record.number),
-    claimedBy: typeof record.claimedBy === "string" ? record.claimedBy : null,
-    closedAt: typeof record.closedAt === "number" ? record.closedAt : null,
-    createdAt: Number(record.createdAt ?? Date.now()),
-  }
+  const record = mapRecord(raw as unknown as Record<string, unknown>)
+  if (record.closedAt !== null) return null
+  return record
+}
+
+async function findAnyRecord(channelId: string): Promise<TicketRecordModel | null> {
+  const raw = await TicketRecords.findOne({ channelId }).lean()
+  if (!raw) return null
+  return mapRecord(raw as unknown as Record<string, unknown>)
 }
 
 async function replyEphemeral(interaction: Interaction, content: string): Promise<void> {
@@ -415,33 +573,51 @@ async function openTicket(client: Client, interaction: Interaction, categoryId: 
     return
   }
 
-  await TicketRecords.create({
+  const nowTs = Date.now()
+  const created = await TicketRecords.create({
     guildId: guild.id,
     channelId: channel.id,
+    messageId: null,
     userId: member.id,
     categoryId: category.id,
     number,
     claimedBy: null,
     closedAt: null,
-    createdAt: Date.now(),
+    createdAt: nowTs,
+    extraMemberIds: [],
   })
+  void created
 
   const mentions = category.mentionRoleIds.map((roleId) => `<@&${roleId}>`).join(" ")
-  const embed = buildSimpleTicketEmbed(category.openEmbed, {
-    ctx,
-    fallbackDescription:
-      `> *Ticket \`${padTicketNumber(number)}\` ouvert par <@${member.id}>.*\n` +
-      `> *Merci de décrire votre demande, le staff va vous répondre.*`,
-  })
+  const record: TicketRecordModel = {
+    guildId: guild.id,
+    channelId: channel.id,
+    messageId: null,
+    userId: member.id,
+    categoryId: category.id,
+    number,
+    claimedBy: null,
+    closedAt: null,
+    createdAt: nowTs,
+    extraMemberIds: [],
+  }
+  const payload = buildTicketPayload(guild, config, category, record, ctx)
 
-  await channel
+  const sentMessage = await channel
     .send({
       content: mentions.trim() || undefined,
-      embeds: [embed],
+      embeds: payload.embeds,
+      components: payload.components,
       allowedMentions: { roles: category.mentionRoleIds, users: [member.id] },
-      components: [ticketActionRow(config.claimEnabled, null)],
     })
-    .catch((error: unknown) => console.error(`Failed to send ticket opening message in guild ${guild.id}:`, error))
+    .catch((error: unknown) => {
+      console.error(`Failed to send ticket opening message in guild ${guild.id}:`, error)
+      return null
+    })
+
+  if (sentMessage) {
+    await TicketRecords.updateOne({ channelId: channel.id }, { $set: { messageId: sentMessage.id } })
+  }
 
   await editEphemeral(interaction, `> *Votre ticket a été créé : <#${channel.id}>.*`)
 
@@ -464,12 +640,9 @@ async function claimTicket(client: Client, interaction: Interaction): Promise<vo
     return
   }
   const config = await getConfig(guild.id)
-  const category = config.categories.find((entry) => entry.id === record.categoryId)
   const member = await fetchMember(guild, interaction.user.id)
   if (!member) return
-  const isStaff =
-    member.permissions.has(PermissionFlagsBits.ManageGuild) || (category ? hasAnyRole(member, category.staffRoleIds) : false)
-  if (!isStaff) {
+  if (!(await isStaffMember(guild, config, record, member))) {
     await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent claim ce ticket.*")
     return
   }
@@ -479,9 +652,11 @@ async function claimTicket(client: Client, interaction: Interaction): Promise<vo
   }
   const isSurClaim = Boolean(record.claimedBy)
   await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { claimedBy: member.id } })
+  record.claimedBy = member.id
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
+    const category = config.categories.find((entry) => entry.id === record.categoryId)
     await interaction
-      .update({ components: [ticketActionRow(true, member.id)] })
+      .update(buildTicketPayload(guild, config, category, record))
       .catch(() => undefined)
   }
   await interaction.channel
@@ -518,27 +693,28 @@ async function closeTicket(client: Client, interaction: Interaction): Promise<vo
   const category = config.categories.find((entry) => entry.id === record.categoryId)
   const member = await fetchMember(guild, interaction.user.id)
   if (!member) return
-  const allowed =
-    member.id === record.userId ||
-    member.permissions.has(PermissionFlagsBits.ManageGuild) ||
-    (category ? hasAnyRole(member, category.staffRoleIds) : false)
+  const allowed = member.id === record.userId || (await isStaffMember(guild, config, record, member))
   if (!allowed) {
     await replyEphemeral(interaction, "> *Vous n'êtes pas autorisé à fermer ce ticket.*")
     return
   }
 
   await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { closedAt: Date.now() } })
+  record.closedAt = Date.now()
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
     await interaction
-      .update({ components: [ticketActionRow(config.claimEnabled, record.claimedBy, true)] })
+      .update(buildTicketPayload(guild, config, category, record))
       .catch(() => undefined)
   }
 
   const me = await guild.members.fetchMe().catch(() => null)
   const channel = interaction.channel
-  if (me && channel && !channel.isThread() && "permissionOverwrites" in channel) {
+  if (me && channel && !channel.isThread() && "permissionOverwrites" in channel && !channel.name.endsWith("-ferme")) {
     await channel.setName(`${channel.name}-ferme`.slice(0, 100)).catch(() => undefined)
     await channel.permissionOverwrites.delete(record.userId, "Ticket fermé").catch(() => undefined)
+    for (const extraId of record.extraMemberIds) {
+      await channel.permissionOverwrites.delete(extraId, "Ticket fermé").catch(() => undefined)
+    }
   }
 
   await interaction.channel
@@ -548,13 +724,16 @@ async function closeTicket(client: Client, interaction: Interaction): Promise<vo
     })
     .catch(() => undefined)
 
+  const transcript = await buildTranscript(interaction.channel, record.number)
+
   await sendTicketsLog(
     client,
     guild.id,
     `> **Fermeture** — \`${padTicketNumber(record.number)}\`\n` +
       `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
       `> **Ouvert par :** <@${record.userId}>\n` +
-      `> **Salon :** <#${record.channelId}>`
+      `> **Salon :** <#${record.channelId}>`,
+    transcript ? [transcript] : []
   )
 
   if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
@@ -575,19 +754,20 @@ async function unclaimTicket(client: Client, interaction: Interaction): Promise<
     return
   }
   const config = await getConfig(guild.id)
-  const category = config.categories.find((entry) => entry.id === record.categoryId)
   const member = await fetchMember(guild, interaction.user.id)
   if (!member) return
-  const isStaff =
-    member.permissions.has(PermissionFlagsBits.ManageGuild) || (category ? hasAnyRole(member, category.staffRoleIds) : false)
-  if (!isStaff) {
+  if (!(await isStaffMember(guild, config, record, member))) {
     await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent unclaim ce ticket.*")
     return
   }
 
   await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { claimedBy: null } })
+  record.claimedBy = null
   if (interaction.isRepliable() && interaction.isMessageComponent()) {
-    await interaction.update({ components: [ticketActionRow(true, null)] }).catch(() => undefined)
+    const category = config.categories.find((entry) => entry.id === record.categoryId)
+    await interaction
+      .update(buildTicketPayload(guild, config, category, record))
+      .catch(() => undefined)
   }
   await interaction.channel
     .send({ content: `> *Ticket relâché par <@${member.id}>.*`, allowedMentions: { parse: [] } })
@@ -604,6 +784,324 @@ async function unclaimTicket(client: Client, interaction: Interaction): Promise<
   if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
     await interaction.reply({ content: "> *Ticket relâché.*", flags: MessageFlags.Ephemeral }).catch(() => undefined)
   }
+}
+
+async function reopenTicket(client: Client, interaction: Interaction): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || !record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket n'est pas fermé.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const member = await fetchMember(guild, interaction.user.id)
+  if (!member) return
+  if (!(await isStaffMember(guild, config, record, member))) {
+    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent réouvrir ce ticket.*")
+    return
+  }
+
+  await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { closedAt: null } })
+  record.closedAt = null
+
+  const channel = interaction.channel
+  if (channel && !channel.isThread() && "permissionOverwrites" in channel) {
+    const restoredName = channel.name.endsWith("-ferme") ? channel.name.slice(0, -"-ferme".length) : channel.name
+    await channel.setName(restoredName.slice(0, 100)).catch(() => undefined)
+    await channel.permissionOverwrites
+      .edit(record.userId, {
+        ViewChannel: true,
+        SendMessages: true,
+        ReadMessageHistory: true,
+        EmbedLinks: true,
+        AttachFiles: true,
+      })
+      .catch(() => undefined)
+    for (const extraId of record.extraMemberIds) {
+      await channel.permissionOverwrites
+        .edit(extraId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true })
+        .catch(() => undefined)
+    }
+  }
+
+  if (interaction.isRepliable() && interaction.isMessageComponent()) {
+    const category = config.categories.find((entry) => entry.id === record.categoryId)
+    await interaction
+      .update(buildTicketPayload(guild, config, category, record))
+      .catch(() => undefined)
+  }
+
+  await interaction.channel
+    .send({
+      content: `> ${appEmojiText("check")} *Ticket \`${padTicketNumber(record.number)}\` réouvert par <@${member.id}>.*`,
+      allowedMentions: { parse: [] },
+    })
+    .catch(() => undefined)
+
+  await sendTicketsLog(
+    client,
+    guild.id,
+    `> **Réouverture** — \`${padTicketNumber(record.number)}\`\n` +
+      `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
+      `> **Salon :** <#${record.channelId}>`
+  )
+
+  if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+    await interaction.reply({ content: "> *Ticket réouvert.*", flags: MessageFlags.Ephemeral }).catch(() => undefined)
+  }
+}
+
+async function deleteTicket(client: Client, interaction: Interaction): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || !record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket doit être fermé avant de pouvoir être supprimé.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const member = await fetchMember(guild, interaction.user.id)
+  if (!member) return
+  if (!(await isStaffMember(guild, config, record, member))) {
+    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent supprimer ce ticket.*")
+    return
+  }
+
+  const category = config.categories.find((entry) => entry.id === record.categoryId)
+  void category
+
+  if (interaction.isRepliable()) {
+    await interaction
+      .deferReply({ flags: MessageFlags.Ephemeral })
+      .catch(() => undefined)
+  }
+
+  const transcript = await buildTranscript(interaction.channel, record.number)
+
+  await sendTicketsLog(
+    client,
+    guild.id,
+    `> **Suppression** — \`${padTicketNumber(record.number)}\`\n` +
+      `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
+      `> **Ouvert par :** <@${record.userId}>\n` +
+      `> **Salon :** <#${record.channelId}>`,
+    transcript ? [transcript] : []
+  )
+
+  await TicketRecords.deleteOne({ channelId: record.channelId }).catch(() => undefined)
+
+  await editEphemeral(interaction, `> ${appEmojiText("cancel")} *Suppression du ticket...*`)
+
+  await interaction.channel
+    .delete(`Ticket #${padTicketNumber(record.number)} supprimé par ${member.user.tag}`)
+    .catch((error: unknown) => {
+      console.error(`Failed to delete ticket channel ${record.channelId}:`, error)
+      void editEphemeral(interaction, "> *La suppression du salon a échoué. Vérifiez mes permissions.*")
+    })
+}
+
+function buildRenameModal(currentName: string): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId("tk_rename_modal")
+    .setTitle("Renommer le ticket")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId("name")
+          .setLabel("Nouveau nom du salon")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(MAX_CHANNEL_NAME_LENGTH)
+          .setValue(currentName.slice(0, MAX_CHANNEL_NAME_LENGTH))
+      )
+    )
+}
+
+async function handleRenameModal(client: Client, interaction: Interaction): Promise<void> {
+  if (!interaction.isModalSubmit() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findOpenRecord(interaction.channel.id)
+  if (!record) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const member = await fetchMember(guild, interaction.user.id)
+  if (!member) {
+    await replyEphemeral(interaction, "> *Impossible de vérifier votre accès à ce ticket.*")
+    return
+  }
+  if (!(await isStaffMember(guild, config, record, member))) {
+    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent renommer ce ticket.*")
+    return
+  }
+
+  const raw = interaction.fields.getTextInputValue("name").trim()
+  const cleaned = raw
+    .normalize("NFC")
+    .replace(/[^\p{L}\p{N}\-_]/gu, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "")
+    .slice(0, MAX_CHANNEL_NAME_LENGTH)
+
+  if (!cleaned) {
+    await replyEphemeral(interaction, "> *Nom invalide.*")
+    return
+  }
+
+  const channel = interaction.channel
+  if (!channel.isThread() && "setName" in channel) {
+    await channel.setName(cleaned).catch(() => undefined)
+  }
+
+  await replyEphemeral(interaction, `> ${appEmojiText("check")} *Salon renommé en \`${cleaned}\`.*`)
+
+  await sendTicketsLog(
+    client,
+    guild.id,
+    `> **Renommage** — \`${padTicketNumber(record.number)}\`\n` +
+      `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
+      `> **Nouveau nom :** \`${cleaned}\`\n` +
+      `> **Salon :** <#${record.channelId}>`
+  )
+}
+
+async function handleAddMemberButton(interaction: Interaction): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findOpenRecord(interaction.channel.id)
+  if (!record) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const member = await fetchMember(guild, interaction.user.id)
+  if (!member || !(await isStaffMember(guild, config, record, member))) {
+    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent ajouter un membre.*")
+    return
+  }
+  if (interaction.isRepliable()) {
+    await interaction
+      .reply({
+        content: "> *Choisissez le membre à ajouter au ticket :*",
+        components: [new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(new UserSelectMenuBuilder().setCustomId("tk_addmember_select").setMaxValues(1))],
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to send add-member select menu:", error)
+      })
+  }
+}
+
+async function handleRemoveMemberButton(interaction: Interaction): Promise<void> {
+  if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findOpenRecord(interaction.channel.id)
+  if (!record) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  if (record.extraMemberIds.length === 0) {
+    await replyEphemeral(interaction, "> *Aucun membre n'a été ajouté manuellement à ce ticket.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const member = await fetchMember(guild, interaction.user.id)
+  if (!member || !(await isStaffMember(guild, config, record, member))) {
+    await replyEphemeral(interaction, "> *Seuls les membres du staff peuvent retirer un membre.*")
+    return
+  }
+  if (interaction.isRepliable()) {
+    await interaction
+      .reply({
+        content: "> *Choisissez le membre à retirer du ticket :*",
+        components: [
+          new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
+            new UserSelectMenuBuilder().setCustomId("tk_removemember_select").setMaxValues(1)
+          ),
+        ],
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to send remove-member select menu:", error)
+      })
+  }
+}
+
+async function handleAddMemberSelect(interaction: Interaction): Promise<void> {
+  if (!interaction.isUserSelectMenu() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findOpenRecord(interaction.channel.id)
+  if (!record) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  const targetId = interaction.values[0]
+  if (!targetId) return
+  if (targetId === record.userId || record.extraMemberIds.includes(targetId)) {
+    await replyEphemeral(interaction, "> *Ce membre a déjà accès au ticket.*")
+    return
+  }
+
+  const channel = interaction.channel
+  if (!channel.isThread() && "permissionOverwrites" in channel) {
+    await channel.permissionOverwrites
+      .edit(targetId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true })
+      .catch(() => undefined)
+  }
+
+  const extraMemberIds = [...record.extraMemberIds, targetId].slice(0, 10)
+  await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { extraMemberIds } })
+  record.extraMemberIds = extraMemberIds
+
+  await replyEphemeral(interaction, `> ${appEmojiText("check")} *<@${targetId}> a été ajouté au ticket.*`)
+  await refreshTicketMessage(guild.client, guild, record)
+
+  await sendTicketsLog(
+    guild.client,
+    guild.id,
+    `> **Ajout membre** — \`${padTicketNumber(record.number)}\`\n` +
+      `> **Membre ajouté :** <@${targetId}>\n` +
+      `> **Par :** <@${interaction.user.id}>\n` +
+      `> **Salon :** <#${record.channelId}>`
+  )
+}
+
+async function handleRemoveMemberSelect(interaction: Interaction): Promise<void> {
+  if (!interaction.isUserSelectMenu() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findOpenRecord(interaction.channel.id)
+  if (!record) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  const targetId = interaction.values[0]
+  if (!targetId || !record.extraMemberIds.includes(targetId)) {
+    await replyEphemeral(interaction, "> *Ce membre n'a pas été ajouté manuellement à ce ticket.*")
+    return
+  }
+
+  const channel = interaction.channel
+  if (!channel.isThread() && "permissionOverwrites" in channel) {
+    await channel.permissionOverwrites.delete(targetId, "Retiré du ticket").catch(() => undefined)
+  }
+
+  const extraMemberIds = record.extraMemberIds.filter((id) => id !== targetId)
+  await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { extraMemberIds } })
+  record.extraMemberIds = extraMemberIds
+
+  await replyEphemeral(interaction, `> ${appEmojiText("check")} *<@${targetId}> a été retiré du ticket.*`)
+  await refreshTicketMessage(guild.client, guild, record)
+
+  await sendTicketsLog(
+    guild.client,
+    guild.id,
+    `> **Retrait membre** — \`${padTicketNumber(record.number)}\`\n` +
+      `> **Membre retiré :** <@${targetId}>\n` +
+      `> **Par :** <@${interaction.user.id}>\n` +
+      `> **Salon :** <#${record.channelId}>`
+  )
 }
 
 export async function handleTicketActionInteraction(client: Client, interaction: Interaction): Promise<boolean> {
@@ -631,6 +1129,56 @@ export async function handleTicketActionInteraction(client: Client, interaction:
 
   if (interaction.isButton() && interaction.customId === "tk_close") {
     await closeTicket(client, interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_reopen") {
+    await reopenTicket(client, interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_delete") {
+    await deleteTicket(client, interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_rename_btn") {
+    const record = await findOpenRecord(interaction.channel?.id ?? "")
+    const channelName = interaction.channel && "name" in interaction.channel ? interaction.channel.name : ""
+    if (!record) {
+      await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+      return true
+    }
+    if (interaction.isRepliable()) {
+      await interaction.showModal(buildRenameModal(channelName)).catch((error: unknown) => {
+        console.error("Failed to show rename modal:", error)
+      })
+    }
+    return true
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId === "tk_rename_modal") {
+    await handleRenameModal(client, interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_addmember_btn") {
+    await handleAddMemberButton(interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_removemember_btn") {
+    await handleRemoveMemberButton(interaction)
+    return true
+  }
+
+  if (interaction.isUserSelectMenu() && interaction.customId === "tk_addmember_select") {
+    await handleAddMemberSelect(interaction)
+    return true
+  }
+
+  if (interaction.isUserSelectMenu() && interaction.customId === "tk_removemember_select") {
+    await handleRemoveMemberSelect(interaction)
     return true
   }
 

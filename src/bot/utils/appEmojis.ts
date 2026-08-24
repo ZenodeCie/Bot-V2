@@ -9,7 +9,7 @@ export const APP_EMOJI_FALLBACK: Record<AppEmojiName, string> = {
   cancel: "❌",
   add: "➕",
   settings: "⚙️",
-  power: "⏻",
+  power: "⚡",
   pin: "📌",
   people: "👥",
   loop: "🔄",

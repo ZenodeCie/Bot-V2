@@ -21,6 +21,8 @@ import {
 import { COMPONENTS_V2_FLAGS, buildSimpleTicketEmbed, categoryLabel, publishPanel, republishIfPublished } from "./engine.js"
 import {
   MAX_CATEGORIES,
+  TICKET_BUTTON_KEYS,
+  TICKET_BUTTON_LABELS,
   clampPattern,
   defaultCategory,
   emptyEmbed,
@@ -29,6 +31,7 @@ import {
   isValidHexColor,
   normalizeEmoji,
   updateConfig,
+  type TicketButtonKey,
   type TicketCategory,
   type TicketEmbedConfig,
   type TicketsConfig,
@@ -155,6 +158,7 @@ export function buildTicketsPayload(
       `> *Système de tickets avec catégories personnalisables, claim et logs.*\n\n` +
         `> **Type :** ${config.type === "select" ? "Menu déroulant" : "Boutons"}\n` +
         `> **Claim :** ${onOff(config.claimEnabled)}\n` +
+        `> **Boutons additionnels :** ${config.enabledButtons.length}/${TICKET_BUTTON_KEYS.length}\n` +
         `> **Rôle requis :** ${roleMention(config.requiredRoleIds[0] ?? null)}\n` +
         `> **Rôles blacklist :** ${
           config.blacklistRoleIds.length > 0
@@ -218,6 +222,30 @@ export function buildTicketsPayload(
         .setPlaceholder("Salon des logs de tickets...")
         .setMaxValues(1)
         .setChannelTypes(ChannelType.GuildText)
+    )
+  )
+  container.addSeparatorComponents((s) => s.setSpacing(1))
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `**Boutons affichés dans les tickets**\n> Claim/Fermer sont toujours présents. Choisissez les boutons additionnels :\n> ${TICKET_BUTTON_KEYS.map(
+        (key) => `\`${TICKET_BUTTON_LABELS[key]}\` : ${config.enabledButtons.includes(key) ? EMOJI_TAGS.enable : EMOJI_TAGS.disable}`
+      ).join(" · ")}`
+    )
+  )
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("tk_buttons")
+        .setPlaceholder("Boutons additionnels des tickets...")
+        .setMinValues(0)
+        .setMaxValues(TICKET_BUTTON_KEYS.length)
+        .addOptions(
+          TICKET_BUTTON_KEYS.map((key) => ({
+            label: TICKET_BUTTON_LABELS[key],
+            value: key,
+            default: config.enabledButtons.includes(key),
+          }))
+        )
     )
   )
   container.addSeparatorComponents((s) => s.setDivider(true))
@@ -593,7 +621,9 @@ export async function handleTicketsInteraction(client: Client, interaction: Inte
     customId === "tk_panel_select" ||
     customId === "tk_claim" ||
     customId === "tk_unclaim" ||
-    customId === "tk_close"
+    customId === "tk_close" ||
+    customId === "tk_reopen" ||
+    customId === "tk_delete"
   ) {
     return false
   }
@@ -616,6 +646,14 @@ export async function handleTicketsInteraction(client: Client, interaction: Inte
   if (isMessageComponent && interaction.isButton() && customId === "tk_claim_toggle") {
     const config = await getConfig(guild.id)
     await updateConfig(guild.id, { $set: { claimEnabled: !config.claimEnabled } })
+    await refreshDashboard(client, interaction, guild)
+    return true
+  }
+
+  if (isMessageComponent && interaction.isStringSelectMenu() && customId === "tk_buttons") {
+    const allowed = new Set<string>(TICKET_BUTTON_KEYS)
+    const enabledButtons = interaction.values.filter((v): v is TicketButtonKey => allowed.has(v))
+    await updateConfig(guild.id, { $set: { enabledButtons } })
     await refreshDashboard(client, interaction, guild)
     return true
   }

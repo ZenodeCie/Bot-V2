@@ -149,6 +149,6 @@ export default {
     const target = resolved.target
 
     const containers = await renderCard(client, guild.id, target.id)
-    await _message.reply({ components: containers, flags: COMPONENTS_V2_FLAGS })
+    await _message.reply({ components: containers, flags: COMPONENTS_V2_FLAGS, allowedMentions: { parse: [] } })
   },
 }

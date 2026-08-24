@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, type APIEmbed, type EmbedBuilder, type Interaction } from "discord.js"
 
-export type NavView = "warnings" | "history" | "cases" | "blacklist"
+export type NavView = "warnings" | "history" | "cases" | "blacklist" | "partenariat"
 
 export function navId(
   view: NavView,

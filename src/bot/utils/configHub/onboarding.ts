@@ -70,7 +70,13 @@ function buildSupportRow(): ActionRowBuilder<ButtonBuilder>[] {
     new ButtonBuilder()
       .setLabel("Serveur support")
       .setStyle(ButtonStyle.Link)
-      .setURL(resolveSupportUrl(botRuntime.raw))
+      .setEmoji({ id: "1380926254261469325" })
+      .setURL(resolveSupportUrl(botRuntime.raw)),
+  new ButtonBuilder()
+      .setLabel("GitHub")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji({ id: "738960248366170225" })
+      .setURL("https://github.com/ZenodeCie/Bot-V2/"),
   )
   return [row]
 }

@@ -1,32 +1,37 @@
 import {
-  ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
-  version as djsVersion,
+  ContainerBuilder,
+  MessageFlags,
   type Client,
-  type Interaction,
   type Message,
 } from "discord.js"
 import { cpus, loadavg } from "node:os"
-import config, { botRuntime, colors } from "../../config.js"
-import { resolveSupportUrl } from "../../../shared/botConfig.js"
-import { appEmojiText } from "../../utils/appEmojis.js"
-import { Giveaway } from "../../utils/giveaway/schema.js"
-import { LevelUser } from "../../utils/levels/schema.js"
-import { TicketRecords } from "../../utils/tickets/schema.js"
+import { botRuntime, colors } from "../../config.js"
+import { defaultMaxMemory, resolveSupportUrl } from "../../../shared/botConfig.js"
+import { appEmojiComponent, appEmojiText } from "../../utils/appEmojis.js"
 import formatTime from "../../utils/formatTime.js"
 
-const TOP3_BUTTON_ID = "botinfo-top3"
+const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
+const GITHUB_REPO = "https://github.com/ZenodeCie/Bot-V2"
+const GITHUB_API = "https://api.github.com/repos/ZenodeCie/Bot-V2"
+const GITHUB_CACHE_TTL = 5 * 60_000
+
+interface GithubInfo {
+  stars: number
+  language: string | null
+  contributors: Array<{ login: string; url: string }>
+}
+
+let githubCache: { at: number; data: GithubInfo } | null = null
+
+function accentColor(): number {
+  const hex = colors.prime ?? "#5865f2"
+  return Number.parseInt(hex.replace("#", ""), 16)
+}
 
 function formatNumber(value: number): string {
   return value.toLocaleString("fr-FR")
-}
-
-function pingLabel(ms: number): string {
-  if (ms < 100) return "Bonne"
-  if (ms < 200) return "Moyenne"
-  return "Élevée"
 }
 
 function formatRam(): string {
@@ -44,224 +49,172 @@ function inviteUrl(clientId: string): string {
   return `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`
 }
 
-function sectionSeparator(): string {
-  return "\n-# ─────────────────\n"
-}
-
-interface GeneralStats {
-  openTickets: number | null
-  activeGiveaways: number | null
-  totalXp: number | null
-  topUserId: string | null
-}
-
-async function fetchGeneralStats(client: Client): Promise<GeneralStats> {
-  const stats: GeneralStats = {
-    openTickets: null,
-    activeGiveaways: null,
-    totalXp: null,
-    topUserId: null,
-  }
-
-  if (client.db.readyState !== 1) return stats
-
-  const tasks: Promise<void>[] = []
-
-  if (client.enabledModules.has("Tickets")) {
-    tasks.push(
-      TicketRecords.countDocuments({ closedAt: null })
-        .then((count) => {
-          stats.openTickets = count
-        })
-        .catch(() => undefined)
-    )
-  }
-
-  if (client.enabledModules.has("Giveaway")) {
-    tasks.push(
-      Giveaway.countDocuments({ ended: false, cancelled: false })
-        .then((count) => {
-          stats.activeGiveaways = count
-        })
-        .catch(() => undefined)
-    )
-  }
-
-  if (client.enabledModules.has("Levels")) {
-    tasks.push(
-      LevelUser.aggregate<{ total: number }>([
-        { $match: { botId: config.botId } },
-        { $group: { _id: null, total: { $sum: "$xp" } } },
-      ])
-        .then((rows) => {
-          stats.totalXp = rows[0]?.total ?? 0
-        })
-        .catch(() => undefined)
-    )
-    tasks.push(
-      LevelUser.findOne()
-        .sort({ xp: -1 })
-        .select("userId")
-        .lean()
-        .then((doc) => {
-          stats.topUserId = doc?.userId ?? null
-        })
-        .catch(() => undefined)
-    )
-  }
-
-  await Promise.all(tasks)
-  return stats
-}
-
-function buildGeneralStatsBlock(stats: GeneralStats): string {
-  const lines: string[] = []
-
-  if (stats.openTickets !== null) {
-    lines.push(`> **Tickets ouverts :** \`${formatNumber(stats.openTickets)}\``)
-  }
-  if (stats.activeGiveaways !== null) {
-    lines.push(`> **Giveaways actifs :** \`${formatNumber(stats.activeGiveaways)}\``)
-  }
-  if (stats.totalXp !== null) {
-    const top = stats.topUserId ? ` — Top membre : <@${stats.topUserId}>` : ""
-    lines.push(`> **XP total distribué :** \`${formatNumber(stats.totalXp)}\`${top}`)
-  }
-
-  if (lines.length === 0) return ""
-  return `${sectionSeparator()}${appEmojiText("cog")} **Statistiques générales**\n${lines.join("\n")}`
-}
-
-async function buildEmbed(client: Client, apiPing: number): Promise<EmbedBuilder> {
-  const user = client.user
-  const displayName = user?.username ?? botRuntime.name
-  const botId = user?.id ?? botRuntime.botId
-  const createdTs = user ? Math.floor(user.createdTimestamp / 1000) : null
-  const guilds = client.guilds.cache.size
-  const users = client.guilds.cache.reduce((sum, guild) => sum + guild.memberCount, 0)
-  const commands = client.commands.size
-  const modules = client.enabledModules.size
-  const wsPing = client.ws.ping
-  const uptime = client.uptime ?? 0
-  const stats = await fetchGeneralStats(client)
-
-  const developers = config.ownerId.length
-    ? config.ownerId.map((id) => `<@${id}>`).join(" · ")
-    : "*Non configuré*"
-
+function hostLabel(): string {
   const host = botRuntime.raw.vm_host?.trim()
-  const hostLine = host
-    ? host.startsWith("http")
-      ? `[${host.replace(/^https?:\/\//, "").split("/")[0]}](${host})`
-      : `\`${host}\``
-    : "*Non configuré*"
-
-  const description =
-    `\`${botId}\`\n` +
-    (createdTs ? `Créé le <t:${createdTs}:D>\n` : "") +
-    sectionSeparator() +
-    `${appEmojiText("people")} **Statistiques**\n` +
-    `> **Serveurs :** \`${formatNumber(guilds)}\`\n` +
-    `> **Utilisateurs :** \`${formatNumber(users)}\`\n` +
-    `> **Commandes :** \`${formatNumber(commands)}\`\n` +
-    `> **Latence :** \`${wsPing} ms\`` +
-    sectionSeparator() +
-    `${appEmojiText("check")} **Temps d'activité**\n` +
-    `\`${formatTime(uptime)}\`` +
-    buildGeneralStatsBlock(stats) +
-    sectionSeparator() +
-    `${appEmojiText("file")} **Technique**\n` +
-    `> **Ping Gateway :** \`${wsPing}ms\` — ${pingLabel(wsPing)}\n` +
-    `> **Ping API :** \`${apiPing}ms\`\n` +
-    `> **Redémarré :** <t:${Math.floor((Date.now() - uptime) / 1000)}:R>\n` +
-    `> **RAM :** \`${formatRam()}\` — **CPU moyen :** \`${formatCpu()}\`\n` +
-    `> **Modules :** \`${modules}\` — **Commandes :** \`${commands}\`\n` +
-    `> **discord.js :** \`${djsVersion}\`` +
-    sectionSeparator() +
-    `${appEmojiText("settings")} **Développeur**\n` +
-    developers +
-    sectionSeparator() +
-    `${appEmojiText("pin")} **Hébergeur**\n` +
-    hostLine
-
-  return new EmbedBuilder()
-    .setTitle(`Informations de ${displayName}`)
-    .setDescription(description)
-    .setThumbnail(user?.displayAvatarURL({ size: 256 }) ?? null)
-    .setColor(colors.prime ?? "#5865f2")
+  if (!host) return "Non configuré"
+  if (host.startsWith("http")) return host.replace(/^https?:\/\//, "").split("/")[0] ?? host
+  return host
 }
 
-function buildButtons(client: Client): ActionRowBuilder<ButtonBuilder>[] {
-  const clientId = client.user?.id ?? botRuntime.raw.client_id ?? botRuntime.raw.discord_bot_id
-  const supportUrl = resolveSupportUrl(botRuntime.raw)
-  const row = new ActionRowBuilder<ButtonBuilder>()
+function memoryLimit(): number {
+  return defaultMaxMemory(botRuntime.raw)
+}
 
+async function fetchGithubInfo(): Promise<GithubInfo> {
+  if (githubCache && Date.now() - githubCache.at < GITHUB_CACHE_TTL) {
+    return githubCache.data
+  }
+
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "ZenodeBot-botinfo",
+  }
+
+  try {
+    const [repoRes, contribRes] = await Promise.all([
+      fetch(GITHUB_API, { headers }),
+      fetch(`${GITHUB_API}/contributors?per_page=5`, { headers }),
+    ])
+
+    const repo = repoRes.ok ? ((await repoRes.json()) as { stargazers_count?: number; language?: string | null }) : null
+    const contributors = contribRes.ok
+      ? ((await contribRes.json()) as Array<{ login?: string; html_url?: string }>)
+      : []
+
+    const data: GithubInfo = {
+      stars: repo?.stargazers_count ?? 0,
+      language: repo?.language ?? null,
+      contributors: contributors
+        .filter((c) => c.login && c.html_url)
+        .map((c) => ({ login: c.login!, url: c.html_url! })),
+    }
+
+    githubCache = { at: Date.now(), data }
+    return data
+  } catch {
+    return githubCache?.data ?? { stars: 0, language: "TypeScript", contributors: [] }
+  }
+}
+
+function buildGithubBlock(info: GithubInfo): string {
+  const meta = [
+    info.language ? `\`${info.language}\`` : null,
+    info.stars > 0 ? `⭐ \`${formatNumber(info.stars)}\`` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
+  const contributorLinks = info.contributors.length
+    ? info.contributors.map((c) => `[\`${c.login}\`](${c.url})`).join(" · ")
+    : "[ZenodeCie](https://github.com/ZenodeCie)"
+
+  return (
+    `> **[ZenodeCie/Bot-V2](${GITHUB_REPO})**` +
+    (meta ? `\n> ${meta}` : "") +
+    `\n> ${contributorLinks}`
+  )
+}
+
+async function buildContainer(client: Client, latencyMs: number): Promise<ContainerBuilder[]> {
+  const github = await fetchGithubInfo()
+  const user = client.user
+  const name = user?.username ?? botRuntime.name
+  const avatar = user?.displayAvatarURL({ size: 256 }) ?? "https://cdn.discordapp.com/embed/avatars/0.png"
+
+  const guilds = client.guilds.cache.size
+  const members = client.guilds.cache.reduce((sum, g) => sum + g.memberCount, 0)
+  const uptime = client.uptime ?? 0
+  const uptimeText = formatTime(uptime)
+
+  const clientId = user?.id ?? botRuntime.raw.client_id ?? botRuntime.raw.discord_bot_id
+  const supportUrl = resolveSupportUrl(botRuntime.raw)
+
+  const container = new ContainerBuilder().setAccentColor(accentColor())
+
+  container.addSectionComponents((section) =>
+    section
+      .addTextDisplayComponents((t) => t.setContent(`# ${name}`))
+      .addTextDisplayComponents((t) =>
+        t.setContent(`> ${appEmojiText("check")} En ligne · \`${uptimeText}\``)
+      )
+      .setThumbnailAccessory((thumb) => thumb.setURL(avatar))
+  )
+
+  container.addSeparatorComponents((s) => s.setDivider(true).setSpacing(1))
+
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `> ${appEmojiText("people")} **\`${formatNumber(guilds)}\`** serveurs\n` +
+        `> ${appEmojiText("people")} **\`${formatNumber(members)}\`** membres\n` +
+        `> ${appEmojiText("loop")} **\`${latencyMs} ms\`** latence`
+    )
+  )
+
+  container.addSeparatorComponents((s) => s.setSpacing(1))
+
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `${appEmojiText("pin")} **Hébergement**\n` +
+        `> **Serveur** \`${hostLabel()}\`\n` +
+        `> **RAM** \`${formatRam()}\` / \`${memoryLimit()} Mo\` · **CPU** \`${formatCpu()}\``
+    )
+  )
+
+  container.addSeparatorComponents((s) => s.setDivider(true))
+
+  container.addTextDisplayComponents((t) =>
+    t.setContent(`${appEmojiText("settings")} **Développement**\n${buildGithubBlock(github)}`)
+  )
+
+  const buttons: ButtonBuilder[] = []
   if (clientId) {
-    row.addComponents(
+    buttons.push(
       new ButtonBuilder()
         .setLabel("Ajouter le bot")
         .setStyle(ButtonStyle.Link)
         .setURL(inviteUrl(clientId))
+        .setEmoji(appEmojiComponent("add"))
     )
   }
-
-  row.addComponents(
+  buttons.push(
     new ButtonBuilder()
-      .setLabel("Rejoindre le support")
+      .setLabel("Support")
       .setStyle(ButtonStyle.Link)
       .setURL(supportUrl)
+      .setEmoji(appEmojiComponent("people"))
   )
-
-  row.addComponents(
+  buttons.push(
     new ButtonBuilder()
-      .setCustomId(TOP3_BUTTON_ID)
-      .setLabel("Top 3 Serveurs")
-      .setStyle(ButtonStyle.Secondary)
+      .setLabel("GitHub")
+      .setStyle(ButtonStyle.Link)
+      .setURL(GITHUB_REPO)
+      .setEmoji({ id: "738960248366170225" })
   )
 
-  return row.components.length > 0 ? [row] : []
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addActionRowComponents((row) => row.setComponents(...buttons))
+
+  return [container]
 }
 
-export async function handleInteraction(client: Client, interaction: Interaction): Promise<boolean> {
-  if (!interaction.isButton()) return false
-  if (interaction.customId !== TOP3_BUTTON_ID) return false
-
-  const top = [...client.guilds.cache.values()]
-    .sort((a, b) => b.memberCount - a.memberCount)
-    .slice(0, 3)
-
-  const lines = top.map(
-    (guild, index) =>
-      `${index + 1}. **${guild.name}** — \`${formatNumber(guild.memberCount)}\` membres`
-  )
-
-  await interaction.reply({
-    content: lines.length
-      ? `**Top 3 serveurs**\n${lines.join("\n")}`
-      : "> *Aucun serveur disponible.*",
-    ephemeral: true,
-  })
-  return true
+function loadingContainer(): ContainerBuilder[] {
+  const container = new ContainerBuilder().setAccentColor(accentColor())
+  container.addTextDisplayComponents((t) => t.setContent(`> *Chargement…*`))
+  return [container]
 }
 
 export default {
   name: "botinfo",
-  description: "Affiche les informations et statistiques du bot.",
+  description: "Affiche les informations du bot.",
   category: "utils",
   aliases: ["bi", "bot-info", "info-bot", "about"],
   permissions: [],
   usage: "",
-  handleInteraction,
   async execute(client: Client, message: Message) {
-    const sent = await message.reply({ content: "Chargement..." })
-    const apiPing = sent.createdTimestamp - message.createdTimestamp
-    const embed = await buildEmbed(client, apiPing)
-    const components = buildButtons(client)
+    const sent = await message.reply({ components: loadingContainer(), flags: COMPONENTS_V2_FLAGS })
+    const latencyMs = sent.createdTimestamp - message.createdTimestamp
+    const components = await buildContainer(client, latencyMs)
 
-    await sent.edit({
-      content: "",
-      embeds: [embed],
-      components,
-    })
+    await sent.edit({ components, flags: COMPONENTS_V2_FLAGS })
   },
 }
