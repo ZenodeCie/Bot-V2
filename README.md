@@ -126,14 +126,14 @@ Au boot, l’agent :
 2. Ouvre le WS : `{CORE_WS_URL}?apiKey={API_KEY}&vmHost={VM_HOST}`
 3. `GET /health` puis `GET /api/v1/bots/vm/{VM_HOST}`
 4. Stop/delete les process PM2 « bots » **non assignés** à cette VM (anti-doublon)
-5. Démarre la boucle stats (15 s) et real-status (25 s, limité ~90 req/min)
+5. Démarre la boucle stats (30 s) et real-status (gap ~120 s, max 6 POST/tick, backoff 429)
 6. **Ne démarre pas** tous les bots assignés (`AUTO_START_ASSIGNED=false` par défaut)
 
 Commandes core (`type: bot_command`) :
 
 | Action | Effet |
 | --- | --- |
-| `start` | Écrit la config si fournie, refuse si le bot tourne déjà ailleurs (`GET /hosted`), `pm2 start`, WS `starting` puis `online` (process up, **pas** Discord ready) + REST `/status` |
+| `start` | Écrit la config si fournie, refuse si le bot tourne déjà ailleurs (`GET /bots/:id`), `pm2 start`, WS `starting` puis `online` (process up, **pas** Discord ready) + REST `/status` (best-effort) |
 | `stop` | `pm2 stop` + `delete`, idempotent, `offline` |
 | `restart` | Delete PM2 puis start (process neuf, après un `config_upload`) |
 | `delete` | `pm2 delete` + suppression du JSON local |
@@ -194,7 +194,8 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 | VM invisible au core | Query WS `vmHost` + ping avec `vm_host` ; même host/port que l’API |
 | Bot PM2 up mais dashboard « hors ligne » | `data/{bot_id}/runtime.json` et POST `/real-status` (`really_online`) |
 | Privileged Intents | Portail Discord → Bot → intents ; logs `Privileged Intents error` |
-| Doublon bot_id | Le core envoie `stop` partout ; cette VM refuse un start si `/hosted` dit « ailleurs » |
+| Doublon bot_id | Le core envoie `stop` partout ; cette VM refuse un start si `GET /bots/:id` indique une autre VM active |
+| Flood `429 Trop de requêtes` | Normal si trop de bots reportent trop vite ; l’agent applique un backoff et ralentit real-status. Vérifier que le Core rate-limit n’est pas trop bas pour le nombre de bots |
 | `pm2: command not found` | `sudo npm install -g pm2` |
 
 ## Sécurité

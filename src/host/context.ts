@@ -29,9 +29,8 @@ export async function reportBotStatus(
       timestamp,
     })
   }
-  try {
-    await ctx.rest.postStatus(botId, status)
-  } catch (error) {
+  // REST is best-effort and must not stall PM2 start/stop behind rate limits.
+  void ctx.rest.postStatus(botId, status).catch((error: unknown) => {
     ctx.log.warn(`POST /status ${botId} ${status} failed: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  })
 }

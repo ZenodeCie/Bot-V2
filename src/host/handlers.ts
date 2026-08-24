@@ -132,6 +132,7 @@ export class MessageRouter {
   }
 
   private async startBot(botId: string, incoming: BotConfig | undefined): Promise<void> {
+    this.ctx.log.info(`bot_command start ${botId}`)
     if (incoming) await this.ctx.store.write(botId, { ...incoming, bot_id: botId })
 
     const hosted = await this.ctx.rest.isHostedElsewhere(botId)

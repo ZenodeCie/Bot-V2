@@ -5,9 +5,12 @@ import type { BotLifecycleStatus, HostedBotInfo, RealStatusPayload, VmStatsBotEn
 import { readDiscordRuntime } from "./runtimeReader.js"
 import { getAgentVersionInfo } from "./versionInfo.js"
 
-const STATS_INTERVAL_MS = 15_000
-const REAL_STATUS_INTERVAL_MS = 5_000
-const REAL_STATUS_MIN_GAP_MS = 25_000
+const STATS_INTERVAL_MS = 30_000
+const REAL_STATUS_INTERVAL_MS = 10_000
+/** With ~90 bots, 25s gaps ≈ 200+ POST/min and trips Core 429. */
+const REAL_STATUS_MIN_GAP_MS = 120_000
+/** Cap how many real-status POSTs we send per tick to avoid bursts. */
+const REAL_STATUS_MAX_PER_TICK = 6
 const ASSIGNED_CACHE_MS = 60_000
 
 function pm2StatusToLifecycle(proc: Pm2ProcessInfo | undefined): BotLifecycleStatus {
@@ -168,6 +171,14 @@ export class StatusReporter {
     try {
       const procs = (await this.ctx.pm2.listBots()).filter(isLiveBotProcess)
       const now = Date.now()
+      type Candidate = {
+        proc: Pm2ProcessInfo
+        runtime: Awaited<ReturnType<typeof readDiscordRuntime>>
+        readyKey: string
+        changed: boolean
+      }
+      const candidates: Candidate[] = []
+
       for (const proc of procs) {
         if (proc.status === "offline") continue
         const runtime = await readDiscordRuntime(this.ctx.env, proc.name)
@@ -175,9 +186,14 @@ export class StatusReporter {
         const changed = this.lastReady.get(proc.name) !== readyKey
         const due = now - (this.lastRealPost.get(proc.name) ?? 0) >= REAL_STATUS_MIN_GAP_MS
         if (!changed && !due) continue
-        this.lastReady.set(proc.name, readyKey)
-        this.lastRealPost.set(proc.name, now)
-        await this.postReal(proc, runtime)
+        candidates.push({ proc, runtime, readyKey, changed })
+      }
+
+      candidates.sort((a, b) => Number(b.changed) - Number(a.changed))
+      for (const item of candidates.slice(0, REAL_STATUS_MAX_PER_TICK)) {
+        this.lastReady.set(item.proc.name, item.readyKey)
+        this.lastRealPost.set(item.proc.name, Date.now())
+        await this.postReal(item.proc, item.runtime)
       }
     } catch (error) {
       this.ctx.log.warn(`real-status tick failed: ${error instanceof Error ? error.message : String(error)}`)
