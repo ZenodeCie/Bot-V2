@@ -255,6 +255,7 @@ export class Pm2Manager {
         maxBuffer: 12 * 1024 * 1024,
         encoding: "utf8",
         env: process.env,
+        shell: process.platform === "win32",
       })
       return { stdout: stdout ?? "", stderr: stderr ?? "" }
     } catch (error) {

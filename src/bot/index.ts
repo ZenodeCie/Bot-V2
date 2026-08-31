@@ -46,6 +46,9 @@ client.botId = botRuntime.botId
 client.dataDir = botRuntime.dataDir
 client.enabledModules = enabledModules
 
+client.on('debug', console.log)
+      .on('warn', console.log)
+
 let stopHeartbeat: (() => void) | undefined
 let stopEmojiWatcher: (() => void) | undefined
 let shuttingDown = false
