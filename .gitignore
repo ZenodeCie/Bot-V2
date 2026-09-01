@@ -7,3 +7,6 @@ configs/
 data/
 *.md
 !README.md
+!README_en.md
+!CONTRIBUTING.md
+*.temp.*

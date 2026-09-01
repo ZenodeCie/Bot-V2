@@ -29,7 +29,11 @@ function assertNodeVersion(): void {
 
 async function assertPm2(): Promise<string> {
   try {
-    const { stdout } = await execFileAsync("pm2", ["-v"], { timeout: 8_000, encoding: "utf8" })
+    const { stdout } = await execFileAsync("pm2", ["-v"], {
+      timeout: 8_000,
+      encoding: "utf8",
+      shell: process.platform === "win32",
+    })
     return stdout.trim()
   } catch {
     throw new Error("PM2 is not installed or not in PATH. Install with: npm install -g pm2")
