@@ -24,6 +24,7 @@ export const SLASH_GROUPS: Record<string, { name: string; description: string }>
   logs: { name: "logs", description: "Journal des événements" },
   giveaway: { name: "giveaway", description: "Giveaways" },
   levels: { name: "levels", description: "Niveaux et XP" },
+  join2create: { name: "j2c", description: "Salons vocaux à la demande" },
   aeroport: { name: "aeroport", description: "Messages d'arrivée et de départ" },
   rules: { name: "rules", description: "Règlement interactif" },
   stafflist: { name: "stafflist", description: "Liste du staff" },

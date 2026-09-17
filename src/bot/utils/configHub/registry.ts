@@ -22,6 +22,8 @@ import { buildInformationPanelContainer } from "../informationpanel/dashboard.js
 import { getConfig as getInformationPanelConfig } from "../informationpanel/schema.js"
 import { buildInvitationsContainer } from "../invitations/dashboard.js"
 import { getConfig as getInvitationsConfig } from "../invitations/schema.js"
+import { buildJ2CContainer } from "../join2create/dashboard.js"
+import { getConfig as getJ2CConfig } from "../join2create/schema.js"
 import { buildLevelsContainer } from "../levels/dashboard.js"
 import { getConfig as getLevelsConfig } from "../levels/schema.js"
 import { buildGuildLogsContainer } from "../logs/dashboard.js"
@@ -69,6 +71,10 @@ export const MODULE_ID_ALIASES: Record<string, string> = {
   staff: "stafflist",
   invitations: "invitations",
   invites: "invitations",
+  join2create: "join2create",
+  j2c: "join2create",
+  "join-to-create": "join2create",
+  vocal: "join2create",
   giveaway: "giveaway",
   gw: "giveaway",
   aeroport: "aeroport",
@@ -204,6 +210,19 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
     openPanel: async ({ client, guild }) => {
       const [cfg, active] = await Promise.all([getGiveawayConfig(guild.id), listActiveGiveaways(guild.id)])
       return buildGiveawayContainer(client, guild, cfg, active)
+    },
+  },
+  {
+    id: "join2create",
+    label: "Join to Create",
+    emoji: "people",
+    description: "Salons vocaux personnels à la demande",
+    requiredModule: "JoinToCreate",
+    permission: "ManageGuild",
+    aliases: ["j2c", "join-to-create", "vocal"],
+    openPanel: async ({ client, guild }) => {
+      const cfg = await getJ2CConfig(guild.id)
+      return buildJ2CContainer(client, guild, cfg)
     },
   },
   {

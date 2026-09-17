@@ -2,6 +2,7 @@ import type { Client } from "discord.js"
 import { initGiveaways, startGiveawaySweep } from "../utils/giveaway/engine.js"
 import { initInformationPanels, startInformationPanelSweep } from "../utils/informationpanel/engine.js"
 import { initInviteCache } from "../utils/invitations/engine.js"
+import { initJoinToCreate as initJoinToCreateSweep } from "../utils/join2create/engine.js"
 import { initMessageHoraire, startMessageHoraireSweep } from "../utils/message-horaire/engine.js"
 import { initTempSanctions, startTempSweep } from "../utils/moderation/temp.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
@@ -40,6 +41,9 @@ export default {
     }
     if (client.enabledModules.has("Invitations")) {
       await initInviteCache(client)
+    }
+    if (client.enabledModules.has("JoinToCreate")) {
+      await initJoinToCreateSweep(client)
     }
   },
 }
