@@ -8,6 +8,7 @@ import {
   parseApplicationEmojis,
   parseHexColor,
   resolveSupportUrl,
+  type ApplicationEmojis,
   type BotConfig,
 } from "../shared/botConfig.js"
 
@@ -64,6 +65,21 @@ function loadBotJson(path: string): BotConfig {
   return loaded
 }
 
+function envApplicationEmojis(): ApplicationEmojis | undefined {
+  const raw = process.env.APPLICATION_EMOJIS?.trim()
+  if (!raw) return undefined
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    console.warn("APPLICATION_EMOJIS is not valid JSON — ignored, unicode emojis fallback.")
+    return undefined
+  }
+  const emojis = parseApplicationEmojis(parsed)
+  if (!emojis) console.warn("APPLICATION_EMOJIS has no valid emoji IDs — ignored, unicode emojis fallback.")
+  return emojis
+}
+
 function loadStandaloneBot(): BotConfig {
   const token = (process.env.BOT_TOKEN ?? "").trim()
   if (!token) {
@@ -81,7 +97,8 @@ function loadStandaloneBot(): BotConfig {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-  return {
+  const application_emojis = envApplicationEmojis()
+  const bot: BotConfig = {
     bot_id: process.env.BOT_ID?.trim() || clientId || "standalone",
     name: process.env.BOT_NAME?.trim() || "Standalone",
     token,
@@ -92,6 +109,8 @@ function loadStandaloneBot(): BotConfig {
     client_id: clientId || undefined,
     urlsupport: resolveSupportUrl({ urlsupport: process.env.SUPPORT_URL }),
   }
+  if (application_emojis) bot.application_emojis = application_emojis
+  return bot
 }
 
 function collectOwnerIds(bot: BotConfig): string[] {
