@@ -1,6 +1,7 @@
 import {
   ActionRowBuilder,
   AttachmentBuilder,
+  AuditLogEvent,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
@@ -15,9 +16,11 @@ import {
   UserSelectMenuBuilder,
   type Client,
   type Guild,
+  type GuildChannel,
   type GuildMember,
   type Interaction,
   type Message,
+  type ThreadChannel,
 } from "discord.js"
 import { colors } from "../../config.js"
 import { appEmojiComponent, appEmojiText } from "../appEmojis.js"
@@ -39,6 +42,7 @@ import {
 
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
+const AUDIT_CHANNEL_DELETE_WINDOW_MS = 5_000
 const EMOJI_TAGS = {
   notes: "<:Notes:1469692988870623369>",
 } as const
@@ -258,6 +262,33 @@ export async function sendTicketsLog(
     console.error(`Failed to send tickets log in guild ${guildId}:`, error)
   }
   await emitLog(client, guildId, "tickets", buildLogEmbed("file", "Tickets", body, colors.prime), undefined, files)
+}
+
+export async function handleTicketChannelDeleted(client: Client, channel: GuildChannel | ThreadChannel): Promise<void> {
+  const record = await findAnyRecord(channel.id)
+  if (!record) return
+  const executor = await findChannelDeleteExecutor(channel.guild, channel.id)
+  const deletedBy = executor ? `<@${executor.id}> · \`${executor.tag ?? executor.username ?? executor.id}\`` : "*Inconnu*"
+  await TicketRecords.deleteOne({ channelId: channel.id }).catch(() => undefined)
+  await sendTicketsLog(client, channel.guild.id, suppressionLogBody(record, deletedBy))
+}
+
+export async function sweepStaleTicketRecords(client: Client): Promise<number> {
+  const guildIds = [...client.guilds.cache.keys()]
+  if (guildIds.length === 0) return 0
+  const records = (await TicketRecords.find({ guildId: { $in: guildIds } }).lean()) as unknown as TicketRecordModel[]
+  let removed = 0
+  for (const record of records) {
+    const guild = client.guilds.cache.get(record.guildId)
+    if (!guild) continue
+    const channel =
+      guild.channels.cache.get(record.channelId) ?? (await guild.channels.fetch(record.channelId).catch(() => null))
+    if (channel) continue
+    await TicketRecords.deleteOne({ channelId: record.channelId }).catch(() => undefined)
+    removed += 1
+  }
+  if (removed > 0) console.log(`Tickets: purged ${removed} orphaned record(s) on startup.`)
+  return removed
 }
 
 async function fetchMember(guild: Guild, userId: string): Promise<GuildMember | null> {
@@ -856,6 +887,35 @@ async function reopenTicket(client: Client, interaction: Interaction): Promise<v
   }
 }
 
+function suppressionLogBody(record: TicketRecordModel, deletedBy: string): string {
+  return (
+    `> **Suppression** — \`${padTicketNumber(record.number)}\`\n` +
+    `> **Par :** ${deletedBy}\n` +
+    `> **Ouvert par :** <@${record.userId}>\n` +
+    `> **Salon :** <#${record.channelId}>`
+  )
+}
+
+async function findChannelDeleteExecutor(
+  guild: Guild,
+  channelId: string
+): Promise<{ id: string; tag?: string | null; username?: string | null } | null> {
+  try {
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.ChannelDelete, limit: 10 })
+    const now = Date.now()
+    for (const entry of logs.entries.values()) {
+      if (now - entry.createdTimestamp > AUDIT_CHANNEL_DELETE_WINDOW_MS) continue
+      if (entry.targetId !== channelId) continue
+      const executor = entry.executor
+      if (!executor) return null
+      return { id: executor.id, tag: executor.tag, username: executor.username }
+    }
+  } catch {
+    /* missing permission or not cached */
+  }
+  return null
+}
+
 async function deleteTicket(client: Client, interaction: Interaction): Promise<void> {
   if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
   const guild = interaction.guild
@@ -886,10 +946,7 @@ async function deleteTicket(client: Client, interaction: Interaction): Promise<v
   await sendTicketsLog(
     client,
     guild.id,
-    `> **Suppression** — \`${padTicketNumber(record.number)}\`\n` +
-      `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
-      `> **Ouvert par :** <@${record.userId}>\n` +
-      `> **Salon :** <#${record.channelId}>`,
+    suppressionLogBody(record, `<@${member.id}> · \`${member.user.tag}\``),
     transcript ? [transcript] : []
   )
 

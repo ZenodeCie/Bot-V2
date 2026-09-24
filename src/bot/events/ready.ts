@@ -8,6 +8,7 @@ import { initTempSanctions, startTempSweep as startModerationTempSweep } from ".
 import { restoreTempGrants, startTempSweep as startReactionRolesTempSweep } from "../utils/reactionroles/temp.js"
 import { syncPublishedPanels } from "../utils/reactionroles/render.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
+import { sweepStaleTicketRecords } from "../utils/tickets/engine.js"
 import { registerSlashCommands } from "../utils/slash.js"
 
 export default {
@@ -46,6 +47,14 @@ export default {
     }
     if (client.enabledModules.has("JoinToCreate")) {
       await initJoinToCreateSweep(client)
+    }
+    if (client.enabledModules.has("Tickets")) {
+      try {
+        const purged = await sweepStaleTicketRecords(client)
+        if (purged > 0) console.log(`Tickets: cleaned ${purged} stale record(s) on startup.`)
+      } catch (error) {
+        console.error("Tickets startup sweep failed:", error)
+      }
     }
     if (client.enabledModules.has("ReactionRoles")) {
       await client.reactionroles.rebuildMessageCache()
