@@ -10,7 +10,7 @@ import {
 import { emojiDisplay, emojiKey, type RolePanel, type RolePanelEntry } from "./schema.js"
 import { reactionRoleStore, type ReactionRoleStore } from "./storage.js"
 import { formatDurationMs, joinRoleNames, responseText } from "./messages.js"
-import { addTempGrant, cancelTempGrantsForEntry, cancelTimersForPanel } from "./temp.js"
+import { addTempGrant, cancelTempGrantsForEntry, cancelTimersForGuild, cancelTimersForPanel } from "./temp.js"
 import { enqueueRoleOp } from "./roleQueue.js"
 
 /**
@@ -383,6 +383,63 @@ export class ReactionRolesEngine {
   // -------------------------------------------------------------------------
   // Entrées publiques (events + interactions)
   // -------------------------------------------------------------------------
+
+  /** Le message publié du panel a été supprimé → on retire le messageId. */
+  async handleMessageDeleted(messageId: string): Promise<void> {
+    const panel = this.panelsByMessage.get(messageId)
+    if (!panel) return
+    this.panelsByMessage.delete(messageId)
+    panel.messageId = null
+    await this.savePanel(panel).catch(() => undefined)
+  }
+
+  /** Salaon supprimé : nettoie channelId/messageId et logChannelId du panel. */
+  async handleChannelDeleted(guildId: string, channelId: string): Promise<void> {
+    const panels = await this.getPanels(guildId)
+    for (const panel of panels) {
+      let changed = false
+      if (panel.channelId === channelId) {
+        panel.channelId = null
+        panel.messageId = null
+        changed = true
+      }
+      if (panel.logChannelId === channelId) {
+        panel.logChannelId = null
+        changed = true
+      }
+      if (changed) await this.savePanel(panel).catch(() => undefined)
+    }
+  }
+
+  /** Rôle supprimé : l'enlève de toutes les entrées du serveur + purge des grants. */
+  async handleRoleDeleted(guildId: string, roleId: string): Promise<void> {
+    const panels = await this.getPanels(guildId)
+    for (const panel of panels) {
+      let changed = false
+      for (const entry of panel.entries) {
+        entry.roles = entry.roles.filter((id) => id !== roleId)
+        entry.removeRoles = entry.removeRoles.filter((id) => id !== roleId)
+        entry.requiredRoles = entry.requiredRoles.filter((id) => id !== roleId)
+        entry.deniedRoles = entry.deniedRoles.filter((id) => id !== roleId)
+        changed = true
+      }
+      if (changed) await this.savePanel(panel).catch(() => undefined)
+    }
+    await this.store().deleteGrantsForRole(guildId, roleId).catch(() => undefined)
+  }
+
+  /** Serveur supprimé / bot éjecté : purge panels + grants + timers du serveur. */
+  async handleGuildDeleted(guildId: string): Promise<void> {
+    const panels = await this.getPanels(guildId).catch(() => [])
+    for (const panel of panels) {
+      await this.store().deletePanel(guildId, panel.id).catch(() => undefined)
+    }
+    await this.store().deleteGrantsForGuild(guildId).catch(() => undefined)
+    cancelTimersForGuild(guildId)
+    for (const [messageId, panel] of this.panelsByMessage) {
+      if (panel.guildId === guildId) this.panelsByMessage.delete(messageId)
+    }
+  }
 
   async applyReaction(guild: Guild, member: GuildMember, panel: RolePanel, reactionEmojiKey: string, adding: boolean): Promise<void> {
     const entry = panel.entries.find(

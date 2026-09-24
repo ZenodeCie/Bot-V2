@@ -45,5 +45,8 @@ export default {
     if (client.enabledModules.has("JoinToCreate")) {
       await initJoinToCreateSweep(client)
     }
+    if (client.enabledModules.has("ReactionRoles")) {
+      await client.reactionroles.rebuildMessageCache()
+    }
   },
 }
