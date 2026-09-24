@@ -4,7 +4,8 @@ import { initInformationPanels, startInformationPanelSweep } from "../utils/info
 import { initInviteCache } from "../utils/invitations/engine.js"
 import { initJoinToCreate as initJoinToCreateSweep } from "../utils/join2create/engine.js"
 import { initMessageHoraire, startMessageHoraireSweep } from "../utils/message-horaire/engine.js"
-import { initTempSanctions, startTempSweep } from "../utils/moderation/temp.js"
+import { initTempSanctions, startTempSweep as startModerationTempSweep } from "../utils/moderation/temp.js"
+import { restoreTempGrants, startTempSweep as startReactionRolesTempSweep } from "../utils/reactionroles/temp.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
 import { registerSlashCommands } from "../utils/slash.js"
 
@@ -22,7 +23,7 @@ export default {
     }
     if (client.enabledModules.has("Moderation")) {
       await initTempSanctions(client)
-      startTempSweep(client)
+      startModerationTempSweep(client)
     }
     if (client.enabledModules.has("Giveaway")) {
       await initGiveaways(client)
@@ -47,6 +48,8 @@ export default {
     }
     if (client.enabledModules.has("ReactionRoles")) {
       await client.reactionroles.rebuildMessageCache()
+      await restoreTempGrants(client)
+      startReactionRolesTempSweep(client)
     }
   },
 }
