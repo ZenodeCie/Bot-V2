@@ -12,6 +12,7 @@ import {
 } from "../antiraid/dashboard.js"
 import { MODULE_LABELS, MODULES, getConfig as getAntiRaidConfig, type ModuleName } from "../antiraid/schema.js"
 import { buildPartenariatContainer } from "./panels/partenariat.js"
+import { buildReactionRolesHome } from "../reactionroles/dashboard.js"
 import { buildAeroportContainer } from "../aeroport/dashboard.js"
 import { getConfig as getAeroportConfig } from "../aeroport/schema.js"
 import { buildCaptchaContainer } from "../captcha/dashboard.js"
@@ -91,6 +92,12 @@ export const MODULE_ID_ALIASES: Record<string, string> = {
   blacklist: "moderation-blacklist",
   partenariat: "partenariat",
   partner: "partenariat",
+  reactionroles: "reactionroles",
+  "reaction-roles": "reactionroles",
+  rr: "reactionroles",
+  role: "reactionroles",
+  roles: "reactionroles",
+  reaction: "reactionroles",
   antiraid: "antiraid",
   "anti-raid": "antiraid",
 }
@@ -283,6 +290,18 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
     aliases: ["partner", "partnership"],
     openPanel: async ({ client, guild }) => {
       return buildPartenariatContainer(client, guild)
+    },
+  },
+  {
+    id: "reactionroles",
+    label: "Rôles-réactions",
+    emoji: "add",
+    description: "Menus de rôles par réactions, boutons ou sélections",
+    requiredModule: "ReactionRoles",
+    permission: "ManageGuild",
+    aliases: ["rr", "reaction-roles", "roles", "reaction"],
+    openPanel: async ({ client, guild }) => {
+      return buildReactionRolesHome(client, guild)
     },
   },
   {
