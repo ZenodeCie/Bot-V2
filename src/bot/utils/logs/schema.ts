@@ -11,6 +11,8 @@ export const EVENT_KEYS = [
   "server",
   "invites",
   "threads",
+  "reactionroles",
+  "tickets",
 ] as const
 
 export type EventKey = (typeof EVENT_KEYS)[number]
@@ -25,6 +27,8 @@ export const EVENT_LABELS: Record<EventKey, string> = {
   server: "Serveur",
   invites: "Invitations",
   threads: "Fils",
+  reactionroles: "Rôles-réactions",
+  tickets: "Tickets",
 }
 
 export const EVENT_HINTS: Record<EventKey, string> = {
@@ -37,6 +41,8 @@ export const EVENT_HINTS: Record<EventKey, string> = {
   server: "Paramètres, emojis, boosts",
   invites: "Création et suppression",
   threads: "Création, suppression, modification",
+  reactionroles: "Attributions, retraits et refus de rôles-réactions",
+  tickets: "Ouverture, claim, fermeture, transcript",
 }
 
 export type EventFlags = Record<EventKey, boolean>
@@ -82,6 +88,8 @@ const logsSchema = new Schema(
       server: { type: Boolean, default: true },
       invites: { type: Boolean, default: true },
       threads: { type: Boolean, default: true },
+      reactionroles: { type: Boolean, default: true },
+      tickets: { type: Boolean, default: true },
     },
   },
   { timestamps: true }
@@ -151,6 +159,15 @@ export function parseEventKey(raw: string | undefined): EventKey | "all" | null 
     threads: "threads",
     thread: "threads",
     fils: "threads",
+    reactionroles: "reactionroles",
+    reactionrole: "reactionroles",
+    rolesreaction: "reactionroles",
+    "roles-reaction": "reactionroles",
+    "roles-reactions": "reactionroles",
+    rr: "reactionroles",
+    tickets: "tickets",
+    ticket: "tickets",
+    support: "tickets",
   }
   return aliases[value] ?? (EVENT_KEYS.includes(value as EventKey) ? (value as EventKey) : null)
 }

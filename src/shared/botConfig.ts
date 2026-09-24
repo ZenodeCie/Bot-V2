@@ -12,11 +12,13 @@ export const KNOWN_MODULE_KEYS = [
   "Beta",
   "Captcha",
   "Partenariat",
+  "ReactionRoles",
   "ModerationAvancee",
   "Douane",
   "Message-Horaire",
   "InformationPanel",
   "Invitations",
+  "JoinToCreate",
   "FactoryPremium",
   "FactoryManager",
 ] as const

@@ -10,7 +10,7 @@ export interface ModuleLoadSpec {
 /** Maps core website module keys to folders/files in this repo. */
 export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
   Base: {
-    commandGlobs: ["commands/utils/help.js", "commands/utils/ping.js", "commands/utils/prefix.js", "commands/utils/botinfo.js", "commands/utils/config.js", "commands/dev", "commands/fun"],
+    commandGlobs: ["commands/utils/help.js", "commands/utils/ping.js", "commands/utils/prefix.js", "commands/utils/botinfo.js", "commands/utils/config.js", "commands/utils/variables.js", "commands/dev", "commands/fun"],
     eventGlobs: ["events/ready.js", "events/messageCreate.js", "events/interactionCreate.js", "events/guildCreate.js"],
   },
   Utilities: {
@@ -65,9 +65,17 @@ export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
     commandGlobs: ["commands/invitations"],
     eventGlobs: ["events/invitations"],
   },
+  JoinToCreate: {
+    commandGlobs: ["commands/join2create"],
+    eventGlobs: ["events/join2create"],
+  },
+  ReactionRoles: {
+    commandGlobs: ["commands/reactionroles"],
+    eventGlobs: ["events/reactionroles"],
+  },
   Tickets: {
     commandGlobs: ["commands/tickets"],
-    eventGlobs: [],
+    eventGlobs: ["events/tickets"],
   },
   Partenariat: {
     commandGlobs: ["commands/partenariat"],

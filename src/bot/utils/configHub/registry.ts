@@ -12,6 +12,7 @@ import {
 } from "../antiraid/dashboard.js"
 import { MODULE_LABELS, MODULES, getConfig as getAntiRaidConfig, type ModuleName } from "../antiraid/schema.js"
 import { buildPartenariatContainer } from "./panels/partenariat.js"
+import { buildReactionRolesHome } from "../reactionroles/dashboard.js"
 import { buildAeroportContainer } from "../aeroport/dashboard.js"
 import { getConfig as getAeroportConfig } from "../aeroport/schema.js"
 import { buildCaptchaContainer } from "../captcha/dashboard.js"
@@ -22,6 +23,8 @@ import { buildInformationPanelContainer } from "../informationpanel/dashboard.js
 import { getConfig as getInformationPanelConfig } from "../informationpanel/schema.js"
 import { buildInvitationsContainer } from "../invitations/dashboard.js"
 import { getConfig as getInvitationsConfig } from "../invitations/schema.js"
+import { buildJ2CContainer } from "../join2create/dashboard.js"
+import { getConfig as getJ2CConfig } from "../join2create/schema.js"
 import { buildLevelsContainer } from "../levels/dashboard.js"
 import { getConfig as getLevelsConfig } from "../levels/schema.js"
 import { buildGuildLogsContainer } from "../logs/dashboard.js"
@@ -69,6 +72,10 @@ export const MODULE_ID_ALIASES: Record<string, string> = {
   staff: "stafflist",
   invitations: "invitations",
   invites: "invitations",
+  join2create: "join2create",
+  j2c: "join2create",
+  "join-to-create": "join2create",
+  vocal: "join2create",
   giveaway: "giveaway",
   gw: "giveaway",
   aeroport: "aeroport",
@@ -85,6 +92,12 @@ export const MODULE_ID_ALIASES: Record<string, string> = {
   blacklist: "moderation-blacklist",
   partenariat: "partenariat",
   partner: "partenariat",
+  reactionroles: "reactionroles",
+  "reaction-roles": "reactionroles",
+  rr: "reactionroles",
+  role: "reactionroles",
+  roles: "reactionroles",
+  reaction: "reactionroles",
   antiraid: "antiraid",
   "anti-raid": "antiraid",
 }
@@ -207,6 +220,19 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
     },
   },
   {
+    id: "join2create",
+    label: "Join to Create",
+    emoji: "people",
+    description: "Salons vocaux personnels à la demande",
+    requiredModule: "JoinToCreate",
+    permission: "ManageGuild",
+    aliases: ["j2c", "join-to-create", "vocal"],
+    openPanel: async ({ client, guild }) => {
+      const cfg = await getJ2CConfig(guild.id)
+      return buildJ2CContainer(client, guild, cfg)
+    },
+  },
+  {
     id: "aeroport",
     label: "Aéroport",
     emoji: "people",
@@ -264,6 +290,18 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
     aliases: ["partner", "partnership"],
     openPanel: async ({ client, guild }) => {
       return buildPartenariatContainer(client, guild)
+    },
+  },
+  {
+    id: "reactionroles",
+    label: "Rôles-réactions",
+    emoji: "add",
+    description: "Menus de rôles par réactions, boutons ou sélections",
+    requiredModule: "ReactionRoles",
+    permission: "ManageGuild",
+    aliases: ["rr", "reaction-roles", "roles", "reaction"],
+    openPanel: async ({ client, guild }) => {
+      return buildReactionRolesHome(client, guild)
     },
   },
   {

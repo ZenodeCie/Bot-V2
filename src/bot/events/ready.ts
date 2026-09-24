@@ -2,9 +2,13 @@ import type { Client } from "discord.js"
 import { initGiveaways, startGiveawaySweep } from "../utils/giveaway/engine.js"
 import { initInformationPanels, startInformationPanelSweep } from "../utils/informationpanel/engine.js"
 import { initInviteCache } from "../utils/invitations/engine.js"
+import { initJoinToCreate as initJoinToCreateSweep } from "../utils/join2create/engine.js"
 import { initMessageHoraire, startMessageHoraireSweep } from "../utils/message-horaire/engine.js"
-import { initTempSanctions, startTempSweep } from "../utils/moderation/temp.js"
+import { initTempSanctions, startTempSweep as startModerationTempSweep } from "../utils/moderation/temp.js"
+import { restoreTempGrants, startTempSweep as startReactionRolesTempSweep } from "../utils/reactionroles/temp.js"
+import { syncPublishedPanels } from "../utils/reactionroles/render.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
+import { sweepStaleTicketRecords } from "../utils/tickets/engine.js"
 import { registerSlashCommands } from "../utils/slash.js"
 
 export default {
@@ -21,7 +25,7 @@ export default {
     }
     if (client.enabledModules.has("Moderation")) {
       await initTempSanctions(client)
-      startTempSweep(client)
+      startModerationTempSweep(client)
     }
     if (client.enabledModules.has("Giveaway")) {
       await initGiveaways(client)
@@ -40,6 +44,28 @@ export default {
     }
     if (client.enabledModules.has("Invitations")) {
       await initInviteCache(client)
+    }
+    if (client.enabledModules.has("JoinToCreate")) {
+      await initJoinToCreateSweep(client)
+    }
+    if (client.enabledModules.has("Tickets")) {
+      try {
+        const purged = await sweepStaleTicketRecords(client)
+        if (purged > 0) console.log(`Tickets: cleaned ${purged} stale record(s) on startup.`)
+      } catch (error) {
+        console.error("Tickets startup sweep failed:", error)
+      }
+    }
+    if (client.enabledModules.has("ReactionRoles")) {
+      await client.reactionroles.rebuildMessageCache()
+      await restoreTempGrants(client)
+      startReactionRolesTempSweep(client)
+      try {
+        const synced = await syncPublishedPanels(client, client.reactionroles)
+        console.log(`ReactionRoles: resynchronized ${synced} published panel(s) on startup.`)
+      } catch (error) {
+        console.error("ReactionRoles startup resync failed:", error)
+      }
     }
   },
 }

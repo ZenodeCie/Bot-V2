@@ -139,6 +139,7 @@ Prérequis en mode alone (variables de la section C du `.env`) :
 - `BOT_TOKEN` → obligatoire.
 - `PREFIX`, `BOT_NAME`, `BOT_STATUS`, `BOT_COLOR`, `MODULES` → optionnels.
 - `OWNER_ID` → IDs Discord admin (commandes dev).
+- `APPLICATION_EMOJIS` → emojis personnalisés en JSON d'IDs snowflake (`{"cancel":"123…","check":"456…"}`, clés : `cancel`, `add`, `settings`, `power`, `pin`, `people`, `loop`, `file`, `cog`, `check`). Optionnel — fallback unicode sinon.
 
 En mode alone, le `--config` est ignoré : si vous voulez relancer un bot avec sa config de fichier, utilisez plutôt `npm run start:bot -- --config configs/{bot_id}.json`.
 
@@ -257,7 +258,8 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 | `Utilities` | userinfo, emoji |
 | `Moderation` | `commands/moderation` + `events/moderation` |
 | `ModerationAvancee` | `commands/antiraid` + `events/antiraid` |
-| Autres clés core (Giveaway, Tickets, …) | no-op + warning, pas de crash |
+| `ReactionRoles` | menu de rôles (`/rr`) : réactions, boutons, selects, modes, rôles temporaires, import/export JSON, dashboard via `/rr panel` / `/rr edit` et entrée `/config` |
+| Autres clés core (Giveaway, Tickets, …) | implémentées dans `src/bot/` (voir `src/bot/modules.ts`) — clé inconnue : no-op + warning, pas de crash |
 
 ---
 
@@ -299,6 +301,12 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 8. `delete` → plus de process ni de fichier.
 9. Couper le WS 10 s → reconnect, stats, bots toujours up.
 10. Deuxième agent / autre `VM_HOST` : un start sur A n'apparaît pas sur B.
+
+Rôles-réactions (module `ReactionRoles`, mode alone) :
+11. `/rr create MonPanel` → panel créé ; `/rr edit MonPanel` → dashboard interactif (nom, embed, entrées).
+12. `/rr publish MonPanel` → message envoyé, réactions/boutons actifs ; clic → rôle accordé/retiré selon le mode.
+13. `/rr export` puis `/rr import` sur un autre serveur → panels restaurés (ids conservés si même serveur).
+14. Redémarrage du bot → panels resynchronisés au `ready` (réactions restaurées).
 
 ---
 
