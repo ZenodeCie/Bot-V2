@@ -258,7 +258,8 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 | `Utilities` | userinfo, emoji |
 | `Moderation` | `commands/moderation` + `events/moderation` |
 | `ModerationAvancee` | `commands/antiraid` + `events/antiraid` |
-| Autres clés core (Giveaway, Tickets, …) | no-op + warning, pas de crash |
+| `ReactionRoles` | menu de rôles (`/rr`) : réactions, boutons, selects, modes, rôles temporaires, import/export JSON, dashboard via `/rr panel` / `/rr edit` et entrée `/config` |
+| Autres clés core (Giveaway, Tickets, …) | implémentées dans `src/bot/` (voir `src/bot/modules.ts`) — clé inconnue : no-op + warning, pas de crash |
 
 ---
 
@@ -300,6 +301,12 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 8. `delete` → plus de process ni de fichier.
 9. Couper le WS 10 s → reconnect, stats, bots toujours up.
 10. Deuxième agent / autre `VM_HOST` : un start sur A n'apparaît pas sur B.
+
+Rôles-réactions (module `ReactionRoles`, mode alone) :
+11. `/rr create MonPanel` → panel créé ; `/rr edit MonPanel` → dashboard interactif (nom, embed, entrées).
+12. `/rr publish MonPanel` → message envoyé, réactions/boutons actifs ; clic → rôle accordé/retiré selon le mode.
+13. `/rr export` puis `/rr import` sur un autre serveur → panels restaurés (ids conservés si même serveur).
+14. Redémarrage du bot → panels resynchronisés au `ready` (réactions restaurées).
 
 ---
 

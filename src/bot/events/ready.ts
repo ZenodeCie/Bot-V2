@@ -6,6 +6,7 @@ import { initJoinToCreate as initJoinToCreateSweep } from "../utils/join2create/
 import { initMessageHoraire, startMessageHoraireSweep } from "../utils/message-horaire/engine.js"
 import { initTempSanctions, startTempSweep as startModerationTempSweep } from "../utils/moderation/temp.js"
 import { restoreTempGrants, startTempSweep as startReactionRolesTempSweep } from "../utils/reactionroles/temp.js"
+import { syncPublishedPanels } from "../utils/reactionroles/render.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
 import { registerSlashCommands } from "../utils/slash.js"
 
@@ -50,6 +51,12 @@ export default {
       await client.reactionroles.rebuildMessageCache()
       await restoreTempGrants(client)
       startReactionRolesTempSweep(client)
+      try {
+        const synced = await syncPublishedPanels(client, client.reactionroles)
+        console.log(`ReactionRoles: resynchronized ${synced} published panel(s) on startup.`)
+      } catch (error) {
+        console.error("ReactionRoles startup resync failed:", error)
+      }
     }
   },
 }

@@ -232,3 +232,33 @@ export async function publishPanel(client: Client, engine: ReactionRolesEngine, 
 
   return { ok: true, message }
 }
+
+/**
+ * Resynchronisation au démarrage : vérifie que les messages des panels publiés
+ * existent encore, resynchronise leurs réactions et annule messageId si le
+ * message ou le salon a disparu (ne casse jamais le démarrage).
+ */
+export async function syncPublishedPanels(client: Client, engine: ReactionRolesEngine): Promise<number> {
+  let touched = 0
+  for (const guild of client.guilds.cache.values()) {
+    const panels = await engine.getPanels(guild.id)
+    for (const panel of panels) {
+      if (!panel.messageId || !panel.channelId) continue
+      const channel = await client.channels.fetch(panel.channelId).catch(() => null)
+      if (!channel || channel.isDMBased() || !channel.isTextBased() || !channel.isSendable() || channel.guild.id !== guild.id) {
+        panel.messageId = null
+        await engine.savePanel(panel).catch(() => undefined)
+        continue
+      }
+      const message = await channel.messages.fetch(panel.messageId).catch(() => null)
+      if (!message) {
+        panel.messageId = null
+        await engine.savePanel(panel).catch(() => undefined)
+        continue
+      }
+      await syncReactions(message, panel).catch(() => undefined)
+      touched += 1
+    }
+  }
+  return touched
+}
