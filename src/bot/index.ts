@@ -31,8 +31,9 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildInvites,
     GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildMessageReactions,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+  partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.Reaction, Partials.User],
 })
 
 const { enabled: enabledModules, unknown: unknownModules } = resolveEnabledModules(botRuntime.modules)

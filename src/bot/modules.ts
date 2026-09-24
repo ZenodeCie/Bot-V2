@@ -69,6 +69,10 @@ export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
     commandGlobs: ["commands/join2create"],
     eventGlobs: ["events/join2create"],
   },
+  ReactionRoles: {
+    commandGlobs: ["commands/reactionroles"],
+    eventGlobs: ["events/reactionroles"],
+  },
   Tickets: {
     commandGlobs: ["commands/tickets"],
     eventGlobs: [],
