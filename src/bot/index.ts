@@ -17,6 +17,7 @@ import {
 } from "./runtimeHeartbeat.js"
 import initData from "./utils/initData.js"
 import { AntiRaidEngine } from "./utils/antiraid/engine.js"
+import { ReactionRolesEngine } from "./utils/reactionroles/engine.js"
 import mongoClient, { connectMongo, mongoDbName } from "./utils/mongoClient.js"
 import type { Command, InteractionHandler } from "./types.js"
 
@@ -43,6 +44,7 @@ client.commands = new Collection<string, Command>()
 client.interactions = new Collection<string, InteractionHandler>()
 client.db = mongoClient
 client.antiraid = new AntiRaidEngine(client)
+client.reactionroles = new ReactionRolesEngine(client)
 client.botId = botRuntime.botId
 client.dataDir = botRuntime.dataDir
 client.enabledModules = enabledModules

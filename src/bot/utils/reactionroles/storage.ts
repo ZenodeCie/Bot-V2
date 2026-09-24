@@ -37,6 +37,7 @@ export interface ReactionRoleStore {
     entryId: string
   ): Promise<TempRoleGrant | null>
   deleteGrantsForEntry(guildId: string, panelId: string, entryId: string): Promise<void>
+  deleteGrantsForUserEntry(guildId: string, userId: string, panelId: string, entryId: string): Promise<void>
   deleteGrantsForPanel(guildId: string, panelId: string): Promise<void>
   deleteGrantsForRole(guildId: string, roleId: string): Promise<void>
   deleteGrantsForGuild(guildId: string): Promise<void>
@@ -119,6 +120,10 @@ class MongoPanelStore implements ReactionRoleStore {
 
   async deleteGrantsForEntry(guildId: string, panelId: string, entryId: string): Promise<void> {
     await ReactionRoleTempGrants.deleteMany({ guildId, panelId, entryId })
+  }
+
+  async deleteGrantsForUserEntry(guildId: string, userId: string, panelId: string, entryId: string): Promise<void> {
+    await ReactionRoleTempGrants.deleteMany({ guildId, userId, panelId, entryId })
   }
 
   async deleteGrantsForPanel(guildId: string, panelId: string): Promise<void> {
@@ -302,6 +307,15 @@ class FilePanelStore implements ReactionRoleStore {
     await withLock("temp", async () => {
       const grants = (await readGrants()).filter(
         (grant) => !(grant.guildId === guildId && grant.panelId === panelId && grant.entryId === entryId)
+      )
+      await writeGrants(grants)
+    })
+  }
+
+  async deleteGrantsForUserEntry(guildId: string, userId: string, panelId: string, entryId: string): Promise<void> {
+    await withLock("temp", async () => {
+      const grants = (await readGrants()).filter(
+        (grant) => !(grant.guildId === guildId && grant.userId === userId && grant.panelId === panelId && grant.entryId === entryId)
       )
       await writeGrants(grants)
     })

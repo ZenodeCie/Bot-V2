@@ -9,6 +9,7 @@ import type {
 } from "discord.js"
 import type { Connection } from "mongoose"
 import type { AntiRaidEngine } from "./utils/antiraid/engine.js"
+import type { ReactionRolesEngine } from "./utils/reactionroles/engine.js"
 
 export interface SlashOption {
   name: string
@@ -44,6 +45,7 @@ declare module "discord.js" {
     db: Connection
     interactions: Collection<string, InteractionHandler>
     antiraid: AntiRaidEngine
+    reactionroles: ReactionRolesEngine
     botId: string
     dataDir: string
     enabledModules: Set<string>
