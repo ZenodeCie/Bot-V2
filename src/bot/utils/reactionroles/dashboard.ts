@@ -37,7 +37,6 @@ import {
   type RolePanelEntry,
 } from "./schema.js"
 import type { ReactionRolesEngine } from "./engine.js"
-import { applyTemplate, panelTemplates } from "./templates.js"
 import { publishPanel } from "./render.js"
 import { formatDurationMs } from "./messages.js"
 
@@ -162,12 +161,11 @@ export async function buildReactionRolesEditor(client: Client, guild: Guild, pan
 }
 
 async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngine, _guild: Guild, panel: RolePanel): Promise<ContainerBuilder[]> {
-  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-  container.addTextDisplayComponents((t) =>
+  const header = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  header.addTextDisplayComponents((t) =>
     t.setContent(appEmojiHeading("settings", `${clip(panel.name || "Panel", 40)} — ${MODE_LABELS[panel.mode]}`))
   )
-  container.addSeparatorComponents((s) => s.setSpacing(1))
-  container.addTextDisplayComponents((t) =>
+  header.addTextDisplayComponents((t) =>
     t.setContent(
       `> **État :** ${onOff(panel.enabled)} · **Langue :** ${panel.language === "en" ? "English" : "Français"}\n` +
         `> **Publié :** ${channelMention(panel.channelId)} · ${messageLink(panel)}\n` +
@@ -176,9 +174,7 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
         `> ${appEmojiText("people")} **Entrées :** ${entryCountLine(panel)}`
     )
   )
-  container.addSeparatorComponents((s) => s.setDivider(true))
-
-  container.addActionRowComponents((row) =>
+  header.addActionRowComponents((row) =>
     row.setComponents(
       new ButtonBuilder().setCustomId(`${PREFIX}pub:${panel.id}`).setLabel("Publier").setEmoji(appEmojiComponent("pin")).setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(`${PREFIX}rep:${panel.id}`).setLabel("Republier").setEmoji(appEmojiComponent("loop")).setStyle(ButtonStyle.Primary),
@@ -192,29 +188,26 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
     )
   )
 
-  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de publication**`))
-  container.addActionRowComponents((row) =>
+  const settings = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  settings.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId(`${PREFIX}chan:${panel.id}`)
-        .setPlaceholder("Choisir le salon de publication...")
+        .setPlaceholder("Salon de publication...")
         .setMaxValues(1)
         .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
     )
   )
-
-  container.addTextDisplayComponents((t) => t.setContent(`${appEmojiText("file")} **Salon de logs**`))
-  container.addActionRowComponents((row) =>
+  settings.addActionRowComponents((row) =>
     row.setComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId(`${PREFIX}logs:${panel.id}`)
-        .setPlaceholder("Choisir le salon de logs...")
+        .setPlaceholder("Salon de logs...")
         .setMaxValues(1)
         .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
     )
   )
-
-  container.addActionRowComponents((row) =>
+  settings.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
         .setCustomId(`${PREFIX}mode:${panel.id}`)
@@ -228,8 +221,7 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
         )
     )
   )
-
-  container.addActionRowComponents((row) =>
+  settings.addActionRowComponents((row) =>
     row.setComponents(
       new StringSelectMenuBuilder()
         .setCustomId(`${PREFIX}lang:${panel.id}`)
@@ -237,18 +229,7 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
         .addOptions(PANEL_LANGUAGES.map((language) => ({ label: language === "en" ? "English" : "Français", value: language })))
     )
   )
-
-  container.addTextDisplayComponents((t) => t.setContent(`> ${appEmojiText("settings")} **Modèle de départ** *(remplace embed, textes et entrées)*`))
-  container.addActionRowComponents((row) =>
-    row.setComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(`${PREFIX}tpl:${panel.id}`)
-        .setPlaceholder("Appliquer un modèle...")
-        .addOptions(panelTemplates(panel.language).map((template) => ({ label: clip(template.name, 90), value: template.key })))
-    )
-  )
-
-  container.addActionRowComponents((row) =>
+  settings.addActionRowComponents((row) =>
     row.setComponents(
       new ButtonBuilder().setCustomId(`${PREFIX}name:${panel.id}`).setLabel("Nom").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`${PREFIX}emb1:${panel.id}`).setLabel("Embed").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary),
@@ -257,8 +238,7 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
       new ButtonBuilder().setCustomId(`${PREFIX}res2:${panel.id}`).setLabel("Textes B").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary)
     )
   )
-
-  container.addActionRowComponents((row) =>
+  settings.addActionRowComponents((row) =>
     row.setComponents(
       new ButtonBuilder().setCustomId(`${PREFIX}res3:${panel.id}`).setLabel("Textes C").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId(`${PREFIX}lim:${panel.id}`).setLabel("Limites").setEmoji(appEmojiComponent("cog")).setStyle(ButtonStyle.Secondary),
@@ -269,24 +249,20 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
       new ButtonBuilder()
         .setCustomId(`${PREFIX}dgr:${panel.id}`)
         .setLabel(panel.allowDangerousRoles ? "Danger : Oui" : "Danger : Non")
-        .setStyle(panel.allowDangerousRoles ? ButtonStyle.Danger : ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${PREFIX}clear:${panel.id}`).setLabel("Logs : vide").setEmoji(appEmojiComponent("cancel")).setStyle(ButtonStyle.Secondary)
+        .setStyle(panel.allowDangerousRoles ? ButtonStyle.Danger : ButtonStyle.Secondary)
     )
   )
 
-  container.addSeparatorComponents((s) => s.setDivider(true))
-  container.addTextDisplayComponents((t) => t.setContent(`**Entrées** — sélectionnez pour éditer, ou ajoutez-en une.`))
-
-  container.addActionRowComponents((row) =>
+  const entries = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  entries.addActionRowComponents((row) =>
     row.setComponents(
       new ButtonBuilder().setCustomId(`${PREFIX}addr:${panel.id}`).setLabel("+ Réaction").setEmoji(appEmojiComponent("add")).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`${PREFIX}addb:${panel.id}`).setLabel("+ Bouton").setEmoji(appEmojiComponent("add")).setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`${PREFIX}adds:${panel.id}`).setLabel("+ Menu").setEmoji(appEmojiComponent("add")).setStyle(ButtonStyle.Success)
     )
   )
-
   if (panel.entries.length > 0) {
-    container.addActionRowComponents((row) =>
+    entries.addActionRowComponents((row) =>
       row.setComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`${PREFIX}entr:${panel.id}`)
@@ -302,7 +278,7 @@ async function buildEditorContainers(_client: Client, _engine: ReactionRolesEngi
     )
   }
 
-  return [container]
+  return [header, settings, entries]
 }
 
 function buildEntryContainers(_client: Client, _engine: ReactionRolesEngine, panel: RolePanel, entry: RolePanelEntry): ContainerBuilder[] {
@@ -383,12 +359,15 @@ function isHubContext(interaction: ViewInteraction): boolean {
 
 async function renderAndUpdate(interaction: ViewInteraction, containers: ContainerBuilder[]): Promise<void> {
   const components = isHubContext(interaction) ? appendBackButton(containers, CFG_BACK) : containers
+  const onFailure = (error: unknown): void => {
+    console.error(`ReactionRoles render update failed (customId ${"customId" in interaction ? interaction.customId : "modal"}):`, error)
+  }
   if (interaction.isModalSubmit()) {
     if (!interaction.isFromMessage()) return
-    await interaction.update(configUpdatePayload(components)).catch(() => undefined)
+    await interaction.update(configUpdatePayload(components)).catch(onFailure)
     return
   }
-  await interaction.update(configUpdatePayload(components)).catch(() => undefined)
+  await interaction.update(configUpdatePayload(components)).catch(onFailure)
 }
 
 async function replyError(interaction: ViewInteraction, text: string): Promise<void> {
@@ -632,15 +611,6 @@ export async function handleReactionRolesInteraction(client: Client, interaction
     return true
   }
 
-  if (interaction.isButton() && customId.startsWith(`${PREFIX}clear:`)) {
-    const panel = await withPanel(engine, guild.id, panelIdOf(`${PREFIX}clear:`))
-    if (!panel) return true
-    panel.logChannelId = null
-    await engine.savePanel(panel)
-    await renderAndUpdate(interaction, await buildEditorContainers(client, engine, guild, panel))
-    return true
-  }
-
   if (interaction.isButton() && customId.startsWith(`${PREFIX}del:`)) {
     const panel = await withPanel(engine, guild.id, panelIdOf(`${PREFIX}del:`))
     if (panel) await renderAndUpdate(interaction, buildDeleteContainers(client, engine, panel))
@@ -697,18 +667,6 @@ export async function handleReactionRolesInteraction(client: Client, interaction
     const value = interaction.values[0]
     if (isPanelLanguage(value)) panel.language = value
     await engine.savePanel(panel)
-    await renderAndUpdate(interaction, await buildEditorContainers(client, engine, guild, panel))
-    return true
-  }
-
-  if (interaction.isStringSelectMenu() && customId.startsWith(`${PREFIX}tpl:`)) {
-    const panel = await withPanel(engine, guild.id, panelIdOf(`${PREFIX}tpl:`))
-    if (!panel) return true
-    const value = interaction.values[0]
-    if (value) {
-      applyTemplate(panel, value)
-      await engine.savePanel(panel)
-    }
     await renderAndUpdate(interaction, await buildEditorContainers(client, engine, guild, panel))
     return true
   }
