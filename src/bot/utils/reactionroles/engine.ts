@@ -12,6 +12,8 @@ import { reactionRoleStore, type ReactionRoleStore } from "./storage.js"
 import { formatDurationMs, joinRoleNames, responseText } from "./messages.js"
 import { addTempGrant, cancelTempGrantsForEntry, cancelTimersForGuild, cancelTimersForPanel } from "./temp.js"
 import { enqueueRoleOp } from "./roleQueue.js"
+import { colors } from "../../config.js"
+import { buildLogEmbed, emitLog } from "../logs/engine.js"
 
 /**
  * Moteur coeur des rôles-réactions : grant/revoke, modes, restrictions,
@@ -236,11 +238,21 @@ export class ReactionRolesEngine {
     }
   }
 
-  private async sendPanelLog(guild: Guild, panel: RolePanel, text: string): Promise<void> {
-    if (!panel.logChannelId || !text) return
-    const channel = await guild.channels.fetch(panel.logChannelId).catch(() => null)
-    if (!channel || !("send" in channel)) return
-    await channel.send({ content: text, allowedMentions: { parse: [] } }).catch(() => undefined)
+  private async sendPanelLog(
+    guild: Guild,
+    panel: RolePanel,
+    title: string,
+    text: string,
+    color: `#${string}` | null = colors.prime
+  ): Promise<void> {
+    if (!text) return
+    if (panel.logChannelId) {
+      const channel = await guild.channels.fetch(panel.logChannelId).catch(() => null)
+      if (channel && "send" in channel) {
+        await channel.send({ content: text, allowedMentions: { parse: [] } }).catch(() => undefined)
+      }
+    }
+    await emitLog(this.client, guild.id, "reactionroles", buildLogEmbed("people", title, text, color))
   }
 
   private async notifyDM(member: GuildMember, text: string): Promise<void> {
@@ -269,7 +281,13 @@ export class ReactionRolesEngine {
     if (panel.dmNotify) {
       await this.notifyDM(member, responseText(panel, kind === "grant" ? "dmGranted" : "dmRemoved", vars))
     }
-    await this.sendPanelLog(guild, panel, responseText(panel, kind === "grant" ? "logGrant" : "logRemove", vars))
+    await this.sendPanelLog(
+      guild,
+      panel,
+      kind === "grant" ? "Rôle attribué" : "Rôle retiré",
+      responseText(panel, kind === "grant" ? "logGrant" : "logRemove", vars),
+      kind === "grant" ? colors.prime : colors.orng
+    )
   }
 
   // -------------------------------------------------------------------------
@@ -293,7 +311,7 @@ export class ReactionRolesEngine {
       const denyText = responseText(panel, "denied", { ...this.buildVars(guild, member, panel, entry, entry.roles), reason })
       if (summary) summary.reasons.push(denyText)
       else if (ctx.interaction) await replyFeedback(ctx.interaction, denyText)
-      await this.sendPanelLog(guild, panel, responseText(panel, "logDeny", { ...this.buildVars(guild, member, panel, entry, entry.roles), reason }))
+      await this.sendPanelLog(guild, panel, "Accès refusé", responseText(panel, "logDeny", { ...this.buildVars(guild, member, panel, entry, entry.roles), reason }), colors.red)
       return false
     }
 
@@ -304,7 +322,7 @@ export class ReactionRolesEngine {
       const denyText = responseText(panel, "denied", { ...this.buildVars(guild, member, panel, entry, entry.roles), reason })
       if (summary) summary.reasons.push(denyText)
       else if (ctx.interaction) await replyFeedback(ctx.interaction, denyText)
-      await this.sendPanelLog(guild, panel, responseText(panel, "logDeny", { ...this.buildVars(guild, member, panel, entry, entry.roles), reason }))
+      await this.sendPanelLog(guild, panel, "Accès refusé", responseText(panel, "logDeny", { ...this.buildVars(guild, member, panel, entry, entry.roles), reason }), colors.red)
       return false
     }
 

@@ -19,6 +19,7 @@ import {
   type PartialMessage,
   type Role,
   type Snowflake,
+  type AttachmentBuilder,
   type TextBasedChannel,
   type ThreadChannel,
   type VoiceState,
@@ -56,13 +57,19 @@ export function buildLogEmbed(
   return embed
 }
 
-export async function sendLog(client: Client, guildId: string, embed: EmbedBuilder): Promise<void> {
+export async function sendLog(
+  client: Client,
+  guildId: string,
+  embed: EmbedBuilder,
+  attachments: AttachmentBuilder[] = []
+): Promise<void> {
   try {
     const config = await loadConfig(guildId)
     if (!config?.enabled || !config.channelId) return
     const channel = client.channels.cache.get(config.channelId)
     if (!channel || !channel.isTextBased() || !channel.isSendable() || channel.isDMBased()) return
-    await channel.send({ embeds: [embed] })
+    const options = attachments.length > 0 ? { embeds: [embed], files: attachments } : { embeds: [embed] }
+    await channel.send(options)
   } catch (error) {
     console.error(`Failed to send guild log in guild ${guildId}:`, error)
   }
@@ -158,15 +165,16 @@ function diffLine(label: string, before: string, after: string): string | null {
   return `> ***${label} :** \`${before || "—"}\` → \`${after || "—"}\`*`
 }
 
-async function emit(
+export async function emitLog(
   client: Client,
   guildId: string,
   category: EventKey,
   embed: EmbedBuilder,
-  context?: LogContext
+  context?: LogContext,
+  attachments: AttachmentBuilder[] = []
 ): Promise<void> {
   if (!(await shouldLog(guildId, category, context))) return
-  await sendLog(client, guildId, embed)
+  await sendLog(client, guildId, embed, attachments)
 }
 
 function messageAuthor(message: Message | PartialMessage): { id: string; tag?: string; username?: string } | null {
@@ -193,7 +201,7 @@ export async function handleMessageDelete(client: Client, message: Message | Par
       `\n${contentBlock(resolved.content)}`,
     colors.red
   )
-  await emit(client, message.guild.id, "messages", embed, {
+  await emitLog(client, message.guild.id, "messages", embed, {
     isBot: resolved.author?.bot ?? false,
     channelId: resolved.channelId,
     skipLogChannel: true,
@@ -221,7 +229,7 @@ export async function handleMessageUpdate(
       `> ***Après :**\n${contentBlock(after.content)}`,
     colors.yel
   )
-  await emit(client, newMessage.guild.id, "messages", embed, {
+  await emitLog(client, newMessage.guild.id, "messages", embed, {
     isBot: after.author?.bot ?? false,
     channelId: after.channelId,
     skipLogChannel: true,
@@ -250,7 +258,7 @@ export async function handleMessageDeleteBulk(
       (lines ? `\n${lines}` : ""),
     colors.red
   )
-  await emit(client, channel.guild.id, "messages", embed, {
+  await emitLog(client, channel.guild.id, "messages", embed, {
     channelId: channel.id,
     skipLogChannel: true,
   })
@@ -267,7 +275,7 @@ export async function handleMemberJoin(client: Client, member: GuildMember): Pro
       `> ***Membres :** \`${member.guild.memberCount}\`*`,
     colors.prime
   )
-  await emit(client, member.guild.id, "members", embed, { isBot: member.user.bot })
+  await emitLog(client, member.guild.id, "members", embed, { isBot: member.user.bot })
 }
 
 export async function handleMemberRemove(client: Client, member: GuildMember | PartialGuildMember): Promise<void> {
@@ -282,7 +290,7 @@ export async function handleMemberRemove(client: Client, member: GuildMember | P
       `> ***Membre :** ${userLine(user)}*` + executorLine(kick) + reasonLine(kick),
       colors.red
     )
-    await emit(client, member.guild.id, "moderation", embed, { isBot: user?.bot })
+    await emitLog(client, member.guild.id, "moderation", embed, { isBot: user?.bot })
     return
   }
   const embed = buildLogEmbed(
@@ -291,7 +299,7 @@ export async function handleMemberRemove(client: Client, member: GuildMember | P
     `> ***Membre :** ${userLine(user)}\n` + `> ***Membres :** \`${member.guild.memberCount}\`*`,
     colors.orng
   )
-  await emit(client, member.guild.id, "members", embed, { isBot: user?.bot })
+  await emitLog(client, member.guild.id, "members", embed, { isBot: user?.bot })
 }
 
 export async function handleMemberUpdate(
@@ -313,7 +321,7 @@ export async function handleMemberUpdate(
           reasonLine(audit),
         colors.orng
       )
-      await emit(client, newMember.guild.id, "moderation", embed, { isBot: newMember.user.bot })
+      await emitLog(client, newMember.guild.id, "moderation", embed, { isBot: newMember.user.bot })
     } else {
       const embed = buildLogEmbed(
         "check",
@@ -321,7 +329,7 @@ export async function handleMemberUpdate(
         `> ***Membre :** ${userLine(newMember.user)}*` + executorLine(audit),
         colors.prime
       )
-      await emit(client, newMember.guild.id, "moderation", embed, { isBot: newMember.user.bot })
+      await emitLog(client, newMember.guild.id, "moderation", embed, { isBot: newMember.user.bot })
     }
   }
 
@@ -342,7 +350,7 @@ export async function handleMemberUpdate(
       newMember.id
     )
     const embed = buildLogEmbed("people", "Membre mis à jour", parts.join("\n") + executorLine(audit), colors.yel)
-    await emit(client, newMember.guild.id, "members", embed, { isBot: newMember.user.bot })
+    await emitLog(client, newMember.guild.id, "members", embed, { isBot: newMember.user.bot })
   }
 
   const boostBefore = oldMember.premiumSinceTimestamp ?? null
@@ -354,7 +362,7 @@ export async function handleMemberUpdate(
       `> ***Membre :** ${userLine(newMember.user)}*`,
       boostAfter ? colors.prime : colors.orng
     )
-    await emit(client, newMember.guild.id, "server", embed, { isBot: newMember.user.bot })
+    await emitLog(client, newMember.guild.id, "server", embed, { isBot: newMember.user.bot })
   }
 }
 
@@ -366,7 +374,7 @@ export async function handleBanAdd(client: Client, ban: GuildBan): Promise<void>
     `> ***Membre :** ${userLine(ban.user)}*` + executorLine(audit) + reasonLine(audit) + (ban.reason ? `\n> ***Raison :** ${clip(ban.reason, 200)}*` : ""),
     colors.red
   )
-  await emit(client, ban.guild.id, "moderation", embed, { isBot: ban.user.bot })
+  await emitLog(client, ban.guild.id, "moderation", embed, { isBot: ban.user.bot })
 }
 
 export async function handleBanRemove(client: Client, ban: GuildBan): Promise<void> {
@@ -377,7 +385,7 @@ export async function handleBanRemove(client: Client, ban: GuildBan): Promise<vo
     `> ***Membre :** ${userLine(ban.user)}*` + executorLine(audit) + reasonLine(audit),
     colors.prime
   )
-  await emit(client, ban.guild.id, "moderation", embed, { isBot: ban.user.bot })
+  await emitLog(client, ban.guild.id, "moderation", embed, { isBot: ban.user.bot })
 }
 
 export async function handleVoiceStateUpdate(client: Client, oldState: VoiceState, newState: VoiceState): Promise<void> {
@@ -390,10 +398,10 @@ export async function handleVoiceStateUpdate(client: Client, oldState: VoiceStat
   if (oldState.channelId !== newState.channelId) {
     if (!oldState.channelId && newState.channelId) {
       const embed = buildLogEmbed("power", "Vocal — arrivée", `> ***Membre :** ${who}\n> ***Salon :** ${channelLine(newState.channelId)}*`, colors.prime)
-      await emit(client, guild.id, "voice", embed, { isBot, channelId: newState.channelId })
+      await emitLog(client, guild.id, "voice", embed, { isBot, channelId: newState.channelId })
     } else if (oldState.channelId && !newState.channelId) {
       const embed = buildLogEmbed("power", "Vocal — départ", `> ***Membre :** ${who}\n> ***Salon :** ${channelLine(oldState.channelId)}*`, colors.orng)
-      await emit(client, guild.id, "voice", embed, { isBot, channelId: oldState.channelId })
+      await emitLog(client, guild.id, "voice", embed, { isBot, channelId: oldState.channelId })
     } else {
       const embed = buildLogEmbed(
         "loop",
@@ -401,7 +409,7 @@ export async function handleVoiceStateUpdate(client: Client, oldState: VoiceStat
         `> ***Membre :** ${who}\n> ***De :** ${channelLine(oldState.channelId)}\n> ***Vers :** ${channelLine(newState.channelId)}*`,
         colors.yel
       )
-      await emit(client, guild.id, "voice", embed, { isBot, channelId: newState.channelId })
+      await emitLog(client, guild.id, "voice", embed, { isBot, channelId: newState.channelId })
     }
   }
 
@@ -419,7 +427,7 @@ export async function handleVoiceStateUpdate(client: Client, oldState: VoiceStat
       `> ***Membre :** ${who}\n> ***Salon :** ${channelLine(newState.channelId ?? oldState.channelId)}\n${flags.join("\n")}`,
       colors.yel
     )
-    await emit(client, guild.id, "voice", embed, { isBot, channelId: newState.channelId ?? oldState.channelId })
+    await emitLog(client, guild.id, "voice", embed, { isBot, channelId: newState.channelId ?? oldState.channelId })
   }
 }
 
@@ -439,7 +447,7 @@ export async function handleChannelCreate(client: Client, channel: GuildChannel)
       executorLine(audit),
     colors.prime
   )
-  await emit(client, channel.guild.id, "channels", embed, { channelId: channel.id })
+  await emitLog(client, channel.guild.id, "channels", embed, { channelId: channel.id })
 }
 
 export async function handleChannelDelete(client: Client, channel: GuildChannel | ThreadChannel): Promise<void> {
@@ -454,7 +462,7 @@ export async function handleChannelDelete(client: Client, channel: GuildChannel 
       executorLine(audit),
     colors.red
   )
-  await emit(client, channel.guild.id, "channels", embed, { channelId: channel.id })
+  await emitLog(client, channel.guild.id, "channels", embed, { channelId: channel.id })
 }
 
 function overwriteSignature(channel: GuildChannel): string {
@@ -503,7 +511,7 @@ export async function handleChannelUpdate(client: Client, oldChannel: GuildChann
     `> ***Salon :** ${channelLine(newChannel.id)}\n${diffs.join("\n")}` + executorLine(audit),
     colors.yel
   )
-  await emit(client, newChannel.guild.id, "channels", embed, { channelId: newChannel.id })
+  await emitLog(client, newChannel.guild.id, "channels", embed, { channelId: newChannel.id })
 }
 
 export async function handleRoleCreate(client: Client, role: Role): Promise<void> {
@@ -514,7 +522,7 @@ export async function handleRoleCreate(client: Client, role: Role): Promise<void
     `> ***Rôle :** ${role} (\`${role.name}\` \`${role.id}\`)*` + executorLine(audit),
     colors.prime
   )
-  await emit(client, role.guild.id, "roles", embed)
+  await emitLog(client, role.guild.id, "roles", embed)
 }
 
 export async function handleRoleDelete(client: Client, role: Role): Promise<void> {
@@ -525,7 +533,7 @@ export async function handleRoleDelete(client: Client, role: Role): Promise<void
     `> ***Rôle :** \`${role.name}\` (\`${role.id}\`)*` + executorLine(audit),
     colors.red
   )
-  await emit(client, role.guild.id, "roles", embed)
+  await emitLog(client, role.guild.id, "roles", embed)
 }
 
 export async function handleRoleUpdate(client: Client, oldRole: Role, newRole: Role): Promise<void> {
@@ -544,7 +552,7 @@ export async function handleRoleUpdate(client: Client, oldRole: Role, newRole: R
     `> ***Rôle :** ${newRole} (\`${newRole.id}\`)\n${diffs.join("\n")}` + executorLine(audit),
     colors.yel
   )
-  await emit(client, newRole.guild.id, "roles", embed)
+  await emitLog(client, newRole.guild.id, "roles", embed)
 }
 
 export async function handleGuildUpdate(client: Client, oldGuild: Guild, newGuild: Guild): Promise<void> {
@@ -564,7 +572,7 @@ export async function handleGuildUpdate(client: Client, oldGuild: Guild, newGuil
   if (!diffs.length) return
   const audit = await findAudit(newGuild, AuditLogEvent.GuildUpdate, newGuild.id)
   const embed = buildLogEmbed("settings", "Serveur modifié", diffs.join("\n") + executorLine(audit), colors.yel)
-  await emit(client, newGuild.id, "server", embed)
+  await emitLog(client, newGuild.id, "server", embed)
 }
 
 function emojiLabel(emoji: GuildEmoji | Emoji): string {
@@ -578,13 +586,13 @@ function emojiLabel(emoji: GuildEmoji | Emoji): string {
 export async function handleEmojiCreate(client: Client, emoji: GuildEmoji): Promise<void> {
   const audit = await findAudit(emoji.guild, AuditLogEvent.EmojiCreate, emoji.id)
   const embed = buildLogEmbed("add", "Emoji créé", `> ***Emoji :** ${emojiLabel(emoji)}*` + executorLine(audit), colors.prime)
-  await emit(client, emoji.guild.id, "server", embed)
+  await emitLog(client, emoji.guild.id, "server", embed)
 }
 
 export async function handleEmojiDelete(client: Client, emoji: GuildEmoji): Promise<void> {
   const audit = await findAudit(emoji.guild, AuditLogEvent.EmojiDelete, emoji.id)
   const embed = buildLogEmbed("cancel", "Emoji supprimé", `> ***Emoji :** ${emojiLabel(emoji)}*` + executorLine(audit), colors.red)
-  await emit(client, emoji.guild.id, "server", embed)
+  await emitLog(client, emoji.guild.id, "server", embed)
 }
 
 export async function handleEmojiUpdate(client: Client, oldEmoji: GuildEmoji, newEmoji: GuildEmoji): Promise<void> {
@@ -597,7 +605,7 @@ export async function handleEmojiUpdate(client: Client, oldEmoji: GuildEmoji, ne
       executorLine(audit),
     colors.yel
   )
-  await emit(client, newEmoji.guild.id, "server", embed)
+  await emitLog(client, newEmoji.guild.id, "server", embed)
 }
 
 export async function handleInviteCreate(client: Client, invite: Invite): Promise<void> {
@@ -614,7 +622,7 @@ export async function handleInviteCreate(client: Client, invite: Invite): Promis
       `> ***Expiration :** \`${maxAge}\`*`,
     colors.prime
   )
-  await emit(client, guild.id, "invites", embed, { isBot: invite.inviter?.bot, channelId: invite.channelId })
+  await emitLog(client, guild.id, "invites", embed, { isBot: invite.inviter?.bot, channelId: invite.channelId })
 }
 
 export async function handleInviteDelete(client: Client, invite: Invite): Promise<void> {
@@ -626,7 +634,7 @@ export async function handleInviteDelete(client: Client, invite: Invite): Promis
     `> ***Code :** \`${invite.code}\`*\n> ***Salon :** ${channelLine(invite.channelId)}`,
     colors.orng
   )
-  await emit(client, guild.id, "invites", embed, { channelId: invite.channelId })
+  await emitLog(client, guild.id, "invites", embed, { channelId: invite.channelId })
 }
 
 export async function handleThreadCreate(client: Client, thread: ThreadChannel): Promise<void> {
@@ -640,7 +648,7 @@ export async function handleThreadCreate(client: Client, thread: ThreadChannel):
       `> ***Auteur :** ${thread.ownerId ? `<@${thread.ownerId}>` : "*Inconnu*"}*`,
     colors.prime
   )
-  await emit(client, thread.guild.id, "threads", embed, { channelId: thread.id, skipLogChannel: true })
+  await emitLog(client, thread.guild.id, "threads", embed, { channelId: thread.id, skipLogChannel: true })
 }
 
 export async function handleThreadDelete(client: Client, thread: ThreadChannel): Promise<void> {
@@ -651,7 +659,7 @@ export async function handleThreadDelete(client: Client, thread: ThreadChannel):
     `> ***Fil :** \`${thread.name}\` (\`${thread.id}\`)\n> ***Parent :** ${channelLine(thread.parentId)}`,
     colors.red
   )
-  await emit(client, thread.guild.id, "threads", embed, { channelId: thread.id, skipLogChannel: true })
+  await emitLog(client, thread.guild.id, "threads", embed, { channelId: thread.id, skipLogChannel: true })
 }
 
 export async function handleThreadUpdate(client: Client, oldThread: ThreadChannel, newThread: ThreadChannel): Promise<void> {
@@ -668,5 +676,5 @@ export async function handleThreadUpdate(client: Client, oldThread: ThreadChanne
     `> ***Fil :** ${channelLine(newThread.id)}\n${diffs.join("\n")}`,
     colors.yel
   )
-  await emit(client, newThread.guild.id, "threads", embed, { channelId: newThread.id, skipLogChannel: true })
+  await emitLog(client, newThread.guild.id, "threads", embed, { channelId: newThread.id, skipLogChannel: true })
 }

@@ -21,6 +21,7 @@ import {
 } from "discord.js"
 import { colors } from "../../config.js"
 import { appEmojiComponent, appEmojiText } from "../appEmojis.js"
+import { buildLogEmbed, emitLog } from "../logs/engine.js"
 import {
   MAX_CATEGORIES,
   MAX_CHANNEL_NAME_LENGTH,
@@ -238,22 +239,25 @@ export async function sendTicketsLog(
 ): Promise<void> {
   try {
     const config = await getConfig(guildId)
-    if (!config.logsChannelId) return
-    const channel = await resolveSendableChannel(client, config.logsChannelId)
-    if (!channel) return
-    const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
-    container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Journal des tickets`))
-    container.addSeparatorComponents((s) => s.setSpacing(1))
-    container.addTextDisplayComponents((t) => t.setContent(body))
-    await channel.send({
-      components: [container],
-      flags: COMPONENTS_V2_FLAGS,
-      allowedMentions: { parse: [] },
-      files,
-    })
+    if (config.logsChannelId) {
+      const channel = await resolveSendableChannel(client, config.logsChannelId)
+      if (channel) {
+        const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+        container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Journal des tickets`))
+        container.addSeparatorComponents((s) => s.setSpacing(1))
+        container.addTextDisplayComponents((t) => t.setContent(body))
+        await channel.send({
+          components: [container],
+          flags: COMPONENTS_V2_FLAGS,
+          allowedMentions: { parse: [] },
+          files,
+        })
+      }
+    }
   } catch (error) {
     console.error(`Failed to send tickets log in guild ${guildId}:`, error)
   }
+  await emitLog(client, guildId, "tickets", buildLogEmbed("file", "Tickets", body, colors.prime), undefined, files)
 }
 
 async function fetchMember(guild: Guild, userId: string): Promise<GuildMember | null> {
