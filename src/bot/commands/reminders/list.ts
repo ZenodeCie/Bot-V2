@@ -1,5 +1,6 @@
-import { type Client, type Message } from "discord.js"
+import type { Client, Interaction, Message } from "discord.js"
 import { buildModEmbed, requireGuild } from "../../utils/moderation/helpers.js"
+import { handleMentionInteraction } from "../../utils/reminders/mentions.js"
 import { remindersStore } from "../../utils/reminders/storage.js"
 import { quotaRemaining, replyPrivate } from "./helpers.js"
 
@@ -18,6 +19,11 @@ export default {
   aliases: [],
   permissions: [],
   usage: "list",
+  // Le chargeur n'enregistre `handleInteraction` que pour un fichier exposant une
+  // commande : on le rattache ici, c'est la commande de gestion des rappels.
+  handleInteraction(client: Client, interaction: Interaction): Promise<boolean> {
+    return handleMentionInteraction(client, interaction)
+  },
   async execute(client: Client, message: Message) {
     const guild = requireGuild(message)
     if (!guild) return

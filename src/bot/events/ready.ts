@@ -7,6 +7,7 @@ import { initMessageHoraire, startMessageHoraireSweep } from "../utils/message-h
 import { initTempSanctions, startTempSweep as startModerationTempSweep } from "../utils/moderation/temp.js"
 import { restoreTempGrants, startTempSweep as startReactionRolesTempSweep } from "../utils/reactionroles/temp.js"
 import { syncPublishedPanels } from "../utils/reactionroles/render.js"
+import { initReminders, startRemindersSweep } from "../utils/remindersEngine.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
 import { sweepStaleTicketRecords } from "../utils/tickets/engine.js"
 import { registerSlashCommands } from "../utils/slash.js"
@@ -47,6 +48,10 @@ export default {
     }
     if (client.enabledModules.has("JoinToCreate")) {
       await initJoinToCreateSweep(client)
+    }
+    if (client.enabledModules.has("Reminders")) {
+      await initReminders(client)
+      startRemindersSweep(client)
     }
     if (client.enabledModules.has("Tickets")) {
       try {

@@ -3,6 +3,7 @@ import { buildModEmbed, requireGuild } from "../../utils/moderation/helpers.js"
 import { isValidCron } from "../../utils/reminders/cron.js"
 import { MAX_LEAD_MS, MIN_LEAD_MS } from "../../utils/reminders/limits.js"
 import { clampMessage, newReminderId } from "../../utils/reminders/schema.js"
+import { buildCancelRow, buildMentionRows } from "../../utils/reminders/mentions.js"
 import { getSettings } from "../../utils/reminders/settings.js"
 import { remindersStore } from "../../utils/reminders/storage.js"
 import { normalizeWebhookUrl, webhookIdOf } from "../../utils/reminders/webhook.js"
@@ -173,11 +174,11 @@ export default {
       `> **Quand :** <t:${Math.floor(nextAt / 1000)}:f>`,
       `> **Identifiant :** \`${record.id}\``,
     ]
-    if (parsed.destination !== "dm") {
-      lines.push("> *Seuls vous voyez ce rappel :*\\_utilisez `/rappel list` pour le gérer ou l'annuler.")
-    }
+    // Confirmation et éditeur de mentions dans le même message privé : pas de
+    // follow-up à orchestrer, et rien n'apparaît publiquement.
     await replyPrivate(message, {
       embeds: [buildModEmbed("check", "Rappel programmé", lines.join("\n"), "#57F287")],
+      components: [...buildMentionRows(record), buildCancelRow(record)],
     })
   },
 }
