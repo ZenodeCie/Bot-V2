@@ -32,6 +32,7 @@ export const SLASH_GROUPS: Record<string, { name: string; description: string }>
   invitations: { name: "invitations", description: "Suivi des invitations" },
   "message-horaire": { name: "time-message", description: "Messages programmés" },
   reactionroles: { name: "rr", description: "Rôles-réactions" },
+  reminders: { name: "rappel", description: "Rappels programmés" },
 }
 
 export function slashSubcommandName(command: Command): string {
