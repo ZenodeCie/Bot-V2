@@ -25,6 +25,7 @@ const MAX_TIMER_WAKEUPS = 3
 const timers = new Map<string, NodeJS.Timeout>()
 const inFlight = new Set<string>()
 let sweepStarted = false
+let sweepTimer: NodeJS.Timeout | null = null
 
 function reminderKey(guildId: string, id: string): string {
   return `${guildId}:${id}`
@@ -231,6 +232,12 @@ export function clearGuildTimers(guildId: string): void {
 
 export function stopReminders(): void {
   for (const key of [...timers.keys()]) clearTimer(key)
+  // Sans `clearInterval`, un `startRemindersSweep` suivant empilerait un second
+  // balayage : chaque rappel serait alors examiné deux fois.
+  if (sweepTimer) {
+    clearInterval(sweepTimer)
+    sweepTimer = null
+  }
   sweepStarted = false
 }
 
@@ -256,6 +263,7 @@ export function startRemindersSweep(client: Client): void {
     )
   }, SWEEP_INTERVAL_MS)
   sweep.unref?.()
+  sweepTimer = sweep
 }
 
 /**

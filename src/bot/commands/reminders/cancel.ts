@@ -2,7 +2,7 @@ import { ApplicationCommandOptionType, type Client, type Message } from "discord
 import { buildModEmbed, requireGuild } from "../../utils/moderation/helpers.js"
 import { isReminderId } from "../../utils/reminders/schema.js"
 import { remindersStore } from "../../utils/reminders/storage.js"
-import { clearGuildTimers } from "../../utils/remindersEngine.js"
+import { rescheduleReminder } from "../../utils/remindersEngine.js"
 
 export default {
   name: "cancel",
@@ -45,7 +45,10 @@ export default {
     }
 
     await store.remove(guild.id, id)
-    clearGuildTimers(guild.id)
+    // Le rappel n'existe plus : `rescheduleReminder` désarme exactement ce timer.
+    // Effacer tous les timers du salon laisserait les autres rappels sans
+    // déclencheur jusqu'au prochain redémarrage.
+    await rescheduleReminder(client, guild.id, id)
     await message.reply({
       embeds: [buildModEmbed("check", "Rappel annulé", `> *\`${id}\` a été supprimé.*`)],
     })

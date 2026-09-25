@@ -2,7 +2,7 @@ import { ApplicationCommandOptionType, type Client, type Message } from "discord
 import { buildModEmbed, requireGuild } from "../../utils/moderation/helpers.js"
 import { isReminderId } from "../../utils/reminders/schema.js"
 import { remindersStore } from "../../utils/reminders/storage.js"
-import { clearGuildTimers } from "../../utils/remindersEngine.js"
+import { rescheduleReminder } from "../../utils/remindersEngine.js"
 
 export default {
   name: "admin-delete",
@@ -39,7 +39,9 @@ export default {
     }
 
     await store.remove(guild.id, id)
-    clearGuildTimers(guild.id)
+    // Désarme ce seul timer : `clearGuildTimers` viderait tout le salon et les
+    // rappels restants ne repartiraient qu'au prochain démarrage.
+    await rescheduleReminder(client, guild.id, id)
     await message.reply({
       embeds: [buildModEmbed("check", "Rappel supprimé", `> *\`${id}\` (de <@${record.authorId}>) a été supprimé.*`)],
     })

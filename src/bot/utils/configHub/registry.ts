@@ -33,6 +33,9 @@ import { buildMessageHoraireContainer } from "../message-horaire/dashboard.js"
 import { getConfig as getMessageHoraireConfig, listJobs } from "../message-horaire/schema.js"
 import { buildRulesContainer } from "../rules/dashboard.js"
 import { getConfig as getRulesConfig } from "../rules/schema.js"
+import { buildRemindersPanel } from "../reminders/dashboard.js"
+import { getOverride as getRemindersOverride, getSettings as getRemindersSettings } from "../reminders/settings.js"
+import { remindersStore } from "../reminders/storage.js"
 import { buildStaffListContainer } from "../stafflist/dashboard.js"
 import { getConfig as getStaffListConfig } from "../stafflist/schema.js"
 import { buildTicketsPayload } from "../tickets/dashboard.js"
@@ -266,6 +269,23 @@ const ALL_ENTRIES: ConfigModuleEntry[] = [
     openPanel: async ({ client, guild }) => {
       const [cfg, jobs] = await Promise.all([getMessageHoraireConfig(guild.id), listJobs(guild.id)])
       return buildMessageHoraireContainer(client, guild, cfg, jobs)
+    },
+  },
+  {
+    id: "reminders",
+    label: "Rappels",
+    emoji: "pin",
+    description: "Rappels uniques et récurrents",
+    requiredModule: "Reminders",
+    permission: "Administrator",
+    openPanel: async ({ guild }) => {
+      const [settings, override, all] = await Promise.all([
+        getRemindersSettings(guild.id),
+        getRemindersOverride(guild.id),
+        remindersStore().listAll(),
+      ])
+      const records = all.filter((record) => record.guildId === guild.id)
+      return buildRemindersPanel(settings, override, records)
     },
   },
   {
