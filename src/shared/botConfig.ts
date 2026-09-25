@@ -21,6 +21,7 @@ export const KNOWN_MODULE_KEYS = [
   "JoinToCreate",
   "FactoryPremium",
   "FactoryManager",
+  "Reminders",
 ] as const
 
 export type KnownModuleKey = (typeof KNOWN_MODULE_KEYS)[number]
@@ -106,6 +107,17 @@ export interface BotConfig {
   max_memory?: number
   vm_host?: string
   application_emojis?: ApplicationEmojis
+  reminders?: RemindersBotSettings
+}
+
+/**
+ * Valeurs par défaut du module Rappels, poussées par le Core dans
+ * `configs/{bot_id}.json`. Elles sont surchargeables par salon depuis `/config`.
+ */
+export interface RemindersBotSettings {
+  adminOnly?: boolean
+  maxRemindersPerUser?: number
+  allowWebhookDestination?: boolean
 }
 
 export function isBotConfig(value: unknown): value is BotConfig {
