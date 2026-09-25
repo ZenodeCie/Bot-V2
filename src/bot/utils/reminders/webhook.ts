@@ -1,4 +1,4 @@
-import { parseWebhookURL } from "discord.js"
+import { parseWebhookURL, type MessageMentionOptions } from "discord.js"
 
 /**
  * Envoi par webhook.
@@ -16,7 +16,7 @@ export interface WebhookMessagePayload {
   content?: string
   username?: string
   avatarURL?: string
-  allowedMentions?: { parse: string[]; users?: string[]; roles?: string[] }
+  allowedMentions?: MessageMentionOptions
 }
 
 export type WebhookSendResult = { ok: true } | { ok: false; reason: string; code: number | null }

@@ -64,22 +64,42 @@ export function nextOccurrence(record: { recurrence: ReminderRecurrence; cronExp
 }
 
 /**
- * Échéance suivante strictement postérieure à `after`.
+ * Échéance suivante strictement postérieure à `after`, et à `now`.
  *
- * Le rattrapage est volontairement borné : après un redémarrage ou une panne,
- * on tire une seule fois puis on saute les occurrences déjà dépassées. Un
- * quotidien manqué trois jours ne se déclenche donc pas trois fois d'affilée.
+ * Le rattrapage est borné : après un redémarrage ou une panne, on tire une seule
+ * occurrence puis on saute celles qui sont encore dépassées. Un quotidien manqué
+ * trois jours ne se déclenche donc pas trois fois d'affilée.
  */
-export function computeNextAt(record: { recurrence: ReminderRecurrence; cronExpr: string | null }, after: number): number | null {
+export function computeNextAt(
+  record: { recurrence: ReminderRecurrence; cronExpr: string | null },
+  after: number,
+  now = Date.now()
+): number | null {
   if (record.recurrence === "none") return null
 
-  let next = nextOccurrence(record, after)
-  let guard = 0
-  while (next !== null && next <= after && guard < MAX_SKIP_ITERATIONS) {
-    next = nextOccurrence(record, next)
-    guard++
+  const first = nextOccurrence(record, after)
+  if (first === null) return null
+
+  let next: number | null = first
+  if (first <= now) {
+    if (record.recurrence === "daily" || record.recurrence === "weekly") {
+      // Période constante : on saute les occurrences manquées d'un seul calcul
+      // au lieu de les parcourir une à une.
+      const period = record.recurrence === "daily" ? MS_PER_DAY : 7 * MS_PER_DAY
+      const missed = Math.floor((now - first) / period)
+      next = first + (missed + 1) * period
+    } else {
+      // Mensuel et cron n'ont pas de période fixe : on avance pas à pas, sous
+      // garde-fou, et on abandonne plutôt que de renvoyer une échéance passée.
+      let guard = 0
+      while (next !== null && next <= now && guard < MAX_SKIP_ITERATIONS) {
+        next = nextOccurrence(record, next)
+        guard++
+      }
+    }
   }
-  if (next === null) return null
+
+  if (next === null || next <= now) return null
   // Un cron très espacé (annuel) ne doit pas non plus partir dans 300 ans.
   return next > after + MAX_LEAD_MS ? null : next
 }

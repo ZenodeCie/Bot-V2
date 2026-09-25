@@ -44,6 +44,8 @@ const COLLECTIONS = [
   "invitations_joins",
   "reactionroles",
   "reactionroles_temp",
+  "reminders",
+  "reminders_config",
 ]
 
 function isNamespaceExists(error: unknown): boolean {
