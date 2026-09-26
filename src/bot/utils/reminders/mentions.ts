@@ -45,18 +45,27 @@ export function mentionSummary(record: ReminderRecord): string {
   return `${record.mentionUserIds.length}/${MAX_MENTIONS_PER_KIND} utilisateur(s) · ${record.mentionRoleIds.length}/${MAX_MENTIONS_PER_KIND} rôle(s)`
 }
 
-/** Deux menus de sélection sur une ligne, désactivés une fois la limite atteinte. */
+/**
+ * Un menu de sélection par ligne.
+ *
+ * Discord n'autorise qu'**un seul select par Action Row** : deux selects sur la
+ * même ligne sont refusés par l'API avec
+ * `COMPONENT_LAYOUT_WIDTH_EXCEEDED` sur le deuxième composant. C'est une
+ * contrainte serveur, invisible à la construction du payload.
+ */
 export function buildMentionRows(record: ReminderRecord): ActionRowBuilder<RoleSelectMenuBuilder | UserSelectMenuBuilder>[] {
   const userRoom = MAX_MENTIONS_PER_KIND - record.mentionUserIds.length
   const roleRoom = MAX_MENTIONS_PER_KIND - record.mentionRoleIds.length
   return [
-    new ActionRowBuilder<RoleSelectMenuBuilder | UserSelectMenuBuilder>().addComponents(
+    new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(
       new UserSelectMenuBuilder()
         .setCustomId(`${MENTION_USER_ID}|${record.guildId}|${record.id}`)
         .setPlaceholder(userRoom > 0 ? "Ajouter des utilisateurs…" : "Limite d'utilisateurs atteinte")
         .setMinValues(1)
         .setMaxValues(Math.max(1, Math.min(ADD_BATCH, userRoom)))
-        .setDisabled(userRoom <= 0),
+        .setDisabled(userRoom <= 0)
+    ),
+    new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
       new RoleSelectMenuBuilder()
         .setCustomId(`${MENTION_ROLE_ID}|${record.guildId}|${record.id}`)
         .setPlaceholder(roleRoom > 0 ? "Ajouter des rôles…" : "Limite de rôles atteinte")
