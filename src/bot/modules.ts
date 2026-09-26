@@ -73,10 +73,6 @@ export const MODULE_LOAD_MAP: Record<string, ModuleLoadSpec> = {
     commandGlobs: ["commands/reactionroles"],
     eventGlobs: ["events/reactionroles"],
   },
-  Reminders: {
-    commandGlobs: ["commands/reminders"],
-    eventGlobs: ["events/reminders"],
-  },
   Tickets: {
     commandGlobs: ["commands/tickets"],
     eventGlobs: ["events/tickets"],
