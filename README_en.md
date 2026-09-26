@@ -258,6 +258,7 @@ Discord heartbeat: `data/{bot_id}/runtime.json` (every 5 s). File older than 30 
 | `Utilities` | userinfo, emoji |
 | `Moderation` | `commands/moderation` + `events/moderation` |
 | `ModerationAvancee` | `commands/antiraid` + `events/antiraid` |
+| `Reminders` | `commands/reminders` + `events/reminders`: `/rappel` (create, list, cancel, admin-list, admin-delete), one-off and recurring reminder engine, `/config` panel |
 | Other core keys (Giveaway, Tickets, …) | no-op + warning, no crash |
 
 ---
@@ -265,7 +266,7 @@ Discord heartbeat: `data/{bot_id}/runtime.json` (every 5 s). File older than 30 
 ## 8. Data & secrets
 
 - `configs/`: JSON with **Discord tokens** — gitignored, folder `700`, files `600`.
-- `data/{bot_id}/`: bot runtime + disk state, never shared between bots.
+- `data/{bot_id}/`: bot runtime + disk state, never shared between bots. `data/{bot_id}/reminders.json` (module `Reminders`, without Mongo) holds the reminders **and the webhook URLs** — that is a secret: directory `700`, file `600`, never committed, never logged.
 - `API_KEY` only as an environment variable.
 - Optional HTTP health: `HOST_HEALTH_PORT=9100` → `127.0.0.1` only.
 
@@ -300,6 +301,15 @@ Discord heartbeat: `data/{bot_id}/runtime.json` (every 5 s). File older than 30 
 8. `delete` → no more process or file.
 9. Cut the WS for 10 s → reconnect, stats, bots still up.
 10. Second agent / another `VM_HOST`: a start on A does not appear on B.
+
+Reminders (module `Reminders`, alone mode):
+11. `/rappel create when:2h30 ... "text" role:@Role` → private confirmation with user/role select menus; the added mentions show up in the list.
+12. `/rappel list` → the member's reminders with their ids; `/rappel cancel <id>` → removed and its timer disarmed.
+13. `adminOnly` on in `/config` → a non-administrator member is refused on `/rappel create`; with it off they can create.
+14. Guild override: set the quota to 1 in one channel, then create 2 → the second is refused with the limit.
+15. Recurring reminder (`every day`, `every week`, `on the 1st of the month`, cron) → first delivery then automatic rescheduling.
+16. Restart the bot with a scheduled reminder → it is restored and still delivered; `/config` → suspending disables it without deleting it.
+17. `/rappel admin-list` then `admin-delete <id>` → the guild's other reminders stay scheduled.
 
 ---
 

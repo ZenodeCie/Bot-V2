@@ -258,6 +258,7 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 | `Utilities` | userinfo, emoji |
 | `Moderation` | `commands/moderation` + `events/moderation` |
 | `ModerationAvancee` | `commands/antiraid` + `events/antiraid` |
+| `Reminders` | `commands/reminders` + `events/reminders` : `/rappel` (create, list, cancel, admin-list, admin-delete), moteur de rappels uniques et récurrents, entrée `/config` |
 | `ReactionRoles` | menu de rôles (`/rr`) : réactions, boutons, selects, modes, rôles temporaires, import/export JSON, dashboard via `/rr panel` / `/rr edit` et entrée `/config` |
 | Autres clés core (Giveaway, Tickets, …) | implémentées dans `src/bot/` (voir `src/bot/modules.ts`) — clé inconnue : no-op + warning, pas de crash |
 
@@ -266,7 +267,7 @@ Heartbeat Discord : `data/{bot_id}/runtime.json` (toutes les 5 s). Fichier > 30 
 ## 8. Données & secrets
 
 - `configs/` : JSON avec **tokens Discord** — gitignoré, dossier `700`, fichiers `600`.
-- `data/{bot_id}/` : runtime + état disque du bot, jamais partagé entre bots.
+- `data/{bot_id}/` : runtime + état disque du bot, jamais partagé entre bots. `data/{bot_id}/reminders.json` (module `Reminders`, sans Mongo) contient les rappels **et l'URL des webhooks** — c'est un secret, dossier `700` / fichier `600`, jamais versionné ni loggué.
 - `API_KEY` uniquement en variable d'environnement.
 - Health HTTP optionnel : `HOST_HEALTH_PORT=9100` → `127.0.0.1` uniquement.
 
@@ -307,6 +308,15 @@ Rôles-réactions (module `ReactionRoles`, mode alone) :
 12. `/rr publish MonPanel` → message envoyé, réactions/boutons actifs ; clic → rôle accordé/retiré selon le mode.
 13. `/rr export` puis `/rr import` sur un autre serveur → panels restaurés (ids conservés si même serveur).
 14. Redémarrage du bot → panels resynchronisés au `ready` (réactions restaurées).
+
+Rappels (module `Reminders`, mode alone) :
+15. `/rappel create quand:2h30 ... " tekst" role:@Rôle` → confirmation privée + sélecteurs users/rôles ; les mentions ajoutées sont visibles dans la liste.
+16. `/rappel list` → rappels du membre avec leur identifiant ; `/rappel cancel <id>` → suppression et timer désarmé.
+17. `adminOnly` activé dans `/config` → un membre non administrateur est refusé sur `/rappel create` ; désactivé, il peut créer.
+18. Surcharge salon : régler le quota à 1 dans un salon, puis en créer 2 → le second est refusé avec la limite.
+19. Rappel récurrent (`tous les jours`, `toutes les semaines`, `le 1 du mois`, cron) → premier envoi puis reprogrammation automatique.
+20. Redémarrage du bot avec un rappel programmé → il est restauré et toujours envoyé ; `/config` → suspendre le désactive sans le supprimer.
+21. `/rappel admin-list` puis `admin-delete <id>` → les autres rappels du serveur restent programmés.
 
 ---
 
