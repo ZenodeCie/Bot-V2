@@ -5,8 +5,15 @@ export const MAX_CATEGORIES = 25
 export const MAX_CHANNEL_NAME_LENGTH = 90
 export const MAX_OPEN_TEXT_LENGTH = 2000
 export const MAX_PATTERN_LENGTH = 90
+export const REVIEW_COMMENT_MAX_LENGTH = 1000
 
 export type TicketPanelType = "button" | "select"
+
+export type ReviewScale = 5 | 10
+
+export function normalizeReviewScale(value: unknown): ReviewScale {
+  return value === 10 ? 10 : 5
+}
 
 export const TICKET_BUTTON_KEYS = ["rename", "addmember", "removemember"] as const
 export type TicketButtonKey = (typeof TICKET_BUTTON_KEYS)[number]
@@ -61,6 +68,9 @@ export interface TicketsConfig {
   panelChannelId: string | null
   panelMessageId: string | null
   counter: number
+  reviewEnabled: boolean
+  reviewChannelId: string | null
+  reviewScale: ReviewScale
 }
 
 export interface TicketRecordModel {
@@ -74,6 +84,13 @@ export interface TicketRecordModel {
   closedAt: number | null
   createdAt: number
   extraMemberIds: string[]
+  reviewRequestedBy: string | null
+  reviewRequestedAt: number | null
+  reviewRating: number | null
+  reviewMaxRating: number | null
+  reviewComment: string | null
+  reviewStaffId: string | null
+  reviewAt: number | null
 }
 
 export function defaultCategory(id: string): TicketCategory {
@@ -103,6 +120,9 @@ export function defaultConfig(guildId: string): TicketsConfig {
     panelChannelId: null,
     panelMessageId: null,
     counter: 0,
+    reviewEnabled: false,
+    reviewChannelId: null,
+    reviewScale: 5,
   }
 }
 
@@ -146,6 +166,9 @@ const ticketsSchema = new Schema(
     panelChannelId: { type: String, default: null },
     panelMessageId: { type: String, default: null },
     counter: { type: Number, default: 0 },
+    reviewEnabled: { type: Boolean, default: false },
+    reviewChannelId: { type: String, default: null },
+    reviewScale: { type: Number, enum: [5, 10], default: 5 },
   },
   { timestamps: true }
 )
@@ -167,6 +190,13 @@ const ticketRecordSchema = new Schema(
     closedAt: { type: Number, default: null },
     createdAt: { type: Number, required: true },
     extraMemberIds: { type: [String], default: [] },
+    reviewRequestedBy: { type: String, default: null },
+    reviewRequestedAt: { type: Number, default: null },
+    reviewRating: { type: Number, default: null },
+    reviewMaxRating: { type: Number, default: null },
+    reviewComment: { type: String, default: null },
+    reviewStaffId: { type: String, default: null },
+    reviewAt: { type: Number, default: null },
   },
   { timestamps: true }
 )
@@ -304,6 +334,9 @@ export function normalizeConfig(raw: Record<string, unknown> | null | undefined)
       typeof rawRecord.counter === "number" && Number.isFinite(rawRecord.counter) && rawRecord.counter > 0
         ? Math.floor(rawRecord.counter)
         : defaults.counter,
+    reviewEnabled: asBoolean(rawRecord.reviewEnabled, defaults.reviewEnabled),
+    reviewChannelId: asStringOrNull(rawRecord.reviewChannelId, defaults.reviewChannelId),
+    reviewScale: normalizeReviewScale(rawRecord.reviewScale),
   }
 }
 
