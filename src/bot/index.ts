@@ -10,6 +10,7 @@ import {
 } from "discord.js"
 import config, { botRuntime, colors, startApplicationEmojiWatcher } from "./config.js"
 import { filesForModules, resolveEnabledModules } from "./modules.js"
+import { syncApplicationEmojis } from "./utils/appEmojis.js"
 import {
   snapshotFromClient,
   startHeartbeat,
@@ -128,6 +129,7 @@ async function loadEventFile(fullPath: string): Promise<void> {
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user?.tag} — bot prêt / connecté (${botRuntime.botId})`)
   console.log(`Prefix for commands : ${config.prefix}`)
+  await syncApplicationEmojis(client)
   applyPresence()
   await writeRuntimeFile(botRuntime.dataDir, snapshotFromClient(client, true))
 })

@@ -30,6 +30,7 @@ import {
   getConfig,
   isValidHexColor,
   normalizeEmoji,
+  normalizeReviewScale,
   updateConfig,
   type TicketButtonKey,
   type TicketCategory,
@@ -283,7 +284,8 @@ export function buildTicketsPayload(
       .setLabel("Supprimer une catégorie")
       .setEmoji(emoji("disable"))
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(config.categories.length === 0)
+      .setDisabled(config.categories.length === 0),
+    new ButtonBuilder().setCustomId("tk_review_open").setLabel("Avis ticket").setEmoji(emoji("notes")).setStyle(ButtonStyle.Secondary)
   )
 
   const sendRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -315,6 +317,76 @@ function buildCategorySelect(guild: Guild, config: TicketsConfig): StringSelectM
     )
   }
   return select
+}
+
+export function buildReviewPayload(config: TicketsConfig): Array<
+  ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder | ChannelSelectMenuBuilder> | ContainerBuilder
+> {
+  const container = new ContainerBuilder().setAccentColor(CONTAINER_ACCENT)
+  container.addTextDisplayComponents((t) => t.setContent(`# ${EMOJI_TAGS.notes} 〃 Avis ticket`))
+  container.addSeparatorComponents((s) => s.setSpacing(1))
+  container.addTextDisplayComponents((t) =>
+    t.setContent(
+      `> *Demandez un avis au membre à la fermeture de son ticket, puis publiez-le dans un salon.*\n\n` +
+        `> **État :** ${onOff(config.reviewEnabled)}\n` +
+        `> ${EMOJI_TAGS.channel} **Salon des avis :** ${channelMention(config.reviewChannelId)}\n` +
+        `> **Barème :** \`${config.reviewScale}\` étoiles`
+    )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addSectionComponents((sectionBuilder) =>
+    sectionBuilder
+      .addTextDisplayComponents((t) => t.setContent(`**Demande d'avis**\n> À la fermeture : ${onOff(config.reviewEnabled)}`))
+      .setButtonAccessory((btn) =>
+        btn
+          .setCustomId("tk_review_toggle")
+          .setEmoji(config.reviewEnabled ? emoji("disable") : emoji("enable"))
+          .setStyle(config.reviewEnabled ? ButtonStyle.Success : ButtonStyle.Danger)
+      )
+  )
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId("tk_review_channel")
+        .setPlaceholder("Salon où publier les avis...")
+        .setMaxValues(1)
+        .setChannelTypes(ChannelType.GuildText)
+    )
+  )
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("tk_review_scale")
+        .setPlaceholder("Barème de notation...")
+        .setMaxValues(1)
+        .addOptions(
+          { label: "5 étoiles", value: "5", default: config.reviewScale === 5 },
+          { label: "10 étoiles", value: "10", default: config.reviewScale === 10 }
+        )
+    )
+  )
+  container.addSeparatorComponents((s) => s.setDivider(true))
+  container.addActionRowComponents((row) =>
+    row.setComponents(
+      new ButtonBuilder()
+        .setCustomId("tk_review_channel_clear")
+        .setLabel("Retirer le salon")
+        .setEmoji(emoji("disable"))
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(!config.reviewChannelId)
+    )
+  )
+
+  const backRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("tk_review_back").setLabel("Retour").setEmoji(emoji("disable")).setStyle(ButtonStyle.Secondary)
+  )
+
+  return [container, backRow]
+}
+
+async function refreshReviewPanel(interaction: MessageComponentInteraction, guild: Guild): Promise<void> {
+  const config = await getConfig(guild.id)
+  await interaction.update({ components: buildReviewPayload(config), flags: COMPONENTS_V2_FLAGS })
 }
 
 export function buildEmbedPreview(config: TicketsConfig): EmbedBuilder {
@@ -618,6 +690,7 @@ export async function handleTicketsInteraction(client: Client, interaction: Inte
   if (!customId.startsWith("tk_")) return false
   if (
     customId.startsWith("tk_open:") ||
+    customId.startsWith("tk_avis_") ||
     customId === "tk_panel_select" ||
     customId === "tk_claim" ||
     customId === "tk_unclaim" ||
@@ -764,6 +837,42 @@ export async function handleTicketsInteraction(client: Client, interaction: Inte
     const modal = buildEmbedFieldModal(config.embed, action, "tk_modal_emb")
     if (!modal) return false
     await interaction.showModal(modal)
+    return true
+  }
+
+  if (isMessageComponent && interaction.isButton() && customId === "tk_review_open") {
+    const config = await getConfig(guild.id)
+    await interaction.update({ components: buildReviewPayload(config), flags: COMPONENTS_V2_FLAGS })
+    return true
+  }
+
+  if (isMessageComponent && interaction.isButton() && customId === "tk_review_back") {
+    await refreshDashboard(client, interaction, guild)
+    return true
+  }
+
+  if (isMessageComponent && interaction.isButton() && customId === "tk_review_toggle") {
+    const config = await getConfig(guild.id)
+    await updateConfig(guild.id, { $set: { reviewEnabled: !config.reviewEnabled } })
+    await refreshReviewPanel(interaction, guild)
+    return true
+  }
+
+  if (isMessageComponent && interaction.isChannelSelectMenu() && customId === "tk_review_channel") {
+    await updateConfig(guild.id, { $set: { reviewChannelId: interaction.values[0] ?? null } })
+    await refreshReviewPanel(interaction, guild)
+    return true
+  }
+
+  if (isMessageComponent && interaction.isButton() && customId === "tk_review_channel_clear") {
+    await updateConfig(guild.id, { $set: { reviewChannelId: null } })
+    await refreshReviewPanel(interaction, guild)
+    return true
+  }
+
+  if (isMessageComponent && interaction.isStringSelectMenu() && customId === "tk_review_scale") {
+    await updateConfig(guild.id, { $set: { reviewScale: normalizeReviewScale(Number(interaction.values[0])) } })
+    await refreshReviewPanel(interaction, guild)
     return true
   }
 

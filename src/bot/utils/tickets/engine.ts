@@ -23,11 +23,12 @@ import {
   type ThreadChannel,
 } from "discord.js"
 import { colors } from "../../config.js"
-import { appEmojiComponent, appEmojiText } from "../appEmojis.js"
+import { appEmojiComponent, appEmojiHeading, appEmojiText } from "../appEmojis.js"
 import { buildLogEmbed, emitLog } from "../logs/engine.js"
 import {
   MAX_CATEGORIES,
   MAX_CHANNEL_NAME_LENGTH,
+  REVIEW_COMMENT_MAX_LENGTH,
   TicketRecords,
   clampPattern,
   getConfig,
@@ -43,9 +44,13 @@ import {
 export const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
 const AUDIT_CHANNEL_DELETE_WINDOW_MS = 5_000
+const REVIEW_TIMEOUT_MS = 15 * 60 * 1000
 const EMOJI_TAGS = {
   notes: "<:Notes:1469692988870623369>",
 } as const
+
+/** Timers d'auto-fermeture des demandes d'avis en attente, indexés par salon. */
+const pendingReviewTimers = new Map<string, NodeJS.Timeout>()
 
 export interface TicketVariableContext {
   ticketNumber: number | string
@@ -470,6 +475,13 @@ function mapRecord(raw: Record<string, unknown>): TicketRecordModel {
     closedAt: typeof raw.closedAt === "number" ? raw.closedAt : null,
     createdAt: Number(raw.createdAt ?? Date.now()),
     extraMemberIds: Array.isArray(raw.extraMemberIds) ? raw.extraMemberIds.filter((v): v is string => typeof v === "string") : [],
+    reviewRequestedBy: typeof raw.reviewRequestedBy === "string" ? raw.reviewRequestedBy : null,
+    reviewRequestedAt: typeof raw.reviewRequestedAt === "number" ? raw.reviewRequestedAt : null,
+    reviewRating: typeof raw.reviewRating === "number" ? raw.reviewRating : null,
+    reviewMaxRating: typeof raw.reviewMaxRating === "number" ? raw.reviewMaxRating : null,
+    reviewComment: typeof raw.reviewComment === "string" ? raw.reviewComment : null,
+    reviewStaffId: typeof raw.reviewStaffId === "string" ? raw.reviewStaffId : null,
+    reviewAt: typeof raw.reviewAt === "number" ? raw.reviewAt : null,
   }
 }
 
@@ -635,6 +647,13 @@ async function openTicket(client: Client, interaction: Interaction, categoryId: 
     closedAt: null,
     createdAt: nowTs,
     extraMemberIds: [],
+    reviewRequestedBy: null,
+    reviewRequestedAt: null,
+    reviewRating: null,
+    reviewMaxRating: null,
+    reviewComment: null,
+    reviewStaffId: null,
+    reviewAt: null,
   }
   const payload = buildTicketPayload(guild, config, category, record, ctx)
 
@@ -716,6 +735,228 @@ async function claimTicket(client: Client, interaction: Interaction): Promise<vo
   }
 }
 
+interface TicketCloser {
+  id: string
+  tag: string
+}
+
+async function resolveTicketChannel(guild: Guild, channelId: string) {
+  return guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null))
+}
+
+/** Finalise la fermeture d'un ticket : mutation, permissions, message, transcript, journal. */
+async function finalizeTicketClose(
+  client: Client,
+  guild: Guild,
+  record: TicketRecordModel,
+  closer: TicketCloser,
+  options?: { ticketMessageInteraction?: Interaction }
+): Promise<void> {
+  const config = await getConfig(guild.id)
+  const closedAt = Date.now()
+  await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { closedAt } })
+  record.closedAt = closedAt
+
+  const ticketMessageInteraction = options?.ticketMessageInteraction
+  if (ticketMessageInteraction?.isRepliable() && ticketMessageInteraction.isMessageComponent()) {
+    const category = config.categories.find((entry) => entry.id === record.categoryId)
+    await ticketMessageInteraction.update(buildTicketPayload(guild, config, category, record)).catch(() => undefined)
+  } else {
+    await refreshTicketMessage(client, guild, record)
+  }
+
+  const channel = await resolveTicketChannel(guild, record.channelId)
+  const me = await guild.members.fetchMe().catch(() => null)
+  if (me && channel && !channel.isThread() && "permissionOverwrites" in channel && !channel.name.endsWith("-ferme")) {
+    await channel.setName(`${channel.name}-ferme`.slice(0, 100)).catch(() => undefined)
+    await channel.permissionOverwrites.delete(record.userId, "Ticket fermé").catch(() => undefined)
+    for (const extraId of record.extraMemberIds) {
+      await channel.permissionOverwrites.delete(extraId, "Ticket fermé").catch(() => undefined)
+    }
+  }
+
+  if (channel && channel.isTextBased()) {
+    await channel
+      .send({
+        content: `> 🔒 *Ticket \`${padTicketNumber(record.number)}\` fermé par <@${closer.id}>.*`,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => undefined)
+  }
+
+  const transcript =
+    channel && channel.isTextBased()
+      ? await buildTranscript(channel as unknown as Message["channel"], record.number)
+      : null
+
+  await sendTicketsLog(
+    client,
+    guild.id,
+    `> **Fermeture** — \`${padTicketNumber(record.number)}\`\n` +
+      `> **Par :** <@${closer.id}> · \`${closer.tag}\`\n` +
+      `> **Ouvert par :** <@${record.userId}>\n` +
+      `> **Salon :** <#${record.channelId}>`,
+    transcript ? [transcript] : []
+  )
+}
+
+function renderStars(rating: number, max: number): string {
+  return "⭐".repeat(Math.max(0, rating)) + "☆".repeat(Math.max(0, max - rating))
+}
+
+function buildReviewPromptEmbed(guild: Guild): EmbedBuilder {
+  const embed = new EmbedBuilder().setDescription(
+    `${appEmojiHeading("check", "Votre avis compte")}\n\n` +
+      `> *Merci d'avoir utilisé notre support. Souhaitez-vous laisser un avis sur la prise en charge de votre ticket ?*`
+  )
+  if (colors.prime) embed.setColor(colors.prime)
+  const icon = guild.iconURL({ size: 256 })
+  if (icon) embed.setThumbnail(icon)
+  return embed
+}
+
+function buildReviewPromptRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("tk_avis_start").setLabel("Laisser un avis").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("tk_avis_skip").setLabel("Fermer sans avis").setStyle(ButtonStyle.Secondary)
+  )
+}
+
+function buildRatingPayload(guild: Guild, config: TicketsConfig): {
+  embeds: EmbedBuilder[]
+  components: Array<ActionRowBuilder<StringSelectMenuBuilder> | ActionRowBuilder<ButtonBuilder>>
+} {
+  const embed = new EmbedBuilder().setDescription(
+    `${appEmojiHeading("check", "Votre avis")}\n\n` +
+      `> *Sélectionnez une note de 1 à ${config.reviewScale} pour évaluer la prise en charge de votre ticket.*`
+  )
+  if (colors.prime) embed.setColor(colors.prime)
+  const icon = guild.iconURL({ size: 256 })
+  if (icon) embed.setThumbnail(icon)
+
+  const options = Array.from({ length: config.reviewScale }, (_, index) => {
+    const value = index + 1
+    return { label: `${value} / ${config.reviewScale}`, value: String(value) }
+  })
+  const selectRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder().setCustomId("tk_avis_rate").setPlaceholder("Choisissez une note...").addOptions(options)
+  )
+  const skipRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("tk_avis_skip").setLabel("Fermer sans avis").setStyle(ButtonStyle.Secondary)
+  )
+  return { embeds: [embed], components: [selectRow, skipRow] }
+}
+
+function buildReviewCommentModal(rating: number): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId(`tk_avis_comment:${rating}`)
+    .setTitle("Votre avis")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId("comment")
+          .setLabel("Commentaire (optionnel)")
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(false)
+          .setMaxLength(REVIEW_COMMENT_MAX_LENGTH)
+      )
+    )
+}
+
+function cancelReviewTimer(channelId: string): void {
+  const timer = pendingReviewTimers.get(channelId)
+  if (timer) {
+    clearTimeout(timer)
+    pendingReviewTimers.delete(channelId)
+  }
+}
+
+function scheduleReviewTimeout(client: Client, guildId: string, channelId: string, delayMs = REVIEW_TIMEOUT_MS): void {
+  cancelReviewTimer(channelId)
+  const timer = setTimeout(() => {
+    pendingReviewTimers.delete(channelId)
+    void autoClosePendingReview(client, guildId, channelId)
+  }, delayMs)
+  timer.unref?.()
+  pendingReviewTimers.set(channelId, timer)
+}
+
+async function closerFromStaff(guild: Guild, staffId: string | null, fallback: TicketCloser): Promise<TicketCloser> {
+  if (!staffId) return fallback
+  const member = await fetchMember(guild, staffId)
+  return { id: staffId, tag: member?.user.tag ?? staffId }
+}
+
+async function autoClosePendingReview(client: Client, guildId: string, channelId: string): Promise<void> {
+  try {
+    const guild = client.guilds.cache.get(guildId)
+    if (!guild) return
+    const record = await findAnyRecord(channelId)
+    if (!record || record.closedAt || record.reviewAt !== null) return
+    const fallback: TicketCloser = { id: client.user?.id ?? record.userId, tag: client.user?.tag ?? "Système" }
+    const closer = await closerFromStaff(guild, record.reviewRequestedBy ?? record.claimedBy ?? null, fallback)
+    await finalizeTicketClose(client, guild, record, closer)
+  } catch (error) {
+    console.error(`Failed to auto-close pending review for channel ${channelId}:`, error)
+  }
+}
+
+export async function sweepPendingTicketReviews(client: Client): Promise<number> {
+  const guildIds = [...client.guilds.cache.keys()]
+  if (guildIds.length === 0) return 0
+  const records = (await TicketRecords.find({
+    guildId: { $in: guildIds },
+    closedAt: null,
+    reviewRequestedBy: { $ne: null },
+    reviewAt: null,
+  }).lean()) as unknown as TicketRecordModel[]
+  const now = Date.now()
+  let closed = 0
+  for (const record of records) {
+    const elapsed = record.reviewRequestedAt ? now - record.reviewRequestedAt : REVIEW_TIMEOUT_MS
+    if (elapsed >= REVIEW_TIMEOUT_MS) {
+      await autoClosePendingReview(client, record.guildId, record.channelId)
+      closed += 1
+    } else {
+      scheduleReviewTimeout(client, record.guildId, record.channelId, REVIEW_TIMEOUT_MS - elapsed)
+    }
+  }
+  if (closed > 0) console.log(`Tickets: auto-closed ${closed} pending review(s) on startup.`)
+  return closed
+}
+
+async function requestTicketReview(
+  client: Client,
+  guild: Guild,
+  record: TicketRecordModel,
+  closer: TicketCloser,
+  interaction: Interaction
+): Promise<void> {
+  const requestedAt = Date.now()
+  await TicketRecords.updateOne(
+    { channelId: record.channelId },
+    { $set: { reviewRequestedBy: closer.id, reviewRequestedAt: requestedAt } }
+  )
+  record.reviewRequestedBy = closer.id
+  record.reviewRequestedAt = requestedAt
+
+  const channel = await resolveTicketChannel(guild, record.channelId)
+  if (channel && channel.isTextBased()) {
+    await channel
+      .send({
+        content: `<@${record.userId}>`,
+        embeds: [buildReviewPromptEmbed(guild)],
+        components: [buildReviewPromptRow()],
+        allowedMentions: { users: [record.userId] },
+      })
+      .catch((error: unknown) => console.error(`Failed to send review prompt in guild ${guild.id}:`, error))
+  }
+
+  scheduleReviewTimeout(client, guild.id, record.channelId)
+
+  await replyEphemeral(interaction, "> *Demande d'avis envoyée au membre.*")
+}
+
 async function closeTicket(client: Client, interaction: Interaction): Promise<void> {
   if (!interaction.inGuild() || !interaction.guild || !interaction.channel) return
   const guild = interaction.guild
@@ -725,7 +966,6 @@ async function closeTicket(client: Client, interaction: Interaction): Promise<vo
     return
   }
   const config = await getConfig(guild.id)
-  const category = config.categories.find((entry) => entry.id === record.categoryId)
   const member = await fetchMember(guild, interaction.user.id)
   if (!member) return
   const allowed = member.id === record.userId || (await isStaffMember(guild, config, record, member))
@@ -734,46 +974,200 @@ async function closeTicket(client: Client, interaction: Interaction): Promise<vo
     return
   }
 
-  await TicketRecords.updateOne({ channelId: record.channelId }, { $set: { closedAt: Date.now() } })
-  record.closedAt = Date.now()
-  if (interaction.isRepliable() && interaction.isMessageComponent()) {
-    await interaction
-      .update(buildTicketPayload(guild, config, category, record))
-      .catch(() => undefined)
+  if (record.reviewRequestedBy && record.reviewAt === null) {
+    await replyEphemeral(interaction, "> *Une demande d'avis est déjà en attente sur ce ticket.*")
+    return
   }
 
-  const me = await guild.members.fetchMe().catch(() => null)
-  const channel = interaction.channel
-  if (me && channel && !channel.isThread() && "permissionOverwrites" in channel && !channel.name.endsWith("-ferme")) {
-    await channel.setName(`${channel.name}-ferme`.slice(0, 100)).catch(() => undefined)
-    await channel.permissionOverwrites.delete(record.userId, "Ticket fermé").catch(() => undefined)
-    for (const extraId of record.extraMemberIds) {
-      await channel.permissionOverwrites.delete(extraId, "Ticket fermé").catch(() => undefined)
-    }
+  const closer: TicketCloser = { id: member.id, tag: member.user.tag }
+  const eligibleForReview =
+    config.reviewEnabled && Boolean(config.reviewChannelId) && member.id !== record.userId && record.reviewAt === null
+
+  if (eligibleForReview) {
+    await requestTicketReview(client, guild, record, closer, interaction)
+    return
   }
 
-  await interaction.channel
-    .send({
-      content: `> 🔒 *Ticket \`${padTicketNumber(record.number)}\` fermé par <@${member.id}>.*`,
-      allowedMentions: { parse: [] },
-    })
-    .catch(() => undefined)
+  if (config.reviewEnabled && !config.reviewChannelId && member.id !== record.userId) {
+    await replyEphemeral(interaction, "> *Le salon d'avis n'est pas configuré : fermeture sans avis.*")
+    await finalizeTicketClose(client, guild, record, closer)
+    return
+  }
 
-  const transcript = await buildTranscript(interaction.channel, record.number)
-
-  await sendTicketsLog(
-    client,
-    guild.id,
-    `> **Fermeture** — \`${padTicketNumber(record.number)}\`\n` +
-      `> **Par :** <@${member.id}> · \`${member.user.tag}\`\n` +
-      `> **Ouvert par :** <@${record.userId}>\n` +
-      `> **Salon :** <#${record.channelId}>`,
-    transcript ? [transcript] : []
-  )
-
+  await finalizeTicketClose(client, guild, record, closer, { ticketMessageInteraction: interaction })
   if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
     await interaction.reply({ content: "> *Ticket fermé.*", flags: MessageFlags.Ephemeral }).catch(() => undefined)
   }
+}
+
+async function handleReviewStart(client: Client, interaction: Interaction): Promise<void> {
+  if (!interaction.isButton() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  if (interaction.user.id !== record.userId) {
+    await replyEphemeral(interaction, "> *Seul le créateur du ticket peut laisser un avis.*")
+    return
+  }
+  if (record.reviewAt !== null) {
+    await replyEphemeral(interaction, "> *Un avis a déjà été laissé pour ce ticket.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  if (interaction.isRepliable()) {
+    await interaction.update(buildRatingPayload(guild, config)).catch(() => undefined)
+  }
+}
+
+async function handleReviewRate(interaction: Interaction): Promise<void> {
+  if (!interaction.isStringSelectMenu() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  if (interaction.user.id !== record.userId) {
+    await replyEphemeral(interaction, "> *Seul le créateur du ticket peut laisser un avis.*")
+    return
+  }
+  if (record.reviewAt !== null) {
+    await replyEphemeral(interaction, "> *Un avis a déjà été laissé pour ce ticket.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const rating = Number(interaction.values[0])
+  if (!Number.isInteger(rating) || rating < 1 || rating > config.reviewScale) {
+    await replyEphemeral(interaction, "> *Note invalide.*")
+    return
+  }
+  await interaction.showModal(buildReviewCommentModal(rating)).catch((error: unknown) => {
+    console.error("Failed to show review comment modal:", error)
+  })
+}
+
+async function handleReviewComment(client: Client, interaction: Interaction): Promise<void> {
+  if (!interaction.isModalSubmit() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  if (interaction.user.id !== record.userId) {
+    await replyEphemeral(interaction, "> *Seul le créateur du ticket peut laisser un avis.*")
+    return
+  }
+  if (record.reviewAt !== null) {
+    await replyEphemeral(interaction, "> *Un avis a déjà été laissé pour ce ticket.*")
+    return
+  }
+  const config = await getConfig(guild.id)
+  const rating = Number(interaction.customId.slice("tk_avis_comment:".length))
+  if (!Number.isInteger(rating) || rating < 1 || rating > config.reviewScale) {
+    await replyEphemeral(interaction, "> *Note invalide.*")
+    return
+  }
+
+  const comment = interaction.fields.getTextInputValue("comment").trim().slice(0, REVIEW_COMMENT_MAX_LENGTH)
+  const staffId = record.reviewRequestedBy ?? record.claimedBy ?? null
+
+  if (interaction.isRepliable()) await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => undefined)
+
+  cancelReviewTimer(record.channelId)
+  await publishReview(client, guild, config, record, rating, comment, staffId)
+
+  const closer = await closerFromStaff(guild, staffId, { id: interaction.user.id, tag: interaction.user.tag })
+  await finalizeTicketClose(client, guild, record, closer)
+  await editEphemeral(interaction, `> ${appEmojiText("check")} *Merci pour votre avis !*`)
+}
+
+async function publishReview(
+  client: Client,
+  guild: Guild,
+  config: TicketsConfig,
+  record: TicketRecordModel,
+  rating: number,
+  comment: string,
+  staffId: string | null
+): Promise<void> {
+  const reviewedAt = Date.now()
+  await TicketRecords.updateOne(
+    { channelId: record.channelId },
+    {
+      $set: {
+        reviewRating: rating,
+        reviewMaxRating: config.reviewScale,
+        reviewComment: comment || null,
+        reviewStaffId: staffId,
+        reviewAt: reviewedAt,
+      },
+    }
+  )
+  record.reviewRating = rating
+  record.reviewMaxRating = config.reviewScale
+  record.reviewComment = comment || null
+  record.reviewStaffId = staffId
+  record.reviewAt = reviewedAt
+
+  const channel = config.reviewChannelId ? await resolveSendableChannel(client, config.reviewChannelId) : null
+  if (!channel) {
+    console.error(`Tickets review channel unavailable in guild ${guild.id} (${config.reviewChannelId})`)
+    return
+  }
+
+  const embed = new EmbedBuilder().setDescription(
+    `${appEmojiHeading("check", "Nouvel avis")}\n\n` +
+      `> ${renderStars(rating, config.reviewScale)}\n` +
+      `> ***Note :** ${rating}/${config.reviewScale}*\n` +
+      `> ***Ticket :** \`${padTicketNumber(record.number)}\`*\n` +
+      `> ***Avis de :** <@${record.userId}>*` +
+      (staffId ? `\n> ***Staff :** <@${staffId}>*` : "") +
+      (comment ? `\n> ***Commentaire :**\n> ${comment.replace(/\n/g, "\n> ")}*` : "")
+  )
+  if (colors.prime) embed.setColor(colors.prime)
+  const staffMember = staffId ? await fetchMember(guild, staffId) : null
+  const avatar = staffMember?.user.displayAvatarURL({ size: 256 })
+  if (avatar) embed.setThumbnail(avatar)
+  embed.setFooter({ text: guild.name }).setTimestamp(reviewedAt)
+
+  await channel
+    .send({ content: `<@${record.userId}>`, embeds: [embed], allowedMentions: { users: [record.userId] } })
+    .catch((error: unknown) => console.error(`Failed to publish review in guild ${guild.id}:`, error))
+}
+
+async function handleReviewSkip(client: Client, interaction: Interaction): Promise<void> {
+  if (!interaction.isButton() || !interaction.inGuild() || !interaction.guild || !interaction.channel) return
+  const guild = interaction.guild
+  const record = await findAnyRecord(interaction.channel.id)
+  if (!record || record.closedAt) {
+    await replyEphemeral(interaction, "> *Ce ticket est introuvable ou déjà fermé.*")
+    return
+  }
+  if (interaction.user.id !== record.userId) {
+    await replyEphemeral(interaction, "> *Seul le créateur du ticket peut fermer sans avis.*")
+    return
+  }
+  if (record.reviewAt !== null) {
+    await replyEphemeral(interaction, "> *Un avis a déjà été laissé pour ce ticket.*")
+    return
+  }
+
+  cancelReviewTimer(record.channelId)
+  if (interaction.isRepliable() && interaction.isMessageComponent()) {
+    await interaction
+      .update({ content: "> *Fermeture du ticket...*", embeds: [], components: [] })
+      .catch(() => undefined)
+  }
+
+  const closer = await closerFromStaff(guild, record.reviewRequestedBy ?? record.claimedBy ?? null, {
+    id: interaction.user.id,
+    tag: interaction.user.tag,
+  })
+  await finalizeTicketClose(client, guild, record, closer)
 }
 
 async function unclaimTicket(client: Client, interaction: Interaction): Promise<void> {
@@ -1190,6 +1584,26 @@ export async function handleTicketActionInteraction(client: Client, interaction:
 
   if (interaction.isButton() && interaction.customId === "tk_close") {
     await closeTicket(client, interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_avis_start") {
+    await handleReviewStart(client, interaction)
+    return true
+  }
+
+  if (interaction.isButton() && interaction.customId === "tk_avis_skip") {
+    await handleReviewSkip(client, interaction)
+    return true
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === "tk_avis_rate") {
+    await handleReviewRate(interaction)
+    return true
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("tk_avis_comment:")) {
+    await handleReviewComment(client, interaction)
     return true
   }
 

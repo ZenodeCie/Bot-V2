@@ -8,7 +8,7 @@ import { initTempSanctions, startTempSweep as startModerationTempSweep } from ".
 import { restoreTempGrants, startTempSweep as startReactionRolesTempSweep } from "../utils/reactionroles/temp.js"
 import { syncPublishedPanels } from "../utils/reactionroles/render.js"
 import { initStaffLists } from "../utils/stafflist/engine.js"
-import { sweepStaleTicketRecords } from "../utils/tickets/engine.js"
+import { sweepStaleTicketRecords, sweepPendingTicketReviews } from "../utils/tickets/engine.js"
 import { registerSlashCommands } from "../utils/slash.js"
 
 export default {
@@ -52,6 +52,7 @@ export default {
       try {
         const purged = await sweepStaleTicketRecords(client)
         if (purged > 0) console.log(`Tickets: cleaned ${purged} stale record(s) on startup.`)
+        await sweepPendingTicketReviews(client)
       } catch (error) {
         console.error("Tickets startup sweep failed:", error)
       }

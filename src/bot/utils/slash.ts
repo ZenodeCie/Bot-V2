@@ -12,7 +12,7 @@ import {
 import type { Command, SlashOption } from "../types.js"
 
 /** Standalone slash commands (not nested under a module). */
-export const ROOT_SLASH_NAMES = new Set(["help", "ping", "prefix", "botinfo", "config"])
+export const ROOT_SLASH_NAMES = new Set(["help", "ping", "prefix", "botinfo", "config", "say"])
 
 export const SLASH_GROUPS: Record<string, { name: string; description: string }> = {
   antiraid: { name: "anti-raid", description: "Configuration et outils anti-raid" },
@@ -103,7 +103,17 @@ export function asCommandMessage(
       roles: { first: () => interaction.options.resolved?.roles?.first() ?? null },
     },
     reply,
+    slashInteraction: interaction,
   } as unknown as Message
+}
+
+/**
+ * Retourne l'interaction sous-jacente lorsque `message` est le faux Message construit
+ * par asCommandMessage (jamais sur un vrai Message) — permet de distinguer une
+ * exécution slash d'une exécution prefix et de répondre en éphémère depuis execute.
+ */
+export function slashInteractionOf(message: Message): ChatInputCommandInteraction | undefined {
+  return (message as Message & { slashInteraction?: ChatInputCommandInteraction }).slashInteraction
 }
 
 function toApiOption(option: SlashOption) {
