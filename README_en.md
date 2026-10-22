@@ -139,7 +139,7 @@ Prerequisites in alone mode (section C of `.env`):
 - `BOT_TOKEN` → required.
 - `PREFIX`, `BOT_NAME`, `BOT_STATUS`, `BOT_COLOR`, `MODULES` → optional.
 - `OWNER_ID` → Discord admin IDs (dev commands).
-- `APPLICATION_EMOJIS` → custom emojis as a JSON object of snowflake IDs (`{"cancel":"123…","check":"456…"}`, keys: `cancel`, `add`, `settings`, `power`, `pin`, `people`, `loop`, `file`, `cog`, `check`). Optional — unicode fallback otherwise.
+- `APPLICATION_EMOJIS` → custom emojis as a JSON object of snowflake IDs (`{"cancel":"123…","check":"456…"}`, keys: `cancel`, `add`, `settings`, `power`, `pin`, `people`, `loop`, `file`, `cog`, `check`). Optional: without it the bot resolves its emojis on startup — first its Discord **application emojis**, then the **emoji pack of one guild** it is in (names identical to the keys, case-insensitive). The variable only forces/overrides IDs. Unicode fallback for keys that cannot be found.
 
 In alone mode `--config` is ignored: to relaunch a bot from its config file, use `npm run start:bot -- --config configs/{bot_id}.json` instead.
 

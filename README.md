@@ -139,7 +139,7 @@ Prérequis en mode alone (variables de la section C du `.env`) :
 - `BOT_TOKEN` → obligatoire.
 - `PREFIX`, `BOT_NAME`, `BOT_STATUS`, `BOT_COLOR`, `MODULES` → optionnels.
 - `OWNER_ID` → IDs Discord admin (commandes dev).
-- `APPLICATION_EMOJIS` → emojis personnalisés en JSON d'IDs snowflake (`{"cancel":"123…","check":"456…"}`, clés : `cancel`, `add`, `settings`, `power`, `pin`, `people`, `loop`, `file`, `cog`, `check`). Optionnel — fallback unicode sinon.
+- `APPLICATION_EMOJIS` → emojis personnalisés en JSON d'IDs snowflake (`{"cancel":"123…","check":"456…"}`, clés : `cancel`, `add`, `settings`, `power`, `pin`, `people`, `loop`, `file`, `cog`, `check`). Optionnel : sans cette variable, le bot résout automatiquement ses emojis au démarrage — d'abord ses **emojis d'application** Discord, puis le **pack d'emojis d'un serveur** où il est présent (noms identiques aux clés, insensible à la casse). La variable ne sert qu'à forcer/écraser des IDs. Fallback unicode pour les clés introuvables.
 
 En mode alone, le `--config` est ignoré : si vous voulez relancer un bot avec sa config de fichier, utilisez plutôt `npm run start:bot -- --config configs/{bot_id}.json`.
 
