@@ -274,8 +274,15 @@ export async function handleTicketChannelDeleted(client: Client, channel: GuildC
   if (!record) return
   const executor = await findChannelDeleteExecutor(channel.guild, channel.id)
   const deletedBy = executor ? `<@${executor.id}> · \`${executor.tag ?? executor.username ?? executor.id}\`` : "*Inconnu*"
+  const guild = channel.guild
+  const transcriptUrl = getTicketTranscriptUrl(guild.id, record.channelId)
+  const logBody =
+    suppressionLogBody(record, deletedBy) +
+    `\n> **Serveur :** \`${guild.name}\`` +
+    (transcriptUrl ? `\n> **Transcript :** [Voir le transcript](${transcriptUrl})` : "")
   await TicketRecords.deleteOne({ channelId: channel.id }).catch(() => undefined)
-  await sendTicketsLog(client, channel.guild.id, suppressionLogBody(record, deletedBy))
+  await sendTicketsLog(client, guild.id, logBody)
+  void sendTicketTranscriptDm(client, guild, record, "supprimé")
 }
 
 export async function sweepStaleTicketRecords(client: Client): Promise<number> {
@@ -744,6 +751,60 @@ async function resolveTicketChannel(guild: Guild, channelId: string) {
   return guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null))
 }
 
+function getTicketTranscriptUrl(guildId: string, channelId: string): string | null {
+  const base = process.env.TICKET_TRANSCRIPT_URL
+  if (!base || !base.trim()) return null
+  const normalized = base.trim().replace(/\/$/, "")
+  return `${normalized}/bot0000/${encodeURIComponent(guildId)}/${encodeURIComponent(channelId)}.html`
+}
+
+async function sendTicketTranscriptDm(
+  client: Client,
+  guild: Guild,
+  record: TicketRecordModel,
+  reason: "fermé" | "supprimé"
+): Promise<void> {
+  try {
+    const user = await client.users.fetch(record.userId).catch(() => null)
+    if (!user) return
+    const transcriptUrl = getTicketTranscriptUrl(guild.id, record.channelId)
+    const embed = new EmbedBuilder()
+      .setTitle(`Ticket #${padTicketNumber(record.number)} ${reason}`)
+      .setDescription(
+        `> **Serveur :** ${guild.name} (${guild.id})\n\n` +
+          `> Ton ticket a été ${reason}.\n\n` +
+          (transcriptUrl
+            ? `> Tu peux consulter le transcript complet en cliquant sur le bouton ci-dessous.`
+            : `> Le transcript de ce ticket n'est pas disponible.`)
+      )
+      .setColor(colors.prime ?? 0x5865f2)
+      .setThumbnail(guild.iconURL({ size: 256 }))
+      .setTimestamp()
+      .setFooter({ text: guild.name })
+
+    const components: ActionRowBuilder<ButtonBuilder>[] = []
+    if (transcriptUrl) {
+      const button = new ButtonBuilder()
+        .setLabel("Voir le transcript")
+        .setStyle(ButtonStyle.Link)
+        .setURL(transcriptUrl)
+      components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(button))
+    }
+
+    await user
+      .send({
+        embeds: [embed],
+        components,
+        allowedMentions: { parse: [] },
+      })
+      .catch((error: unknown) => {
+        console.error(`Failed to send ticket DM to ${record.userId}:`, error)
+      })
+  } catch (error: unknown) {
+    console.error("Failed to send ticket transcript DM:", error)
+  }
+}
+
 /** Finalise la fermeture d'un ticket : mutation, permissions, message, transcript, journal. */
 async function finalizeTicketClose(
   client: Client,
@@ -795,9 +856,13 @@ async function finalizeTicketClose(
     `> **Fermeture** — \`${padTicketNumber(record.number)}\`\n` +
       `> **Par :** <@${closer.id}> · \`${closer.tag}\`\n` +
       `> **Ouvert par :** <@${record.userId}>\n` +
-      `> **Salon :** <#${record.channelId}>`,
+      `> **Serveur :** \`${guild.name}\`\n` +
+      `> **Salon :** <#${record.channelId}>` +
+      (getTicketTranscriptUrl(guild.id, record.channelId) ? `\n> **Transcript :** [Voir le transcript](${getTicketTranscriptUrl(guild.id, record.channelId)})` : ""),
     transcript ? [transcript] : []
   )
+
+  void sendTicketTranscriptDm(client, guild, record, "fermé")
 }
 
 function renderStars(rating: number, max: number): string {
@@ -1337,12 +1402,15 @@ async function deleteTicket(client: Client, interaction: Interaction): Promise<v
 
   const transcript = await buildTranscript(interaction.channel, record.number)
 
-  await sendTicketsLog(
-    client,
-    guild.id,
-    suppressionLogBody(record, `<@${member.id}> · \`${member.user.tag}\``),
-    transcript ? [transcript] : []
-  )
+  const transcriptUrl = getTicketTranscriptUrl(guild.id, record.channelId)
+  const logBody =
+    suppressionLogBody(record, `<@${member.id}> · \`${member.user.tag}\``) +
+    `\n> **Serveur :** \`${guild.name}\`` +
+    (transcriptUrl ? `\n> **Transcript :** [Voir le transcript](${transcriptUrl})` : "")
+
+  await sendTicketsLog(client, guild.id, logBody, transcript ? [transcript] : [])
+
+  void sendTicketTranscriptDm(client, guild, record, "supprimé")
 
   await TicketRecords.deleteOne({ channelId: record.channelId }).catch(() => undefined)
 

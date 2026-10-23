@@ -26,7 +26,7 @@ Ce dépôt n'implémente **pas** le Core : il n'est qu'un **client** (l'agent Wo
 Deux canaux sont utilisés, tous deux configurés dans `.env` :
 
 ```text
-                     ┌───────────────────────┐
+                     ┌────────────────────────┐
                      │     VM CORE (cerveau)  │
                      │  REST API : :3000      │
                      │  WebSocket: :3000/ws   │
