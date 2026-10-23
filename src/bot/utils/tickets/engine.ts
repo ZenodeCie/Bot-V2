@@ -282,7 +282,7 @@ export async function handleTicketChannelDeleted(client: Client, channel: GuildC
     (transcriptUrl ? `\n> **Transcript :** [Voir le transcript](${transcriptUrl})` : "")
   await TicketRecords.deleteOne({ channelId: channel.id }).catch(() => undefined)
   await sendTicketsLog(client, guild.id, logBody)
-  void sendTicketTranscriptDm(client, guild, record, "supprimé")
+  void sendTicketTranscriptDm(client, guild, record, "supprimé", channel)
 }
 
 export async function sweepStaleTicketRecords(client: Client): Promise<number> {
@@ -758,16 +758,52 @@ function getTicketTranscriptUrl(guildId: string, channelId: string): string | nu
   return `${normalized}/bot0000/${encodeURIComponent(guildId)}/${encodeURIComponent(channelId)}.html`
 }
 
+async function createOrGetTranscriptLink(
+  client: Client,
+  guild: Guild,
+  record: TicketRecordModel,
+  channel: GuildChannel | ThreadChannel | null
+): Promise<string | null> {
+  const apiUrl = process.env.TRANSCRIPT_API_URL
+  const apiKey = process.env.TRANSCRIPT_API_KEY
+  if (apiUrl && apiKey && channel && !channel.isThread() && "messages" in channel) {
+    try {
+      const url = `${apiUrl.replace(/\/$/, "")}/v1/transcripts`
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({
+          channelId: channel.id,
+          guildId: guild.id,
+          title: `Ticket #${padTicketNumber(record.number)} - ${guild.name}`,
+          expiresIn: "30d",
+        }),
+      })
+      if (response.ok) {
+        const data = (await response.json()) as { url?: string }
+        if (data?.url) return data.url
+      }
+    } catch (error: unknown) {
+      console.error("Failed to create transcript via API:", error)
+    }
+  }
+  return getTicketTranscriptUrl(guild.id, record.channelId)
+}
+
 async function sendTicketTranscriptDm(
   client: Client,
   guild: Guild,
   record: TicketRecordModel,
-  reason: "fermé" | "supprimé"
+  reason: "fermé" | "supprimé",
+  channel?: GuildChannel | ThreadChannel | null
 ): Promise<void> {
   try {
     const user = await client.users.fetch(record.userId).catch(() => null)
     if (!user) return
-    const transcriptUrl = getTicketTranscriptUrl(guild.id, record.channelId)
+    const transcriptUrl = await createOrGetTranscriptLink(client, guild, record, channel ?? null)
     const embed = new EmbedBuilder()
       .setTitle(`Ticket #${padTicketNumber(record.number)} ${reason}`)
       .setDescription(
@@ -862,7 +898,7 @@ async function finalizeTicketClose(
     transcript ? [transcript] : []
   )
 
-  void sendTicketTranscriptDm(client, guild, record, "fermé")
+  void sendTicketTranscriptDm(client, guild, record, "fermé", channel ?? null)
 }
 
 function renderStars(rating: number, max: number): string {
@@ -1410,7 +1446,7 @@ async function deleteTicket(client: Client, interaction: Interaction): Promise<v
 
   await sendTicketsLog(client, guild.id, logBody, transcript ? [transcript] : [])
 
-  void sendTicketTranscriptDm(client, guild, record, "supprimé")
+  void sendTicketTranscriptDm(client, guild, record, "supprimé", interaction.channel)
 
   await TicketRecords.deleteOne({ channelId: record.channelId }).catch(() => undefined)
 
