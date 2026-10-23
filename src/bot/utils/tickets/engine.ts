@@ -752,7 +752,7 @@ async function resolveTicketChannel(guild: Guild, channelId: string) {
 }
 
 function getTicketTranscriptUrl(guildId: string, channelId: string): string | null {
-  const base = process.env.TICKET_TRANSCRIPT_URL
+  const base = process.env.TICKET_TRANSCRIPT_URL || process.env.TRANSCRIPT_API_URL
   if (!base || !base.trim()) return null
   const normalized = base.trim().replace(/\/$/, "")
   return `${normalized}/bot0000/${encodeURIComponent(guildId)}/${encodeURIComponent(channelId)}.html`
@@ -768,6 +768,94 @@ async function createOrGetTranscriptLink(
   const apiKey = process.env.TRANSCRIPT_API_KEY
   if (apiUrl && apiKey && channel && !channel.isThread() && "messages" in channel) {
     try {
+      const collected: Message[] = []
+      let before: string | undefined
+      for (let i = 0; i < 50; i++) {
+        const batch = await (channel as any).messages.fetch({ limit: 100, before })
+        if (batch.size === 0) break
+        collected.push(...batch.values())
+        before = batch.last()?.id
+        if (batch.size < 100) break
+      }
+      collected.reverse()
+
+      const messages = collected.map((msg) => ({
+        id: msg.id,
+        type: msg.type,
+        content: msg.content,
+        author: {
+          id: msg.author.id,
+          username: msg.author.username,
+          discriminator: msg.author.discriminator,
+          global_name: msg.author.globalName,
+          avatar: msg.author.avatar,
+          bot: msg.author.bot,
+        },
+        timestamp: msg.createdAt.toISOString(),
+        edited_timestamp: msg.editedAt ? msg.editedAt.toISOString() : null,
+        attachments: [...msg.attachments.values()].map((a) => ({
+          id: a.id,
+          filename: a.name,
+          url: a.url,
+          proxy_url: a.proxyURL,
+          size: a.size,
+          content_type: a.contentType,
+          width: a.width,
+          height: a.height,
+        })),
+        embeds: msg.embeds.map((e) => e.toJSON()),
+        mentions: [...msg.mentions.users.values()].map((u) => ({
+          id: u.id,
+          username: u.username,
+          discriminator: u.discriminator,
+          global_name: u.globalName,
+          avatar: u.avatar,
+        })),
+        mention_roles: [...msg.mentions.roles.keys()],
+        reactions: [...msg.reactions.cache.values()].map((r) => ({
+          count: r.count,
+          emoji: r.emoji.id ? { id: r.emoji.id, name: r.emoji.name, animated: r.emoji.animated } : { name: r.emoji.name },
+        })),
+        reference: msg.reference
+          ? {
+              message_id: msg.reference.messageId,
+              channel_id: msg.reference.channelId,
+              guild_id: msg.reference.guildId,
+            }
+          : null,
+        components: msg.components.map((c: any) => c.toJSON?.() ?? c),
+        sticker_items: [...msg.stickers.values()].map((s) => ({
+          id: s.id,
+          name: s.name,
+          format_type: s.format,
+        })),
+      }))
+
+      const roles = [...guild.roles.cache.values()].map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        hoist: r.hoist,
+        position: r.position,
+        permissions: r.permissions.bitfield.toString(),
+        icon: r.icon,
+        unicode_emoji: r.unicodeEmoji,
+      }))
+
+      const members = [...guild.members.cache.values()].map((m) => ({
+        user: {
+          id: m.user.id,
+          username: m.user.username,
+          discriminator: m.user.discriminator,
+          global_name: m.user.globalName,
+          avatar: m.user.avatar,
+        },
+        nick: m.nickname,
+        roles: [...m.roles.cache.keys()],
+        joined_at: m.joinedAt?.toISOString(),
+        avatar: m.avatar,
+      }))
+
       const url = `${apiUrl.replace(/\/$/, "")}/v1/transcripts`
       const response = await fetch(url, {
         method: "POST",
@@ -780,11 +868,27 @@ async function createOrGetTranscriptLink(
           guildId: guild.id,
           title: `Ticket #${padTicketNumber(record.number)} - ${guild.name}`,
           expiresIn: "30d",
+          messages,
+          guild: {
+            id: guild.id,
+            name: guild.name,
+            icon: guild.icon,
+          },
+          channel: {
+            id: channel.id,
+            name: (channel as any).name,
+            type: (channel as any).type,
+          },
+          roles,
+          members,
         }),
       })
       if (response.ok) {
         const data = (await response.json()) as { url?: string }
         if (data?.url) return data.url
+      } else {
+        const text = await response.text().catch(() => "")
+        console.error(`Transcript API error: ${response.status} ${text}`)
       }
     } catch (error: unknown) {
       console.error("Failed to create transcript via API:", error)
