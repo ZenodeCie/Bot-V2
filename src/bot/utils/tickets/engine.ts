@@ -758,6 +758,31 @@ function getTicketTranscriptUrl(guildId: string, channelId: string): string | nu
   return `${normalized}/bot0000/${encodeURIComponent(guildId)}/${encodeURIComponent(channelId)}.html`
 }
 
+/** Le service transcript peut renvoyer un chemin relatif : on le résout sur une base publique. */
+function absolutizeTranscriptUrl(url: string, fallbackBase: string): string {
+  const publicBase = process.env.TICKET_TRANSCRIPT_URL?.trim().replace(/\/$/, "")
+  if (publicBase) {
+    try {
+      const parsed = new URL(url, `${publicBase}/`)
+      if (parsed.pathname.startsWith("/t/")) return `${publicBase}${parsed.pathname}${parsed.search}`
+    } catch {
+      /* fall through to the generic resolution below */
+    }
+  }
+  if (/^https?:\/\//i.test(url)) return url
+  const base = (publicBase || fallbackBase).trim().replace(/\/$/, "")
+  return `${base}${url.startsWith("/") ? url : `/${url}`}`
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 async function createOrGetTranscriptLink(
   client: Client,
   guild: Guild,
@@ -885,7 +910,7 @@ async function createOrGetTranscriptLink(
       })
       if (response.ok) {
         const data = (await response.json()) as { url?: string }
-        if (data?.url) return data.url
+        if (data?.url) return absolutizeTranscriptUrl(data.url, apiUrl)
       } else {
         const text = await response.text().catch(() => "")
         console.error(`Transcript API error: ${response.status} ${text}`)
@@ -908,12 +933,13 @@ async function sendTicketTranscriptDm(
     const user = await client.users.fetch(record.userId).catch(() => null)
     if (!user) return
     const transcriptUrl = await createOrGetTranscriptLink(client, guild, record, channel ?? null)
+    const buttonUrl = transcriptUrl && isValidHttpUrl(transcriptUrl) ? transcriptUrl : null
     const embed = new EmbedBuilder()
       .setTitle(`Ticket #${padTicketNumber(record.number)} ${reason}`)
       .setDescription(
         `> **Serveur :** ${guild.name} (${guild.id})\n\n` +
           `> Ton ticket a été ${reason}.\n\n` +
-          (transcriptUrl
+          (buttonUrl
             ? `> Tu peux consulter le transcript complet en cliquant sur le bouton ci-dessous.`
             : `> Le transcript de ce ticket n'est pas disponible.`)
       )
@@ -923,11 +949,11 @@ async function sendTicketTranscriptDm(
       .setFooter({ text: guild.name })
 
     const components: ActionRowBuilder<ButtonBuilder>[] = []
-    if (transcriptUrl) {
+    if (buttonUrl) {
       const button = new ButtonBuilder()
         .setLabel("Voir le transcript")
         .setStyle(ButtonStyle.Link)
-        .setURL(transcriptUrl)
+        .setURL(buttonUrl)
       components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(button))
     }
 
