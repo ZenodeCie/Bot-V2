@@ -818,6 +818,13 @@ async function createOrGetTranscriptLink(
         },
         timestamp: msg.createdAt.toISOString(),
         edited_timestamp: msg.editedAt ? msg.editedAt.toISOString() : null,
+        member: msg.member
+          ? {
+              nick: msg.member.nickname,
+              avatar: msg.member.avatar,
+              roles: [...msg.member.roles.cache.keys()],
+            }
+          : null,
         attachments: [...msg.attachments.values()].map((a) => ({
           id: a.id,
           filename: a.name,
