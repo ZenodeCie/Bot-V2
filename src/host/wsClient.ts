@@ -12,6 +12,8 @@ function rawDataToString(data: RawData): string {
 }
 
 const PING_INTERVAL_MS = 25_000
+/** Sans aucun message ni pong pendant ce délai, la connexion est considérée comme morte et recréée. */
+const DEAD_CONNECTION_MS = 90_000
 const MAX_BACKOFF_MS = 30_000
 
 export type MessageHandler = (message: InboundMessage) => void | Promise<void>
@@ -21,6 +23,7 @@ export class CoreWsClient {
   private pingTimer: NodeJS.Timeout | null = null
   private reconnectTimer: NodeJS.Timeout | null = null
   private attempt = 0
+  private lastActivity = Date.now()
   private stopped = false
   private handler: MessageHandler | null = null
 
@@ -66,7 +69,12 @@ export class CoreWsClient {
   private wsUrl(): string {
     const base = this.env.coreWsUrl
     const url = new URL(base)
-    url.searchParams.set("apiKey", this.env.apiKey)
+    // La clé est envoyée dans le header X-API-Key. Elle reste aussi dans l'URL par compatibilité avec les
+    // Core qui ne lisent que la query string : mettre CORE_WS_KEY_IN_QUERY=false dès que le Core accepte le header
+    // (une clé dans l'URL finit dans les logs des proxys).
+    if (process.env.CORE_WS_KEY_IN_QUERY?.trim().toLowerCase() !== "false") {
+      url.searchParams.set("apiKey", this.env.apiKey)
+    }
     url.searchParams.set("vmHost", this.env.vmHost)
     return url.toString()
   }
@@ -76,17 +84,23 @@ export class CoreWsClient {
     this.clearReconnect()
     const url = this.wsUrl()
     this.log.info(`Connecting WS ${this.env.coreWsUrl} vmHost=${this.env.vmHost}`)
-    const socket = new WebSocket(url)
+    const socket = new WebSocket(url, { headers: { "X-API-Key": this.env.apiKey } })
     this.socket = socket
 
     socket.on("open", () => {
       this.attempt = 0
+      this.lastActivity = Date.now()
       this.log.info("WS connected")
       this.send({ type: "ping", vm_host: this.env.vmHost })
       this.startPing()
     })
 
+    socket.on("pong", () => {
+      this.lastActivity = Date.now()
+    })
+
     socket.on("message", (data) => {
+      this.lastActivity = Date.now()
       const text = rawDataToString(data)
       let raw: unknown
       try {
@@ -122,7 +136,18 @@ export class CoreWsClient {
   private startPing(): void {
     this.clearPing()
     this.pingTimer = setInterval(() => {
+      const socket = this.socket
+      if (socket && Date.now() - this.lastActivity > DEAD_CONNECTION_MS) {
+        this.log.warn(`WS silent for ${Math.round((Date.now() - this.lastActivity) / 1000)}s — terminating dead connection`)
+        socket.terminate()
+        return
+      }
       this.send({ type: "ping", vm_host: this.env.vmHost })
+      try {
+        socket?.ping()
+      } catch {
+        /* socket en cours de fermeture */
+      }
     }, PING_INTERVAL_MS)
     this.pingTimer.unref()
   }
