@@ -14,6 +14,12 @@ import {
 
 loadDotenv()
 
+// Secrets du host (liaison VM ↔ Core) : le bot n'en a jamais besoin, et ils ne doivent pas être
+// lisibles via process.env (ex. commande eval) même si le .env du host est chargé ci-dessus.
+for (const key of ["API_KEY", "API_KEY_VM_BOTS_FREE", "API_KEY_VM_BOTS_PREMIUM"]) {
+  delete process.env[key]
+}
+
 function argValue(name: string): string | undefined {
   const prefix = `${name}=`
   const inline = process.argv.find((arg) => arg.startsWith(prefix))
@@ -114,7 +120,16 @@ function loadStandaloneBot(): BotConfig {
 }
 
 function collectOwnerIds(bot: BotConfig): string[] {
-  const ids = new Set<string>(DEFAULT_DEVELOPER_IDS)
+  // DEVELOPER_IDS (liste séparée par des virgules) remplace la valeur par défaut ; vide = aucun développeur global.
+  const rawDevelopers = process.env.DEVELOPER_IDS
+  const developers =
+    rawDevelopers === undefined
+      ? [...DEFAULT_DEVELOPER_IDS]
+      : rawDevelopers
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => /^\d{5,22}$/.test(id))
+  const ids = new Set<string>(developers)
   if (bot.client_id && /^\d{5,22}$/.test(bot.client_id)) ids.add(bot.client_id)
   if (bot.owner_zenode_id && /^\d{5,22}$/.test(bot.owner_zenode_id)) ids.add(bot.owner_zenode_id)
   if (process.env.OWNER_ID) {
