@@ -1,6 +1,6 @@
 # ZenodeBots — VM Host
 
-![version](https://img.shields.io/badge/version-2.1.5-blue) ![Node](https://img.shields.io/badge/node-18%2B-green)
+![version](https://img.shields.io/badge/version-2.3.0-blue) ![Node](https://img.shields.io/badge/node-18%2B-green)
 
 Agent d'orchestration multi-bots pour une VM Linux. Un process **host** reste allumé, parle au core `dfb-vm-core` (WebSocket + REST), et lance **N process Discord isolés** via PM2.
 
@@ -26,7 +26,7 @@ Ce dépôt n'implémente **pas** le Core : il n'est qu'un **client** (l'agent Wo
 Deux canaux sont utilisés, tous deux configurés dans `.env` :
 
 ```text
-                     ┌───────────────────────┐
+                     ┌────────────────────────┐
                      │     VM CORE (cerveau)  │
                      │  REST API : :3000      │
                      │  WebSocket: :3000/ws   │
