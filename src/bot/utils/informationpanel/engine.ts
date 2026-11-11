@@ -15,6 +15,7 @@ import {
   type FieldKey,
   type InformationPanelConfig,
 } from "./schema.js"
+import { guardedSweep } from "../sweepGuard.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
@@ -217,9 +218,7 @@ export async function initInformationPanels(client: Client): Promise<void> {
 export function startInformationPanelSweep(client: Client): void {
   if (sweepStarted) return
   sweepStarted = true
-  setInterval(() => {
-    void sweepDuePanels(client).catch((error) => console.error("InformationPanel sweep failed:", error))
-  }, SWEEP_INTERVAL)
+  setInterval(guardedSweep("InformationPanel", () => sweepDuePanels(client)), SWEEP_INTERVAL)
 }
 
 export async function sweepDuePanels(client: Client): Promise<void> {
