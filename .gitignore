@@ -5,6 +5,7 @@ dist/
 config.env
 configs/
 data/
+logs/
 *.md
 !README.md
 !README_en.md
