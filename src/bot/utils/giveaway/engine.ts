@@ -21,6 +21,7 @@ import {
   normalizeGiveaway,
   type GiveawayRecord,
 } from "./schema.js"
+import { guardedSweep } from "../sweepGuard.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
@@ -453,9 +454,7 @@ export async function initGiveaways(client: Client): Promise<void> {
 export function startGiveawaySweep(client: Client): void {
   if (sweepStarted) return
   sweepStarted = true
-  setInterval(() => {
-    void sweepExpiredGiveaways(client).catch((error) => console.error("Giveaway sweep failed:", error))
-  }, SWEEP_INTERVAL)
+  setInterval(guardedSweep("Giveaway", () => sweepExpiredGiveaways(client)), SWEEP_INTERVAL)
 }
 
 export async function sweepExpiredGiveaways(client: Client): Promise<void> {
