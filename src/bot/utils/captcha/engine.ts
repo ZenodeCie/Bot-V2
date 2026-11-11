@@ -18,6 +18,7 @@ import {
 } from "discord.js"
 import { getConfig, type CaptchaConfig } from "./schema.js"
 import { appEmojiOrFallback, appEmojiText } from "../appEmojis.js"
+import { guardedSweep } from "../sweepGuard.js"
 
 const COMPONENTS_V2_FLAGS = MessageFlags.IsComponentsV2
 const CONTAINER_ACCENT = 0x36373e
@@ -52,9 +53,7 @@ function ensureSweep(client: Client): void {
   clientRef = client
   if (sweepStarted) return
   sweepStarted = true
-  setInterval(() => {
-    void sweepExpired()
-  }, SWEEP_INTERVAL).unref()
+  setInterval(guardedSweep("Captcha", sweepExpired), SWEEP_INTERVAL).unref()
 }
 
 export function generateCode(): string {
