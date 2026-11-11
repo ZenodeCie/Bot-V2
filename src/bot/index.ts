@@ -50,8 +50,17 @@ client.botId = botRuntime.botId
 client.dataDir = botRuntime.dataDir
 client.enabledModules = enabledModules
 
-client.on('debug', console.log)
-      .on('warn', console.log)
+// Les logs `debug` de discord.js sont très verbeux : activables avec DISCORD_DEBUG=1.
+if (process.env.DISCORD_DEBUG === "1") client.on("debug", console.log)
+client.on("warn", console.warn)
+
+// Un rejet de promesse non géré ferait tomber le process (Node >= 15) : on le journalise à la place.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason)
+})
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error)
+})
 
 let stopHeartbeat: (() => void) | undefined
 let stopEmojiWatcher: (() => void) | undefined
@@ -119,14 +128,20 @@ async function loadEventFile(fullPath: string): Promise<void> {
   const event = mod.default
   if (!event?.name) return
   try {
-    client.on(event.name as never, event.execute.bind(null, client) as never)
+    const execute = event.execute
+    const listener = (...args: unknown[]): void => {
+      void Promise.resolve()
+        .then(() => execute(client, ...args))
+        .catch((error: unknown) => console.error(`Event ${event.name} failed:`, error))
+    }
+    client.on(event.name as never, listener as never)
     console.log(`Event ${event.name} loaded`)
   } catch (err) {
     console.log(`Failed to load event ${event.name}: ${err}`)
   }
 }
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user?.tag} — bot prêt / connecté (${botRuntime.botId})`)
   console.log(`Prefix for commands : ${config.prefix}`)
   await syncApplicationEmojis(client)
@@ -185,6 +200,34 @@ process.on("SIGTERM", () => {
   void shutdown("SIGTERM")
 })
 
+const MONGO_MAX_ATTEMPTS = 5
+const MONGO_RETRY_DELAY_MS = 5_000
+
+/**
+ * Réessaie la connexion Mongo quelques fois puis quitte avec un code d'erreur :
+ * PM2 / le host voit alors un vrai crash au lieu d'un process « online » qui ne se connecte jamais à Discord.
+ */
+async function connectMongoWithRetry(): Promise<boolean> {
+  for (let attempt = 1; attempt <= MONGO_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await connectMongo()
+    } catch (error) {
+      console.error(`MongoDB connection failed (attempt ${attempt}/${MONGO_MAX_ATTEMPTS}):`, error)
+      if (attempt < MONGO_MAX_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, MONGO_RETRY_DELAY_MS))
+    }
+  }
+  console.error("MongoDB unreachable — exiting so the process manager can restart this bot.")
+  await writeRuntimeFile(botRuntime.dataDir, {
+    ready: false,
+    readyState: "UNKNOWN",
+    ping: 0,
+    guilds: 0,
+    users: 0,
+    updatedAt: Date.now(),
+  }).catch(() => undefined)
+  process.exit(1)
+}
+
 async function start(): Promise<void> {
   await mkdir(botRuntime.dataDir, { recursive: true })
   await writeRuntimeFile(botRuntime.dataDir, {
@@ -203,7 +246,7 @@ async function start(): Promise<void> {
     console.warn(`Unknown module "${name}" — ignored (no-op)`)
   }
 
-  const mongoOk = await connectMongo()
+  const mongoOk = await connectMongoWithRetry()
   if (mongoOk) {
     console.log(`Connected to MongoDB (shared db ${mongoDbName()}, scoped by botId ${botRuntime.botId}).`)
     await initData()
