@@ -8,6 +8,15 @@ import type { BotLifecycleStatus, Pm2ProcessStatus } from "./protocol.js"
 
 const execFileAsync = promisify(execFile)
 
+/** Secrets du host qui ne doivent jamais être transmis aux process des bots. */
+const HOST_SECRET_ENV = ["API_KEY", "API_KEY_VM_BOTS_FREE", "API_KEY_VM_BOTS_PREMIUM"] as const
+
+function botProcessEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env }
+  for (const key of HOST_SECRET_ENV) delete env[key]
+  return env
+}
+
 export interface Pm2ProcessInfo {
   name: string
   pmId: number | null
@@ -137,6 +146,10 @@ export class Pm2Manager {
   async start(botId: string, configPath: string, config: BotConfig | null): Promise<void> {
     const name = this.pm2Name(botId)
     const existing = await this.describe(botId)
+    if (existing && existing.args.includes("--config") && !existing.args.includes(configPath)) {
+      // toPm2Name() met en minuscules : « Abc » et « abc » donneraient le même nom PM2.
+      throw new Error(`PM2 name collision: process "${name}" already belongs to another bot config`)
+    }
     if (existing?.status === "online" || existing?.status === "starting") {
       this.log.info(`start ${botId}: already ${existing.status}, keeping single process`)
       return
@@ -159,7 +172,7 @@ export class Pm2Manager {
       configPath,
     ]
     this.log.info(`pm2 start ${name} max_memory=${maxMemory}M`)
-    await this.exec(args, 20_000)
+    await this.exec(args, 20_000, botProcessEnv())
   }
 
   async stop(botId: string): Promise<void> {
@@ -248,13 +261,17 @@ export class Pm2Manager {
     return notFound(err.stderr ?? "", `${err.stdout ?? ""}\n${err.message ?? ""}`)
   }
 
-  private async exec(args: string[], timeout: number): Promise<{ stdout: string; stderr: string }> {
+  private async exec(
+    args: string[],
+    timeout: number,
+    env: NodeJS.ProcessEnv = process.env
+  ): Promise<{ stdout: string; stderr: string }> {
     try {
       const { stdout, stderr } = await execFileAsync("pm2", args, {
         timeout,
         maxBuffer: 12 * 1024 * 1024,
         encoding: "utf8",
-        env: process.env,
+        env,
         shell: process.platform === "win32",
       })
       return { stdout: stdout ?? "", stderr: stderr ?? "" }
