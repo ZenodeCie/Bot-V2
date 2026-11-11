@@ -2,6 +2,7 @@ import type { Client, GuildMember } from "discord.js"
 import { newGrantId, type TempRoleGrant } from "./schema.js"
 import { reactionRoleStore } from "./storage.js"
 import { enqueueRoleOp } from "./roleQueue.js"
+import { guardedSweep } from "../sweepGuard.js"
 
 /**
  * Rôles temporaires : attribution suivie d'un retrait automatique.
@@ -95,9 +96,7 @@ export async function restoreTempGrants(client: Client): Promise<number> {
 }
 
 export function startTempSweep(client: Client): void {
-  const timer = setInterval(() => {
-    void sweepTempGrants(client).catch((error: unknown) => console.error("ReactionRoles temp sweep failed:", error))
-  }, SWEEP_INTERVAL_MS)
+  const timer = setInterval(guardedSweep("ReactionRoles temp", () => sweepTempGrants(client)), SWEEP_INTERVAL_MS)
   timer.unref?.()
 }
 
