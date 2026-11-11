@@ -50,8 +50,13 @@ async function cleanupOrphans(ctx: HostContext): Promise<void> {
     )
     return
   }
-  const assignedSet = new Set(assigned.map((id) => toPm2Name(id)))
   const procs = await ctx.pm2.listBots()
+  if (assigned.length === 0 && procs.length > 0) {
+    // Réponse vide du Core (panne, mauvais parsing…) : ne jamais arrêter tous les bots sur cette seule base.
+    ctx.log.warn(`Core returned 0 assigned bots but ${procs.length} process(es) are running — skip orphan cleanup`)
+    return
+  }
+  const assignedSet = new Set(assigned.map((id) => toPm2Name(id)))
   for (const proc of procs) {
     if (assignedSet.has(proc.name) || assignedSet.has(toPm2Name(proc.name))) {
       ctx.log.info(`Keeping assigned bot process ${proc.name} (${proc.status})`)
