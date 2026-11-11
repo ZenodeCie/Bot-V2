@@ -24,6 +24,7 @@ import {
   type JobEmbed,
   type MessageHoraireJob,
 } from "./schema.js"
+import { guardedSweep } from "../sweepGuard.js"
 
 const MAX_TIMEOUT = 2_147_483_647
 const SWEEP_INTERVAL = 60_000
@@ -213,9 +214,7 @@ export async function initMessageHoraire(client: Client): Promise<void> {
 export function startMessageHoraireSweep(client: Client): void {
   if (sweepStarted) return
   sweepStarted = true
-  setInterval(() => {
-    void sweepDueJobs(client).catch((error) => console.error("Message-Horaire sweep failed:", error))
-  }, SWEEP_INTERVAL)
+  setInterval(guardedSweep("Message-Horaire", () => sweepDueJobs(client)), SWEEP_INTERVAL)
 }
 
 export async function sweepDueJobs(client: Client): Promise<void> {
