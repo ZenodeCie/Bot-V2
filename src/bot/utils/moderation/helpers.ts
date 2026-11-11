@@ -53,6 +53,9 @@ export function extractReason(args: string[], fromIndex: number): string {
   return reason || "Aucune raison fournie"
 }
 
+/** Discord attend `deleteMessageSeconds` (max 604800 = 7 jours). */
+export const SECONDS_PER_DAY = 86_400
+
 export function parseDeleteDays(args: string[]): number {
   for (const arg of args) {
     const match = /^d:([0-7])$/.exec(arg.toLowerCase())
