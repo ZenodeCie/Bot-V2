@@ -19,8 +19,18 @@ if [[ "${VM_UPDATE_DETACHED:-}" != "1" ]]; then
   exit 0
 fi
 
+HOST_STOPPED=0
+UPDATE_OK=0
+
 cleanup() {
+  local status=$?
   rm -f "$LOCK_FILE"
+  # Si la mise à jour échoue après l'arrêt du host (git pull, build…), on le relance avec le code actuel
+  # pour ne pas laisser la VM sans agent.
+  if [[ "$HOST_STOPPED" == "1" && "$UPDATE_OK" != "1" ]]; then
+    echo "[vm-update] $(date -Iseconds) failed:exit=$status — restarting host agent"
+    (cd "$REPO_ROOT" && pm2 start ecosystem.config.cjs) || echo "[vm-update] $(date -Iseconds) failed:pm2_restart"
+  fi
 }
 
 trap cleanup EXIT
@@ -49,6 +59,7 @@ notify "running:started repo=$REPO_ROOT pid=$$"
 
 notify "running:pm2_stop_host"
 if pm2 describe "$HOST_AGENT" >/dev/null 2>&1; then
+  HOST_STOPPED=1
   pm2 stop "$HOST_AGENT" || true
   sleep 2
   pm2 delete "$HOST_AGENT" || true
@@ -64,5 +75,6 @@ npm run build
 
 notify "running:pm2_start"
 pm2 start ecosystem.config.cjs
+UPDATE_OK=1
 
 notify "success"
