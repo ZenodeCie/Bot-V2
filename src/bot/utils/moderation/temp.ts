@@ -7,6 +7,7 @@ import {
   TemporarySanction,
   type ModAction,
 } from "./schema.js"
+import { guardedSweep } from "../sweepGuard.js"
 
 const MAX_TIMEOUT = 2_147_483_647
 const SWEEP_INTERVAL = 60_000
@@ -136,11 +137,7 @@ export async function initTempSanctions(client: Client): Promise<void> {
 }
 
 export function startTempSweep(client: Client): void {
-  setInterval(() => {
-    void sweepExpiredTempSanctions(client).catch((error) =>
-      console.error("Temp sanction sweep failed:", error)
-    )
-  }, SWEEP_INTERVAL)
+  setInterval(guardedSweep("Temp sanction", () => sweepExpiredTempSanctions(client)), SWEEP_INTERVAL)
 }
 
 export async function sweepExpiredTempSanctions(client: Client): Promise<void> {
