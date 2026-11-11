@@ -1,6 +1,6 @@
 # ZenodeBots — VM Host
 
-![version](https://img.shields.io/badge/version-2.1.5-blue) ![Node](https://img.shields.io/badge/node-18%2B-green)
+![version](https://img.shields.io/badge/version-2.3.0-blue) ![Node](https://img.shields.io/badge/node-18%2B-green)
 
 Multi-bot orchestration agent for a Linux VM. A **host** process stays alive, talks to the `dfb-vm-core` (WebSocket + REST), and launches **N isolated Discord processes** via PM2.
 
