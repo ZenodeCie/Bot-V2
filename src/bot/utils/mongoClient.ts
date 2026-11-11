@@ -11,6 +11,6 @@ export function mongoDbName(): string {
 
 export async function connectMongo(): Promise<boolean> {
   if (!config.mongodbUri) return false
-  await mongoose.connect(config.mongodbUri, { dbName: mongoDbName() })
+  await mongoose.connect(config.mongodbUri, { dbName: mongoDbName(), serverSelectionTimeoutMS: 10_000 })
   return true
 }
